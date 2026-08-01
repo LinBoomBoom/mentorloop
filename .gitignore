@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+
+# Nuxt / Nitro build output
+.output
+.nuxt
+.data
+
+# Local database (re-seeded automatically on first run)
+*.db
+data/*.db
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Diagnostics / OS cruft
+_diag_now.html
+.DS_Store
+Thumbs.db
