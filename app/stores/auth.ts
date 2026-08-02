@@ -8,7 +8,7 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isLoggedIn: (s) => !!s.token && !!s.user,
-    isVip: (s) => !!(s.user && s.user.vip && s.user.vip.level > 0)
+    isVip: (s) => !!(s.user && s.user.vip && s.user.vip.active)
   },
   actions: {
     init() {

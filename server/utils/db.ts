@@ -68,6 +68,36 @@ function createDb() {
       score INTEGER, correct INTEGER, total INTEGER, weak_points TEXT, level TEXT,
       advice TEXT, used_seconds INTEGER, choice_review TEXT, written_review TEXT, created_at INTEGER
     );
+    CREATE TABLE IF NOT EXISTS orders (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      plan_id TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      currency TEXT DEFAULT 'CNY',
+      status TEXT DEFAULT 'pending',
+      provider TEXT,
+      provider_order_id TEXT,
+      subject TEXT,
+      created_at INTEGER,
+      paid_at INTEGER,
+      expire_at INTEGER,
+      meta TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      plan_id TEXT NOT NULL,
+      level INTEGER NOT NULL,
+      status TEXT DEFAULT 'active',
+      auto_renew INTEGER DEFAULT 0,
+      start_at INTEGER,
+      expire_at INTEGER,
+      created_at INTEGER,
+      canceled_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_subs_user ON subscriptions(user_id);
   `)
   // 迁移：管理员角色字段（兼容老库，无 role 列时补齐）
   try { db.prepare("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'").run() } catch (e) { /* 列已存在 */ }
@@ -132,9 +162,62 @@ export function publicUser(u: any) {
     id: u.id, username: u.username, nickname: u.nickname,
     email: u.email || null, phone: u.phone || null, avatar: u.avatar || null,
     role: u.role || 'user',
-    vip: u.vip ? JSON.parse(u.vip) : { level: 0, expireAt: null },
+    vip: effectiveVip(u),
     createdAt: u.created_at
   }
+}
+
+// 返回「有效」会员状态：到期自动失效（与后端门禁 requireVip 逻辑一致）
+export function effectiveVip(u: any) {
+  let v: any = { level: 0, expireAt: null }
+  try { v = typeof u.vip === 'string' ? JSON.parse(u.vip) : (u.vip || v) } catch { /* ignore */ }
+  const active = !!v && v.level > 0 && (!v.expireAt || v.expireAt > Date.now())
+  return { level: v.level || 0, expireAt: v.expireAt || null, active }
+}
+
+const VIP_LEVEL_BY_PLAN: Record<string, number> = { monthly: 1, quarterly: 1, yearly: 3 }
+
+// 开通/续费状态机：支付成功后调用。首次购买创建订阅，续费则顺延 expireAt。
+export function fulfillOrder(orderId: string, transactionId?: string, paidAt?: number) {
+  const now = Date.now()
+  const order = sqlite.prepare('SELECT * FROM orders WHERE id=?').get(orderId) as any
+  if (!order || order.status === 'paid') return false
+  const planLevel = VIP_LEVEL_BY_PLAN[order.plan_id] || 1
+  const durationMs = planDurationMs(order.plan_id)
+  const tx = sqlite.transaction(() => {
+    sqlite.prepare(`UPDATE orders SET status='paid', paid_at=?, provider_order_id=? WHERE id=?`)
+      .run(paidAt || now, transactionId || null, orderId)
+    const existing = sqlite.prepare(
+      `SELECT * FROM subscriptions WHERE user_id=? AND status='active' AND expire_at>? ORDER BY expire_at DESC LIMIT 1`
+    ).get(order.user_id, now) as any
+    let newExpire: number
+    if (existing) {
+      newExpire = Math.max(existing.expire_at, now) + durationMs
+      sqlite.prepare(`UPDATE subscriptions SET expire_at=?, level=?, plan_id=?, auto_renew=1 WHERE id=?`)
+        .run(newExpire, planLevel, order.plan_id, existing.id)
+    } else {
+      newExpire = now + durationMs
+      sqlite.prepare(`INSERT INTO subscriptions (id,user_id,plan_id,level,status,auto_renew,start_at,expire_at,created_at)
+        VALUES (?,?,?,?,'active',1,?,?,?)`)
+        .run(uid('s_'), order.user_id, order.plan_id, planLevel, now, newExpire, now)
+    }
+    sqlite.prepare(`UPDATE users SET vip=? WHERE id=?`)
+      .run(JSON.stringify({ level: planLevel, expireAt: newExpire }), order.user_id)
+  })
+  tx()
+  return true
+}
+
+// 计划时长（毫秒）。计划定义见 server/utils/plans.ts，这里做兜底映射避免循环依赖。
+function planDurationMs(planId: string): number {
+  const days: Record<string, number> = { monthly: 31, quarterly: 93, yearly: 366 }
+  return (days[planId] || 31) * 86400000
+}
+
+export function getActiveSubscription(userId: string): any {
+  return sqlite.prepare(
+    `SELECT * FROM subscriptions WHERE user_id=? AND status='active' AND expire_at>? ORDER BY expire_at DESC LIMIT 1`
+  ).get(userId, Date.now()) || null
 }
 export function getUser(event: any): any {
   const token = getHeader(event, 'x-token')

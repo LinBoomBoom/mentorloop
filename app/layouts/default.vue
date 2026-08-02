@@ -29,16 +29,16 @@
       <!-- 用户卡片 -->
       <div class="px-4 pb-5">
         <div v-if="auth.isLoggedIn" class="card p-4 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0"
+          <NuxtLink to="/account" class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0"
                :style="{ background: avatarBg }">
             {{ avatarText }}
-          </div>
-          <div class="min-w-0 flex-1">
+          </NuxtLink>
+          <NuxtLink to="/account" class="min-w-0 flex-1">
             <div class="text-sm font-bold truncate">{{ auth.user?.nickname || '学员' }}</div>
             <div class="text-[11px]" :class="auth.isVip ? 'text-brand-coral font-semibold' : 'text-muted'">
               {{ auth.isVip ? '👑 VIP 会员' : '免费用户' }}
             </div>
-          </div>
+          </NuxtLink>
           <button class="text-muted hover:text-brand-coral transition" @click="logout" title="退出登录" aria-label="退出登录">
             <Icon name="logout" :size="18" />
           </button>
