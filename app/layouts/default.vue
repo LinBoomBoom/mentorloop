@@ -12,6 +12,10 @@
         </div>
       </div>
 
+      <div class="px-4 pb-3">
+        <SearchBar />
+      </div>
+
       <nav class="flex-1 px-4 space-y-1 mt-2">
         <NuxtLink v-for="item in nav" :key="item.to" :to="item.to"
                   class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200"
@@ -46,9 +50,12 @@
     <!-- 主区域 -->
     <div class="flex-1 md:ml-[252px] min-w-0">
       <!-- 移动端顶栏 -->
-      <header class="md:hidden sticky top-0 z-20 glass border-b border-line px-4 h-14 flex items-center justify-between">
-        <div class="flex items-center gap-2 font-extrabold gradient-text">MentorLoop</div>
-        <div class="flex items-center gap-2">
+      <header class="md:hidden sticky top-0 z-20 glass border-b border-line px-4 h-14 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 font-extrabold gradient-text shrink-0">MentorLoop</div>
+        <div class="flex-1 max-w-[180px]">
+          <SearchBar placeholder="搜索…" />
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
           <ThemeToggle />
           <NuxtLink v-if="!auth.isLoggedIn" to="/login" class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs brand-gradient"><Icon name="user" :size="16"/></NuxtLink>
           <button v-else class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs" :style="{ background: avatarBg }">
