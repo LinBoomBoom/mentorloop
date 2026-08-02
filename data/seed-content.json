@@ -5440,7 +5440,7 @@
       "track": "frontend",
       "level": "高级",
       "duration": 40,
-      "vipOnly": true,
+      "vipOnly": false,
       "choices": [
         {
           "id": "fev1-c1",
@@ -5819,7 +5819,7 @@
       "track": "backend",
       "level": "高级",
       "duration": 40,
-      "vipOnly": true,
+      "vipOnly": false,
       "choices": [
         {
           "id": "bev1-c1",
@@ -6196,7 +6196,7 @@
       "track": "devops",
       "level": "高级",
       "duration": 40,
-      "vipOnly": true,
+      "vipOnly": false,
       "choices": [
         {
           "id": "opv1-c1",
@@ -6572,7 +6572,7 @@
       "track": "ai",
       "level": "高级",
       "duration": 40,
-      "vipOnly": true,
+      "vipOnly": false,
       "choices": [
         {
           "id": "aiv1-c1",

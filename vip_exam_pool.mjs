@@ -1,7 +1,12 @@
 // #50 VIP 内容池：① 修复现有 3 套试卷 choice/written id 非全局唯一的根因
 // （exam_choices.id / exam_written.id 是 PRIMARY KEY，_reseed 用 INSERT OR IGNORE
-//  导致后两套题被静默丢弃）；② 追加 4 套 VIP 付费考卷（前端/后端/运维/AI）。
-// 幂等：已命名空间化的 id 跳过；已存在的 VIP 套跳过。零 schema 漂移。
+//  导致后两套题被静默丢弃）；② 追加 4 套高阶考卷（前端/后端/运维/AI）。
+// 幂等：已命名空间化的 id 跳过；已存在的套跳过。零 schema 漂移。
+//
+// 【2026-08-02 决策：延迟支付集成】用户决定先全站免费、后续再集成 VIP 收费。
+// 故以下 4 套高阶卷 vipOnly 统一置 false（与 seed-content.json 保持一致），
+// 重灌后全部可免费作答；支付/订单/webhook 代码暂不接入。待收费模式落地时，
+// 再把此处与 seed 的 vipOnly 翻回 true 并打通付费解锁链路。
 import fs from 'fs'
 
 const SEED = './data/seed-content.json'
@@ -22,7 +27,7 @@ s.examSets.forEach((st) => {
 // ── 步骤 2：定义 4 套 VIP 卷 ──
 const vipSets = [
   {
-    id: 'exam-fe-vip-1', name: '前端高阶实战卷 · VIP', track: 'frontend', level: '高级', duration: 40, vipOnly: true,
+    id: 'exam-fe-vip-1', name: '前端高阶实战卷 · VIP', track: 'frontend', level: '高级', duration: 40, vipOnly: false,
     choices: [
       { id: 'fev1-c1', tag: 'TypeScript', q: '关于 TypeScript 中 unknown 与 any 的区别，正确的是？',
         options: ['any 和 unknown 都允许赋任意值，且都不需类型收窄', 'unknown 赋给具体类型时不需要类型守卫，any 需要', 'unknown 赋给具体类型前必须做类型收窄（类型守卫），any 则不需要', '两者在类型系统里完全等价，只是命名不同'],
@@ -104,7 +109,7 @@ const vipSets = [
     ]
   },
   {
-    id: 'exam-be-vip-1', name: '后端高阶架构卷 · VIP', track: 'backend', level: '高级', duration: 40, vipOnly: true,
+    id: 'exam-be-vip-1', name: '后端高阶架构卷 · VIP', track: 'backend', level: '高级', duration: 40, vipOnly: false,
     choices: [
       { id: 'bev1-c1', tag: '共识', q: 'Raft 共识算法中，关于 Leader 选举，下列说法正确的是？',
         options: ['所有节点随时可以处理写请求', '节点在 election timeout 内未收到合法 Leader 心跳，则转为 Candidate 发起选举', '选举不需要多数派（quorum）同意', 'Term 仅用于区分日志，不参与选举'],
@@ -186,7 +191,7 @@ const vipSets = [
     ]
   },
   {
-    id: 'exam-op-vip-1', name: '运维 / DevOps 高阶卷 · VIP', track: 'devops', level: '高级', duration: 40, vipOnly: true,
+    id: 'exam-op-vip-1', name: '运维 / DevOps 高阶卷 · VIP', track: 'devops', level: '高级', duration: 40, vipOnly: false,
     choices: [
       { id: 'opv1-c1', tag: 'Kubernetes', q: 'Kubernetes 中 Pod 长期处于 Pending，最常见的原因组合是？（多选）',
         options: ['资源请求（CPU/内存）超过节点可分配量，或没有节点满足 nodeSelector/亲和性', 'PVC 无法绑定到可用 PV', '镜像仓库完全正常、网络通畅', '只是因为 kubelet 太新'],
@@ -268,7 +273,7 @@ const vipSets = [
     ]
   },
   {
-    id: 'exam-ai-vip-1', name: 'AI 工程高阶卷 · VIP', track: 'ai', level: '高级', duration: 40, vipOnly: true,
+    id: 'exam-ai-vip-1', name: 'AI 工程高阶卷 · VIP', track: 'ai', level: '高级', duration: 40, vipOnly: false,
     choices: [
       { id: 'aiv1-c1', tag: '推理优化', q: '关于大模型推理的 Prompt Caching（提示缓存），下列说法正确的是？',
         options: ['Prompt Caching 会把整段对话重新计费、重新计算', '对前缀相同的长系统提示/上下文做哈希缓存 KV，命中后免去重复预填充、降低延迟与成本', 'Prompt Caching 仅对输出 token 有效', 'Prompt Caching 会增加首字延迟'],
