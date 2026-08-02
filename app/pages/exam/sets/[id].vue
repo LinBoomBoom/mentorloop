@@ -67,7 +67,7 @@
                       : 'border-line text-sub hover:border-ink/20 hover:bg-ink/5'">
               <span class="w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-xs font-bold"
                     :class="isSel(c, i) ? (c.multi ? 'bg-brand-pink text-white' : 'bg-brand-coral text-white') : 'bg-ink/10 text-muted'">{{ optLabel(i) }}</span>
-              <span class="flex-1">{{ opt }}</span>
+              <span class="flex-1 min-w-0 break-words">{{ opt }}</span>
             </button>
           </div>
         </div>
@@ -145,7 +145,7 @@
               <span class="w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-xs font-bold"
                     :class="optClass(c, i).includes('emerald') ? 'bg-emerald-500 text-white'
                       : optClass(c, i).includes('rose') ? 'bg-rose-500 text-white' : 'bg-ink/10 text-muted'">{{ optLabel(i) }}</span>
-              <span class="flex-1">{{ opt }}</span>
+              <span class="flex-1 min-w-0 break-words">{{ opt }}</span>
             </div>
           </div>
           <div v-if="c.explain" class="mt-3 text-xs text-sub bg-ink/5 rounded-xl p-3 leading-relaxed">

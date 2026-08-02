@@ -27,13 +27,48 @@ export const useMarkdown = () => {
     const lines = s.split('\n')
     let html = '', inList = false, listType = ''
     const closeList = () => { if (inList) { html += listType === 'ol' ? '</ol>' : '</ul>'; inList = false } }
-    for (const line of lines) {
+    // GFM 表格分隔行：`|---|---|` / `| --- | :--: |`
+    const isTableSep = (l: string) => {
+      const t = l.trim()
+      if (!t.includes('|')) return false
+      const parts = t.replace(/^\|/, '').replace(/\|$/, '').split('|')
+      return parts.length >= 2 && parts.every(p => /^:?-{1,}:?$/.test(p.trim()))
+    }
+    const isTableRow = (l: string) => {
+      const t = l.trim()
+      if (!t.includes('|')) return false
+      return t.replace(/^\|/, '').replace(/\|$/, '').split('|').length >= 2
+    }
+    const rowCells = (r: string) => r.replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim())
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
       if (line.startsWith('```')) continue
+      // GFM 表格：表头行 + 分隔行（支持标题紧贴表格，无需空行分隔）
+      if (line.trim() !== '' && !inList && i + 1 < lines.length && isTableRow(line) && isTableSep(lines[i + 1])) {
+        const rows: string[] = []
+        let j = i
+        while (j < lines.length && lines[j].trim() !== '' && isTableRow(lines[j])) {
+          rows.push(lines[j].trim())
+          j++
+        }
+        let t = '<table><thead><tr>'
+        for (const h of rowCells(rows[0])) t += `<th>${inline(h)}</th>`
+        t += '</tr></thead><tbody>'
+        for (let k = 2; k < rows.length; k++) {
+          t += '<tr>'
+          for (const c of rowCells(rows[k])) t += `<td>${inline(c)}</td>`
+          t += '</tr>'
+        }
+        t += '</tbody></table>'
+        html += t
+        i = j - 1 // 跳过已消费的表格行
+        continue
+      }
       if (/^### /.test(line)) { closeList(); html += `<h3>${inline(line.slice(4))}</h3>`; continue }
       if (/^## /.test(line)) { closeList(); html += `<h2>${inline(line.slice(3))}</h2>`; continue }
       // 引用块（注意：此时 '>' 已被转义为 '&gt;'）
       if (/^&gt;\s?/.test(line)) { closeList(); html += `<blockquote>${inline(line.replace(/^&gt;\s?/, ''))}</blockquote>`; continue }
-      if (/^(-{3,}|\*{3,})$/.test(line.trim())) { closeList(); html += '<hr />'; continue }
+      if (/^([-*] |\*{3,})$/.test(line.trim())) { closeList(); html += '<hr />'; continue }
       if (/^[-*] /.test(line)) {
         if (!inList || listType !== 'ul') { closeList(); html += '<ul>'; inList = true; listType = 'ul' }
         html += `<li>${inline(line.slice(2))}</li>`; continue

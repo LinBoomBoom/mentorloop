@@ -186,6 +186,19 @@ body {
 .prose-dm .doc-link { @apply font-medium text-brand-coral underline decoration-brand-coral/30 underline-offset-2 transition-colors; }
 .prose-dm .doc-link:hover { @apply decoration-brand-coral text-brand-deep; }
 
+/* markdown 表格（V1 六段式内的对比/规格表）：桌面端正常表格布局，移动端窄屏可横向滚动避免溢出 */
+.prose-dm table { @apply w-full border-collapse text-[14px] my-3; }
+.prose-dm thead { @apply bg-brand-coral/[0.06]; }
+.prose-dm th, .prose-dm td { @apply border border-line px-3 py-2 text-left align-top; }
+.prose-dm th { @apply font-semibold text-ink; }
+.prose-dm td { @apply text-sub; }
+@media (max-width: 640px) {
+  .prose-dm table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+/* 长 URL / 长 token 自动换行，防止移动端窄屏横向溢出（pre 代码块仍由自身 overflow-x 控制） */
+.prose-dm { overflow-wrap: break-word; }
+.prose-dm a { word-break: break-all; }
+
 /* 自定义滚动条 */
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: rgb(var(--line)); border-radius: 99px; }
