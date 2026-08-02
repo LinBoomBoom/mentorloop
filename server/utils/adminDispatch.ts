@@ -1,0 +1,107 @@
+// 管理后台分发逻辑（纯函数，可单测）。路由层 server/api/admin/[...slug].ts 仅做鉴权 + 事件解析后调用本文件。
+import * as A from './admin'
+
+class HttpErr extends Error {
+  statusCode: number
+  constructor(code: number, msg: string) { super(msg); this.statusCode = code }
+}
+
+function mapErr(e: any) {
+  const m = e?.message
+  if (m === 'INVALID_ID') return new HttpErr(400, 'ID 非法（仅限小写字母/数字/连字符/下划线，长度 2-80）')
+  if (m === 'DUP_ID') return new HttpErr(409, 'ID 已存在')
+  if (m === 'NO_MODULE') return new HttpErr(400, '所属模块不存在')
+  if (m === 'NO_CHAPTER') return new HttpErr(400, '所属章节不存在')
+  if (m === 'WEAK_PASSWORD') return new HttpErr(400, '密码至少 6 位')
+  return new HttpErr(400, m || '请求错误')
+}
+
+export function adminDispatch(admin: any, method: string, seg: string[], q: any, body: any) {
+  const ok = (data: any) => ({ ok: true, data })
+  const list = (data: any) => ({ ok: true, ...data })
+
+  try {
+    // 自身信息 & 看板
+    if (seg[0] === 'me' && method === 'GET') return ok(A.getUserById(admin.id))
+    if (seg[0] === 'dashboard' && method === 'GET') return ok(A.dashboardStats())
+
+    // 用户体系 (G4)
+    if (seg[0] === 'users') {
+      if (method === 'GET' && seg.length === 1) return list(A.listUsers({ q: q.q as string, role: q.role as string, page: +q.page || 1, pageSize: +q.pageSize || 20 }))
+      if (method === 'POST' && seg.length === 1) return ok(A.createUser(body))
+      if (seg.length === 2) {
+        if (method === 'GET') return ok(A.getUserById(seg[1]))
+        if (method === 'PATCH') return ok(A.updateUser(seg[1], body))
+        if (method === 'DELETE') {
+          if (seg[1] === admin.id) throw new HttpErr(400, '不能删除当前登录账号')
+          return ok({ deleted: A.deleteUser(seg[1]) })
+        }
+      }
+    }
+
+    // 内容：模块 (G2)
+    if (seg[0] === 'modules') {
+      if (method === 'GET' && seg.length === 1) return list({ items: A.listModules() })
+      if (method === 'POST' && seg.length === 1) return ok(A.createModule(body))
+      if (seg.length === 2) {
+        if (method === 'GET') return ok(A.getModule(seg[1]))
+        if (method === 'PATCH') return ok(A.updateModule(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: A.deleteModule(seg[1]) })
+      }
+    }
+
+    // 内容：章节 (G2)
+    if (seg[0] === 'chapters') {
+      if (method === 'GET' && seg.length === 1) return list({ items: A.listChapters(q.moduleId as string) })
+      if (method === 'POST' && seg.length === 1) return ok(A.createChapter(body))
+      if (seg.length === 2) {
+        if (method === 'GET') return ok(A.getChapter(seg[1]))
+        if (method === 'PATCH') return ok(A.updateChapter(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: A.deleteChapter(seg[1]) })
+      }
+    }
+
+    // 内容：小节 (G2)
+    if (seg[0] === 'sections') {
+      if (method === 'GET' && seg.length === 1) return list({ items: A.listSections(q.chapterId as string) })
+      if (method === 'POST' && seg.length === 1) return ok(A.createSection(body))
+      if (seg.length === 2) {
+        if (method === 'GET') return ok(A.getSection(seg[1]))
+        if (method === 'PATCH') return ok(A.updateSection(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: A.deleteSection(seg[1]) })
+      }
+    }
+
+    // 题库：试卷 (G3)
+    if (seg[0] === 'exam-sets') {
+      if (method === 'GET' && seg.length === 1) return list({ items: A.listExamSets(q.track as string) })
+      if (method === 'POST' && seg.length === 1) return ok(A.createExamSet(body))
+      if (seg.length === 2) {
+        if (method === 'GET') return ok(A.getExamSetDetail(seg[1]))
+        if (method === 'PATCH') return ok(A.updateExamSet(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: A.deleteExamSet(seg[1]) })
+      }
+    }
+
+    // 题库：面试题 (G3)
+    if (seg[0] === 'interview') {
+      if (method === 'GET' && seg.length === 1) return list({ items: A.listInterview(q.track as string, q.q as string) })
+      if (method === 'POST' && seg.length === 1) return ok(A.createInterview(body))
+      if (seg.length === 2) {
+        if (method === 'GET') return ok(A.getInterview(seg[1]))
+        if (method === 'PATCH') return ok(A.updateInterview(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: A.deleteInterview(seg[1]) })
+      }
+    }
+
+    // 订单 / 订阅 (G5)
+    if (seg[0] === 'orders' && method === 'GET' && seg.length === 1) return list({ items: A.listOrders() })
+    if (seg[0] === 'subscriptions' && method === 'GET' && seg.length === 1) return list({ items: A.listSubscriptions() })
+
+    throw new HttpErr(404, '未知的管理接口：' + method + ' /' + seg.join('/'))
+  } catch (e: any) {
+    if (e instanceof HttpErr) throw e
+    if (e?.statusCode) throw e
+    throw mapErr(e)
+  }
+}

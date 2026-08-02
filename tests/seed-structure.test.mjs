@@ -50,9 +50,9 @@ test('章节/节总量不退化（回归护栏：曾因 id 撞车静默丢题 #5
       sections += c.sections.length
     }
   }
-  // 当前基线 43 章 / 330 节；只增不减，缩小即回归
-  expect(chapters).toBe(43)
-  expect(sections).toBeGreaterThanOrEqual(330)
+  // 当前基线 49 章 / 360 节；只增不减，缩小即回归
+  expect(chapters).toBe(49)
+  expect(sections).toBeGreaterThanOrEqual(360)
 })
 
 test('面试题零空答（210 题全有答案）', () => {
@@ -94,10 +94,16 @@ test('考卷 choice/written id 全局唯一（回归 #50 根因）', () => {
   }
 })
 
-test('全站已免费（回归 #85 决策：延迟支付，暂不收费）', () => {
+test('付费门禁正确：8 套 VIP 卷 vipOnly=true 且 id 含 vip，其余免费', () => {
   const sets = seed.examSets ?? []
-  expect(sets.length).toBeGreaterThanOrEqual(7)
-  for (const st of sets) {
-    expect(st.vipOnly).toBe(false)
+  expect(sets.length).toBe(19)
+  const vip = sets.filter((s) => s.vipOnly)
+  expect(vip.length).toBe(8)
+  for (const st of vip) {
+    expect(st.id.includes('vip')).toBe(true)
+    expect(st.vipOnly).toBe(true)
   }
+  const free = sets.filter((s) => !s.vipOnly)
+  expect(free.length).toBe(11)
+  for (const st of free) expect(st.vipOnly).toBe(false)
 })

@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { getHeader, setResponseStatus } from 'h3'
+import { getHeader, setResponseStatus, createError } from 'h3'
 
 /* ---------------- 单例数据库 ---------------- */
 const g = globalThis as any
@@ -101,6 +101,8 @@ function createDb() {
   `)
   // 迁移：管理员角色字段（兼容老库，无 role 列时补齐）
   try { db.prepare("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'").run() } catch (e) { /* 列已存在 */ }
+  // 迁移：封禁标记（G4 用户体系：封禁/解封）
+  try { db.prepare("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0").run() } catch (e) { /* 列已存在 */ }
   seedIfEmpty(db)
   return db
 }
@@ -162,6 +164,7 @@ export function publicUser(u: any) {
     id: u.id, username: u.username, nickname: u.nickname,
     email: u.email || null, phone: u.phone || null, avatar: u.avatar || null,
     role: u.role || 'user',
+    banned: !!u.banned,
     vip: effectiveVip(u),
     createdAt: u.created_at
   }
@@ -264,6 +267,14 @@ export function requireVip(user: any, item: any): boolean {
     if (v.expireAt && v.expireAt < Date.now()) return false // 到期回收（P0-A3：防止付费会员到期后权益不回收）
   }
   return true
+}
+
+// 管理后台闸口：未登录 401 / 非管理员 403。需在事件处理函数中调用，失败抛出 h3 错误。
+export function requireAdmin(event: any): any {
+  const user = getUser(event)
+  if (!user) throw createError({ statusCode: 401, statusMessage: '未登录' })
+  if (user.role !== 'admin') throw createError({ statusCode: 403, statusMessage: '需要管理员权限' })
+  return user
 }
 export function json(event: any, code: number, data: any) {
   setResponseStatus(event, code)

@@ -1,15 +1,18 @@
 // 创建 / 升级 MentorLoop 管理员账号（幂等）
-// 用 better-sqlite3 直接写库，密码哈希与 server/utils/db.ts 的 hashPwd 一致（scrypt）
+// 凭据严格按产品要求：admin@mentorloop.com / 123456，role=admin，VIP 满级永久。
+// 密码哈希与 server/utils/db.ts 的 hashPwd 一致（scrypt）。
+// ⚠️ 123456 为弱密码，仅开发/演示用；上线前必须替换为强密码并移入 .env（见总体规划 B/A 类）。
 import Database from 'better-sqlite3'
 import crypto from 'node:crypto'
 import path from 'node:path'
 import fs from 'node:fs'
 
-const DB_PATH = path.join(process.cwd(), 'data', 'devmentor.db')
+const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'devmentor.db')
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 
 const db = new Database(DB_PATH)
 db.pragma('journal_mode = WAL')
+db.pragma('foreign_keys = ON')
 
 // 兼容老库：补 role 列
 try { db.prepare("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'").run() } catch (e) { /* 已存在 */ }
@@ -20,20 +23,18 @@ function hashPwd(pwd, salt) {
   return salt + ':' + hash
 }
 
-const EMAIL = 'admin@mentorloop.local'
+const EMAIL = 'admin@mentorloop.com'
 const USERNAME = 'admin'
 const NICKNAME = '管理员'
-// 随机强密码（16 位：大小写+数字+符号）
-const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%'
-const PASSWORD = Array.from(crypto.randomBytes(16), (b) => chars[b % chars.length]).join('')
+const PASSWORD = '123456' // 产品指定弱密码（开发/演示用）
 const VIP = JSON.stringify({ level: 3, expireAt: null }) // 满级、永久
 
+// 确保目标管理员账号存在且凭据正确
 const existing = db.prepare('SELECT * FROM users WHERE lower(email)=? OR username=?').get(EMAIL.toLowerCase(), USERNAME)
-
 if (existing) {
-  db.prepare("UPDATE users SET role='admin', vip=?, password=?, nickname=? WHERE id=?")
-    .run(VIP, hashPwd(PASSWORD), NICKNAME, existing.id)
-  console.log('[更新] 已存在账号升级为管理员：', existing.username || existing.email)
+  db.prepare("UPDATE users SET role='admin', vip=?, password=?, nickname=?, email=? WHERE id=?")
+    .run(VIP, hashPwd(PASSWORD), NICKNAME, EMAIL, existing.id)
+  console.log('[更新] 已存在账号升级/重置为指定管理员：', existing.username || existing.email)
 } else {
   const id = 'u_' + crypto.randomBytes(6).toString('hex')
   db.prepare('INSERT INTO users (id,username,nickname,password,email,phone,providers,vip,role,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
@@ -41,10 +42,19 @@ if (existing) {
   console.log('[新建] 管理员账号已创建')
 }
 
+// 清理历史遗留的错误管理员（admin@mentorloop.local 等），避免凭据混乱
+const legacy = db.prepare("SELECT id FROM users WHERE email LIKE '%@mentorloop.local' AND username='admin'").all()
+for (const r of legacy) {
+  // 仅当目标账号已就位才清理遗留
+  db.prepare('DELETE FROM sessions WHERE user_id=?').run(r.id)
+  db.prepare('DELETE FROM users WHERE id=?').run(r.id)
+  console.log('[清理] 已移除遗留管理员账号:', r.id)
+}
+
 // 校验
-const u = db.prepare('SELECT id,username,email,role,vip FROM users WHERE username=?').get(USERNAME)
-console.log('--- 管理员凭据 ---')
-console.log('登录方式 : 邮箱密码登录（密码登录 tab）')
+const u = db.prepare('SELECT id,username,email,role,vip FROM users WHERE lower(email)=?').get(EMAIL.toLowerCase())
+console.log('--- 管理员凭据（产品指定） ---')
+console.log('登录方式 : 邮箱密码登录')
 console.log('邮箱     :', u.email)
 console.log('用户名   :', u.username)
 console.log('密码     :', PASSWORD)
