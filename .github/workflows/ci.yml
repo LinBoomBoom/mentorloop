@@ -31,6 +31,9 @@ jobs:
       - name: 单元测试（结构不变量 + 幂等 + 审计）
         run: npm test
 
+      - name: 互链相关性红线审计
+        run: node charter_links.mjs --strict
+
       # 可选：若后续需要校验前端可构建，取消下一行注释
       # - name: 构建前端
       #   run: npm run build
