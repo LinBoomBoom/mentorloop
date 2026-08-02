@@ -2,7 +2,11 @@ import fs from 'node:fs';
 
 // 幂等增强：在 op-c5（trunk）追加 DevSecOps 小节（op-c5-s10）
 // 不覆盖现有 9 节；已存在则跳过。零 schema 漂移，只新增一个 section 对象。
-const SEED = './data/seed-content.json';
+// 支持 --seed <path> 覆盖种子文件（用于测试在临时副本上做幂等校验；默认仍用正式 seed，零 schema 漂移）
+const SEED = (() => {
+  const i = process.argv.indexOf('--seed');
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : './data/seed-content.json';
+})();
 const s = JSON.parse(fs.readFileSync(SEED, 'utf-8'));
 const mod = s.modules.find((m) => m.id === 'devops');
 const ch = mod.chapters.find((c) => c.id === 'op-c5');

@@ -2,7 +2,11 @@ import fs from 'node:fs';
 
 // 幂等反向桥接：为相关旧章追加指向 op-c8 的 doc: 互链，打通知识网络。
 // 已含目标链接则跳过；复用既有「相关知识图谱」块，不重复创建。
-const SEED = './data/seed-content.json';
+// 支持 --seed <path> 覆盖种子文件（用于测试在临时副本上做幂等校验；默认仍用正式 seed，零 schema 漂移）
+const SEED = (() => {
+  const i = process.argv.indexOf('--seed');
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : './data/seed-content.json';
+})();
 const s = JSON.parse(fs.readFileSync(SEED, 'utf-8'));
 
 // 目标：把指定 doc: 链接追加进某 section 的「相关知识图谱」块
