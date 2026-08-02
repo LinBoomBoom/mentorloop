@@ -1,0 +1,60 @@
+name: 技能树定时复审（活运营）
+
+on:
+  schedule:
+    # 每季度首月 1 日 02:00 UTC 触发，生成复审队列 + 触发源映射报告
+    - cron: '0 2 1 1,4,7,10 *'
+  workflow_dispatch: # 支持手动触发
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 生成复审报告
+        run: |
+          {
+            echo "# 技能树复审报告 — $(date +%F)"
+            echo ""
+            echo "## 1. 复审队列（超期 / 临期）"
+            echo ""
+            node review_queue.mjs
+            echo ""
+            echo "## 2. 触发式复审范围映射"
+            echo ""
+            node trigger_watchlist.mjs
+          } > review-report.md
+          cat review-report.md
+
+      - name: 上传复审报告（Artifact）
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-report-${{ github.run_id }}
+          path: review-report.md
+          retention-days: 90
+
+      - name: 若有超期节点则创建提醒 Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OVERDUE=$(grep -oP '超期: \K[0-9]+' review-report.md | head -1)
+          OVERDUE=${OVERDUE:-0}
+          echo "超期节点数: $OVERDUE"
+          if [ "$OVERDUE" -gt 0 ]; then
+            TITLE="[复审] ${OVERDUE} 个节点已超期 — $(date +%F)"
+            BODY=$(cat review-report.md)
+            gh issue create --title "$TITLE" --body "$BODY" || echo "Issue 创建失败（可忽略）"
+          else
+            echo "无超期节点，无需开 Issue"
+          fi

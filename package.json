@@ -10,6 +10,8 @@
     "db:reset": "node server/db/reset.mjs",
     "audit:tree": "node skilltree_audit.mjs",
     "audit:v2": "node v2_validate.mjs",
+    "review:queue": "node review_queue.mjs",
+    "review:watch": "node trigger_watchlist.mjs",
     "charter:fix": "node charter_fix.mjs",
     "charter:island": "node charter_island.mjs",
     "charter:bridge": "node charter_ai_bridge.mjs",
