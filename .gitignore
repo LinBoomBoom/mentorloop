@@ -23,3 +23,28 @@ npm-debug.log*
 _diag_now.html
 .DS_Store
 Thumbs.db
+
+# Local working memory (auto-generated project state, not source)
+.workbuddy/
+
+# Transient SQLite write-ahead log / shared-memory (regenerated at runtime)
+data/*.db-shm
+data/*.db-wal
+
+# Seed / DB backups produced during content authoring
+data/*.bak*
+*.bak*
+
+# Scratch probe files (one-off diagnostics, not project source)
+_check.mjs
+_check2.mjs
+_e2e.mjs
+_inject_ch.mjs
+_probe_skills.html
+_v.html
+_v2.html
+_v3.html
+_v4.html
+mods_check.json
+mods_check_stray.json
+

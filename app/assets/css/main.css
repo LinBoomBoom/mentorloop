@@ -180,6 +180,11 @@ body {
 .prose-dm code { @apply rounded bg-brand-coral/10 px-1.5 py-0.5 text-[12px] font-mono text-brand-deep; }
 .prose-dm pre { @apply rounded-xl bg-[#0f1020] p-4 text-[12.5px] text-slate-200 overflow-x-auto my-3; }
 .prose-dm pre code { @apply bg-transparent text-inherit p-0; }
+.prose-dm blockquote { @apply border-l-2 border-brand-coral/40 bg-brand-coral/[0.04] rounded-r-lg pl-3 pr-2 py-1.5 my-2 text-[14px] leading-6 text-sub; }
+.prose-dm hr { @apply border-0 border-t border-line my-4; }
+/* 知识图谱内链（宪章「可导航」）：让 doc: 互链真正可点击 */
+.prose-dm .doc-link { @apply font-medium text-brand-coral underline decoration-brand-coral/30 underline-offset-2 transition-colors; }
+.prose-dm .doc-link:hover { @apply decoration-brand-coral text-brand-deep; }
 
 /* 自定义滚动条 */
 ::-webkit-scrollbar { width: 9px; height: 9px; }

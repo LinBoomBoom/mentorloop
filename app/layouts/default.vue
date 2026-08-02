@@ -82,6 +82,7 @@ const nav = [
   { to: '/learn', label: '学习中心', short: '学习', icon: 'book' },
   { to: '/interview', label: '面试题库', short: '面试', icon: 'chat' },
   { to: '/exam', label: '模拟答卷', short: '答卷', icon: 'clipboard' },
+  { to: '/skills', label: '技能树', short: '技能树', icon: 'tree' },
   { to: '/vip', label: 'VIP 会员', short: 'VIP', icon: 'crown' }
 ]
 const isActive = (item) => route.path === item.to || (item.to !== '/' && route.path.startsWith(item.to))

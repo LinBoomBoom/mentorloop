@@ -26,6 +26,28 @@
             <div class="text-sm text-sub">{{ section.direction }}</div>
           </div>
         </div>
+        <!-- 保鲜徽章（活运营宪章 第 4.1 条）：知识点的核验日期 / 过期风险 / 锚定版本 -->
+        <div v-if="fresh" class="flex flex-wrap items-center gap-1.5 mb-4 text-[11px]">
+          <span class="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-semibold"
+                :style="riskStyle">
+            <Icon name="shield" :size="12" /> {{ fresh.风险 || '中' }}风险
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-muted">
+            核验 {{ fresh.核验 }}
+          </span>
+          <span v-if="fresh.版本" class="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-muted">
+            {{ fresh.版本 }}
+          </span>
+          <span v-if="fresh.来源" class="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-muted">
+            锚定{{ fresh.来源 }}
+          </span>
+          <span v-if="freshState?.overdue" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-semibold text-amber-600 bg-amber-500/10">
+            已超复核期 {{ -freshState.left }} 天
+          </span>
+          <span v-else-if="freshState?.soon" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-muted">
+            {{ freshState.left }} 天后复核
+          </span>
+        </div>
         <div class="prose-dm" v-html="contentHtml"></div>
       </div>
 
@@ -58,7 +80,7 @@ const route = useRoute()
 const router = useRouter()
 const { request } = useApi()
 const { isDone } = useLearning()
-const { md } = useMarkdown()
+const { md, splitFreshness, freshnessState } = useMarkdown()
 
 const auth = useAuthStore()
 const { guard } = useLoginGate()
@@ -81,7 +103,17 @@ const chapter = computed(() => module.value?.chapters[ci.value])
 const si = computed(() => chapter.value?.sections.findIndex((s: any) => s.id === route.params.section))
 const section = computed(() => chapter.value?.sections[si.value])
 const done = computed(() => module.value && section.value ? isDone(progress.value, module.value.id, chapter.value.id, section.value.id) : false)
-const contentHtml = computed(() => section.value ? md(section.value.content) : '')
+// 时效元数据与正文分离（宪章 4.1）：时效以徽章呈现，不混入 markdown 正文
+const parsed = computed(() => splitFreshness(section.value?.content || ''))
+const fresh = computed(() => parsed.value.fresh)
+const freshState = computed(() => freshnessState(fresh.value))
+const contentHtml = computed(() => section.value ? md(parsed.value.body) : '')
+const riskStyle = computed(() => {
+  const r = fresh.value?.风险
+  if (r === '高') return 'background:rgba(245,158,11,.12);color:#d97706'
+  if (r === '低') return 'background:rgba(20,184,166,.12);color:#0d9488'
+  return 'background:rgba(99,102,241,.12);color:#6366f1'
+})
 
 // 阅读进度（P2-5）：根据页面滚动位置计算阅读百分比
 const readPct = ref(0)

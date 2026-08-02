@@ -18,11 +18,12 @@ export default {
           gold: '#ffc24b',
           deep: '#ff4d6d'
         },
-        // 三方向主色
+        // 四方向主色
         track: {
           fe: '#ff5e7e', // 前端
           be: '#14b8a6', // 后端
-          op: '#f59e0b' // 运维
+          op: '#f59e0b', // 运维
+          ai: '#8b5cf6' // AI 工程
         },
         // 语义令牌（随明暗主题切换，见 main.css 变量）
         ink: 'rgb(var(--ink) / <alpha-value>)',

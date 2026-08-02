@@ -11,6 +11,7 @@
           <option value="frontend">前端</option>
           <option value="backend">后端</option>
           <option value="devops">运维</option>
+          <option value="ai">AI 工程</option>
         </select>
         <input v-model="askText" class="input flex-1" placeholder="问我点什么？比如：Vue3 响应式原理、Redis 缓存击穿…" @keyup.enter="ask" />
         <button class="btn btn-primary shrink-0" @click="ask" :disabled="asking"><Icon name="sparkles" :size="16" /> 提问</button>
@@ -72,7 +73,7 @@
 const { request } = useApi()
 const { md } = useMarkdown()
 const { guard } = useLoginGate()
-const tracks = [{ id: 'frontend', name: '前端' }, { id: 'backend', name: '后端' }, { id: 'devops', name: '运维' }]
+const tracks = [{ id: 'frontend', name: '前端' }, { id: 'backend', name: '后端' }, { id: 'devops', name: '运维' }, { id: 'ai', name: 'AI 工程' }]
 const activeTrack = ref('frontend')
 const { data: bankRes } = await useFetch(() => '/api/interview/' + activeTrack.value, { watch: [activeTrack] })
 const bank = computed(() => bankRes.value?.bank || null)

@@ -7,7 +7,13 @@
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "db:reset": "node server/db/reset.mjs"
+    "db:reset": "node server/db/reset.mjs",
+    "audit:tree": "node skilltree_audit.mjs",
+    "audit:v2": "node v2_validate.mjs",
+    "charter:fix": "node charter_fix.mjs",
+    "charter:island": "node charter_island.mjs",
+    "charter:bridge": "node charter_ai_bridge.mjs",
+    "reseed": "node _reseed.mjs"
   },
   "dependencies": {
     "@nuxtjs/tailwindcss": "6.14.0",
