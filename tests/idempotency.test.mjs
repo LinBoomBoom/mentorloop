@@ -82,3 +82,40 @@ test('bridge_opc8.mjs 幂等：补链一次后重复跑不再改动', () => {
 
   cleanup(seedPath)
 })
+
+test('enrich_depth_89.mjs 幂等：深度块写入一次后重复跑不再改动', () => {
+  const seedPath = copySeed()
+  // 模拟「增强前」状态：从 9 个目标小节移除 ### 演进脉络 / ### 结构图示 块
+  const targets = new Set([
+    'ai-c1-s1', 'ai-c1-s2', 'ai-c1-s4',
+    'be-dist-s1', 'be-dist-s4', 'be-dist-s9',
+    'op-c8-s1', 'op-c8-s3', 'op-c8-s5',
+  ])
+  const stripDepth = (content) =>
+    content
+      .replace(/### 演进脉络[\s\S]*?(?=\n## |\n### |$)/g, '')
+      .replace(/### 结构图示[\s\S]*?(?=\n## |\n### |$)/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+  const s = JSON.parse(fs.readFileSync(seedPath, 'utf-8'))
+  for (const m of s.modules) {
+    for (const c of m.chapters) {
+      for (const sec of c.sections) {
+        if (targets.has(sec.id)) sec.content = stripDepth(sec.content)
+      }
+    }
+  }
+  fs.writeFileSync(seedPath, JSON.stringify(s, null, 2))
+  const before = hash(seedPath)
+
+  const r1 = runOn(seedPath, 'enrich_depth_89.mjs')
+  expect(r1.status).toBe(0)
+  const afterFirst = hash(seedPath)
+  expect(afterFirst).not.toBe(before) // 首次确实写入了深度块
+
+  const r2 = runOn(seedPath, 'enrich_depth_89.mjs')
+  expect(r2.status).toBe(0)
+  const afterSecond = hash(seedPath)
+  expect(afterSecond).toBe(afterFirst) // 第二次为 no-op
+
+  cleanup(seedPath)
+})

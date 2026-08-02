@@ -16,6 +16,7 @@
     "charter:fix": "node charter_fix.mjs",
     "charter:island": "node charter_island.mjs",
     "charter:bridge": "node charter_ai_bridge.mjs",
+    "enrich:depth": "node enrich_depth_89.mjs",
     "reseed": "node _reseed.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
