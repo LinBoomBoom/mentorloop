@@ -7,13 +7,25 @@ import { getHeader, setResponseStatus } from 'h3'
 
 /* ---------------- 单例数据库 ---------------- */
 const g = globalThis as any
-const DB_PATH = path.join(process.cwd(), 'data', 'devmentor.db')
+const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'devmentor.db')
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 
 function createDb() {
   const db = new Database(DB_PATH)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
+  db.pragma('busy_timeout = 5000')
+  // 业务索引（幂等；解决上线后 exam_records/progress/choices 全表扫描，见总体规划 B1）
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_exam_records_user ON exam_records(user_id);
+    CREATE INDEX IF NOT EXISTS idx_exam_records_set ON exam_records(set_id);
+    CREATE INDEX IF NOT EXISTS idx_progress_user ON progress(user_id);
+    CREATE INDEX IF NOT EXISTS idx_exam_choices_set ON exam_choices(set_id);
+    CREATE INDEX IF NOT EXISTS idx_sections_chapter ON sections(chapter_id);
+    CREATE INDEX IF NOT EXISTS idx_chapters_module ON chapters(module_id);
+    CREATE INDEX IF NOT EXISTS idx_interview_track ON interview_questions(track);
+    CREATE INDEX IF NOT EXISTS idx_exam_sets_track ON exam_sets(track);
+  `)
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, username TEXT UNIQUE, nickname TEXT,
@@ -103,7 +115,7 @@ function seedIfEmpty(db: any) {
 export const sqlite = g.__dmDb ?? (g.__dmDb = createDb())
 
 /* ---------------- 工具 ---------------- */
-export const DEV_CODE = true // 演示模式：验证码明文下发；接真实短信/邮件后设为 false
+export const DEV_CODE = process.env.DEV_CODE === 'true' // 演示模式：验证码明文下发；生产必须 unset / 置 false，并接入真实短信/邮件
 
 export function hashPwd(pwd: string, salt?: string): string {
   salt = salt || crypto.randomBytes(8).toString('hex')
@@ -166,6 +178,7 @@ export function requireVip(user: any, item: any): boolean {
     if (!user) return false
     const v = typeof user.vip === 'string' ? JSON.parse(user.vip) : user.vip
     if (!v || v.level < 1) return false
+    if (v.expireAt && v.expireAt < Date.now()) return false // 到期回收（P0-A3：防止付费会员到期后权益不回收）
   }
   return true
 }
