@@ -14,16 +14,28 @@ export default defineEventHandler((event) => {
   sqlite.prepare('SELECT module_id,chapter_id,section_id,done_at FROM progress WHERE user_id=?').all(user.id)
     .forEach((r: any) => { prog[`${r.module_id}/${r.chapter_id}/${r.section_id}`] = r.done_at })
 
+  // 内存分组：按模块统计已完成小节数（避免逐模块查 done）
+  const doneByModule: any = {}
+  for (const key of Object.keys(prog)) {
+    const mod = key.split('/')[0]
+    doneByModule[mod] = (doneByModule[mod] || 0) + 1
+  }
+
   const colors: any = { frontend: '#ff5e7e', backend: '#14b8a6', devops: '#f59e0b' }
-  const modules = sqlite.prepare('SELECT id,name FROM modules ORDER BY position').all().map((m: any) => {
-    let total = 0, done = 0
-    const chs = sqlite.prepare('SELECT id FROM chapters WHERE module_id=?').all(m.id)
-    for (const ch of chs) {
-      const secs = sqlite.prepare('SELECT id FROM sections WHERE chapter_id=?').all(ch.id)
-      total += secs.length
-      for (const s of secs) if (prog[`${m.id}/${ch.id}/${s.id}`]) done++
+  // B6：单条聚合取出每个模块的小节总数（通过章节归属），替代 modules→chapters→sections 三层嵌套查询
+  const totalRows = sqlite.prepare(
+    'SELECT c.module_id AS module_id, COUNT(*) AS total FROM sections s JOIN chapters c ON c.id=s.chapter_id GROUP BY c.module_id'
+  ).all() as any[]
+  const totalMap: any = {}
+  for (const r of totalRows) totalMap[r.module_id] = r.total
+  const modRows = sqlite.prepare('SELECT id,name FROM modules ORDER BY position').all() as any[]
+  const modules = modRows.map((m: any) => {
+    const total = totalMap[m.id] || 0
+    const done = doneByModule[m.id] || 0
+    return {
+      id: m.id, name: m.name, color: colors[m.id] || '#ff5e7e',
+      percent: total ? Math.round(done / total * 100) : 0, done, total
     }
-    return { id: m.id, name: m.name, color: colors[m.id] || '#ff5e7e', percent: total ? Math.round(done / total * 100) : 0, done, total }
   })
   const totalAll = modules.reduce((s: number, m: any) => s + m.total, 0)
   const doneAll = modules.reduce((s: number, m: any) => s + m.done, 0)

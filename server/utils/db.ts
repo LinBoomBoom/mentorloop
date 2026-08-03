@@ -142,6 +142,88 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       if (!colExists(db, 'exam_records', 'submit_nonce')) db.prepare('ALTER TABLE exam_records ADD COLUMN submit_nonce TEXT').run()
       db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(submit_nonce) WHERE submit_nonce IS NOT NULL')
     }
+  },
+  {
+    version: 3,
+    name: 'foreign-keys',
+    up: (db) => {
+      // B2 外键作用域化：为逻辑父子表补 FOREIGN KEY 子句（含 ON DELETE CASCADE）。
+      // SQLite 不支持 ALTER ADD FK，故采用「重命名临时表 → 建带 FK 新表 → 拷贝 → 删临时表」。
+      // 幂等：若表已带 FK（foreign_key_list 非空）则跳过；孤儿清理确保拷贝不违反 FK。
+      // foreign_keys pragma 已在 createDb 开启，事务包裹保证失败时整体回滚。
+
+      // 1) 孤儿清理：子表引用必须指向有效父行，否则 INSERT 会因 FK 失败
+      db.exec('DELETE FROM chapters WHERE module_id NOT IN (SELECT id FROM modules)')
+      db.exec('DELETE FROM sections WHERE chapter_id NOT IN (SELECT id FROM chapters)')
+      db.exec('DELETE FROM exam_choices WHERE set_id NOT IN (SELECT id FROM exam_sets)')
+      db.exec('DELETE FROM exam_written WHERE set_id NOT IN (SELECT id FROM exam_sets)')
+      db.exec('DELETE FROM exam_records WHERE user_id NOT IN (SELECT id FROM users)')
+      db.exec('DELETE FROM progress WHERE user_id NOT IN (SELECT id FROM users)')
+      db.exec('DELETE FROM interview_sessions WHERE user_id NOT IN (SELECT id FROM users)')
+      db.exec('DELETE FROM study_plans WHERE user_id NOT IN (SELECT id FROM users)')
+
+      const recreate = (table: string, createSql: string) => {
+        const fks = db.prepare(`PRAGMA foreign_key_list(${table})`).all() as any[]
+        if (fks.length > 0) return // 已带 FK，跳过（保证幂等，新库也安全）
+        const tmp = `_${table}_old`
+        db.exec(`ALTER TABLE ${table} RENAME TO ${tmp}`)
+        db.exec(createSql)
+        db.exec(`INSERT INTO ${table} SELECT * FROM ${tmp}`)
+        db.exec(`DROP TABLE ${tmp}`)
+      }
+
+      recreate('chapters',
+        `CREATE TABLE chapters (
+          id TEXT PRIMARY KEY, module_id TEXT, title TEXT, goal TEXT, position INTEGER,
+          FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
+        )`)
+      recreate('sections',
+        `CREATE TABLE sections (
+          id TEXT PRIMARY KEY, chapter_id TEXT, title TEXT, direction TEXT, content TEXT, position INTEGER,
+          FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+        )`)
+      recreate('exam_choices',
+        `CREATE TABLE exam_choices (
+          id TEXT PRIMARY KEY, set_id TEXT, tag TEXT, q TEXT, options TEXT, answer TEXT, explain TEXT, multi INTEGER DEFAULT 0,
+          FOREIGN KEY(set_id) REFERENCES exam_sets(id) ON DELETE CASCADE
+        )`)
+      recreate('exam_written',
+        `CREATE TABLE exam_written (
+          id TEXT PRIMARY KEY, set_id TEXT, q TEXT, points TEXT, reference TEXT,
+          FOREIGN KEY(set_id) REFERENCES exam_sets(id) ON DELETE CASCADE
+        )`)
+      recreate('exam_records',
+        `CREATE TABLE exam_records (
+          id TEXT PRIMARY KEY, user_id TEXT, set_id TEXT, set_name TEXT, track TEXT,
+          score INTEGER, correct INTEGER, total INTEGER, weak_points TEXT, level TEXT,
+          advice TEXT, used_seconds INTEGER, choice_review TEXT, written_review TEXT, created_at INTEGER,
+          submit_nonce TEXT,
+          FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )`)
+      recreate('progress',
+        `CREATE TABLE progress (
+          user_id TEXT, module_id TEXT, chapter_id TEXT, section_id TEXT, done_at INTEGER,
+          PRIMARY KEY (user_id, section_id),
+          FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )`)
+      recreate('interview_sessions',
+        `CREATE TABLE interview_sessions (
+          id TEXT PRIMARY KEY, user_id TEXT NOT NULL, track TEXT, level TEXT, goal TEXT,
+          status TEXT DEFAULT 'active', messages TEXT, turns INTEGER DEFAULT 0, score REAL,
+          summary TEXT, created_at INTEGER, updated_at INTEGER, finished_at INTEGER,
+          FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )`)
+      recreate('study_plans',
+        `CREATE TABLE study_plans (
+          id TEXT PRIMARY KEY, user_id TEXT NOT NULL, track TEXT, weak_points TEXT, plan TEXT, created_at INTEGER,
+          FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )`)
+
+      // 2) 重建 recreate 随旧表一并移除的索引（幂等）
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(submit_nonce) WHERE submit_nonce IS NOT NULL')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_interview_user ON interview_sessions(user_id)')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_studyplan_user ON study_plans(user_id)')
+    }
   }
 ]
 
