@@ -30,18 +30,20 @@
       <div v-if="shownSets.length === 0" class="card p-8 text-center text-muted text-sm mb-9">没有符合条件的试卷，换个筛选试试～</div>
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger mb-9">
         <div v-for="s in shownSets" :key="s.id" class="card p-5 flex flex-col reveal hover:border-brand-coral/30 transition-colors">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="chip" :style="{ color: trackMeta[s.track]?.color, background: trackMeta[s.track]?.bg }">{{ trackMeta[s.track]?.name || s.track }}</span>
-            <span class="chip" :class="levelClass(s.level)">{{ s.level }}</span>
-            <span v-if="s.vipOnly" class="tag tag-vip !py-0.5 text-[10px] !px-2 ml-auto"><Icon name="crown" :size="11" /> VIP</span>
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <h4 class="font-extrabold text-[17px] leading-snug">{{ s.name }}</h4>
+            <Icon v-if="s.vipOnly" name="crown" :size="16" class="text-amber-500 shrink-0 mt-0.5" title="VIP 专属" />
           </div>
-          <h4 class="font-extrabold text-[17px] leading-snug mb-1">{{ s.name }}</h4>
-          <p class="text-xs text-muted mb-4 flex-1 flex items-center gap-4">
-            <span class="flex items-center gap-1"><Icon name="clock" :size="13" /> {{ s.duration || '不限' }} 分钟</span>
-            <span class="flex items-center gap-1"><Icon name="layers" :size="13" /> 选择 {{ s.choiceCount }}</span>
-            <span class="flex items-center gap-1"><Icon name="pencil" :size="13" /> 笔试 {{ s.writtenCount }}</span>
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-ink/5 text-sub">{{ trackMeta[s.track]?.name || s.track }}</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-ink/5 text-sub">{{ s.level }}</span>
+          </div>
+          <p class="text-xs text-muted mb-4 flex-1">
+            共 {{ s.choiceCount + s.writtenCount }} 题 · 约 {{ s.duration || '不限' }} 分钟
           </p>
-          <NuxtLink :to="s.vipOnly && !auth.isVip ? '/vip' : `/exam/sets/${s.id}`" class="btn btn-primary btn-block">
+          <NuxtLink :to="s.vipOnly && !auth.isVip ? '/vip' : `/exam/sets/${s.id}`"
+                    class="btn btn-block"
+                    :class="s.vipOnly && !auth.isVip ? 'btn-ghost' : 'btn-primary'">
             <Icon :name="s.vipOnly && !auth.isVip ? 'crown' : 'arrowRight'" :size="16" />
             {{ s.vipOnly && !auth.isVip ? '开通 VIP 查看' : '开始答卷' }}
           </NuxtLink>
@@ -111,12 +113,6 @@ const shownSets = computed(() => {
   return [...list].sort((a: any, b: any) => (TRACK_ORDER[a.track] ?? 9) - (TRACK_ORDER[b.track] ?? 9))
 })
 
-const levelClass = (l: string) => ({
-  '初级': 'bg-emerald-500/10 text-emerald-500',
-  '中级': 'bg-amber-500/10 text-amber-500',
-  '高级': 'bg-rose-500/10 text-rose-500',
-  '初中级': 'bg-teal-500/10 text-teal-500'
-}[l] || 'bg-ink/10 text-muted')
 const scoreClass = (s: number) => s >= 70 ? 'bg-emerald-500/12 text-emerald-500'
   : s >= 50 ? 'bg-amber-500/12 text-amber-500' : 'bg-rose-500/12 text-rose-500'
 const scoreText = (s: number) => s >= 70 ? 'text-emerald-500' : s >= 50 ? 'text-amber-500' : 'text-rose-500'

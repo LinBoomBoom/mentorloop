@@ -14,7 +14,7 @@ export interface PlanDef {
 export const PLANS: PlanDef[] = [
   {
     id: 'monthly',
-    name: '月度会员',
+    name: '1 个月 VIP',
     price: 29,
     durationDays: 31,
     level: 1,
@@ -23,22 +23,22 @@ export const PLANS: PlanDef[] = [
   },
   {
     id: 'quarterly',
-    name: '季度会员',
+    name: '3 个月 VIP',
     price: 79,
     durationDays: 93,
     level: 1,
     desc: '约 2.6 元/天，适合冲刺期',
-    benefits: ['月度会员全部权益', '薄弱点专项训练推荐', '面试错题本自动归集']
+    benefits: ['VIP 专属高阶模拟试卷（12 套）', '薄弱点专项训练推荐', '面试错题本自动归集']
   },
   {
     id: 'yearly',
-    name: '年度会员',
+    name: '12 个月 VIP',
     price: 199,
     durationDays: 366,
     level: 3,
     desc: '最划算，长期陪跑上岸',
     popular: true,
-    benefits: ['季度会员全部权益', '1v1 简历诊断（人工 + AI）', '内推资源库优先匹配', '尊享专属答疑通道']
+    benefits: ['全部高阶模拟试卷无限次', '1v1 简历诊断（人工 + AI）', '内推资源库优先匹配', '尊享专属答疑通道']
   }
 ]
 

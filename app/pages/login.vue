@@ -3,6 +3,7 @@
     <!-- 品牌沉浸区 -->
     <div class="relative hidden lg:flex w-1/2 flex-col justify-between p-12 text-white overflow-hidden brand-gradient">
       <div class="aura !absolute"><div class="blob"></div></div>
+      <div class="absolute inset-0 bg-gradient-to-r from-black/55 via-black/25 to-transparent z-[5]"></div>
       <div class="relative z-10 flex items-center gap-3">
         <div class="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
           <Icon name="graduation" :size="24" />

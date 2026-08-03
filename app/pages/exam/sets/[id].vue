@@ -8,6 +8,17 @@
     <!-- 加载 -->
     <div v-if="phase === 'loading'" class="card h-64 shimmer"></div>
 
+    <!-- 错误/不存在 -->
+    <div v-else-if="phase === 'error'" class="card p-10 text-center">
+      <Icon name="alertTriangle" :size="48" class="text-muted mx-auto mb-4" />
+      <h2 class="text-lg font-extrabold mb-2">试卷不存在或加载失败</h2>
+      <p class="text-sm text-muted mb-6">{{ err || '该试卷链接无效，可能已被移除或 ID 错误。' }}</p>
+      <div class="flex items-center justify-center gap-3">
+        <NuxtLink to="/exam" class="btn btn-primary"><Icon name="arrowLeft" :size="16" /> 返回试卷列表</NuxtLink>
+        <button class="btn btn-ghost" @click="phase = 'loading'; refresh()">重新加载</button>
+      </div>
+    </div>
+
     <!-- 答题中 -->
     <div v-else-if="phase === 'take' && set" class="reveal">
       <!-- VIP 提示条 -->
@@ -296,7 +307,7 @@ function retake() {
 }
 
 // 公开试卷：SSR 加载（预览题目），无需登录即可浏览
-const { data: setRes } = await useFetch(() => '/api/exam/sets/' + route.params.id)
+const { data: setRes, error: fetchError, refresh } = await useFetch(() => '/api/exam/sets/' + route.params.id)
 watch(setRes, (v: any) => {
   if (v?.set) {
     set.value = v.set
@@ -305,6 +316,9 @@ watch(setRes, (v: any) => {
       phase.value = 'take'
       if (import.meta.client) startTimer()
     }
+  } else if (v?.error || fetchError.value) {
+    err.value = v?.error || fetchError.value?.message || '试卷加载失败'
+    phase.value = 'error'
   }
 }, { immediate: true })
 

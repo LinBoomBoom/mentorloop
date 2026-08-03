@@ -3,6 +3,7 @@
     <!-- 英雄区（公开，始终可见） -->
     <section class="relative overflow-hidden rounded-3xl card !p-0 mb-7">
       <div class="aura !absolute"><div class="blob"></div></div>
+      <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent z-[5]"></div>
       <div class="relative z-10 p-8 md:p-12 text-white brand-gradient">
         <span class="inline-flex items-center gap-2 text-sm font-semibold bg-white/20 backdrop-blur px-3 py-1.5 rounded-full">🌱 学习 & 面试一体化导师</span>
         <h1 class="text-[34px] md:text-[46px] font-extrabold leading-tight mt-5 max-w-2xl">把「学」与「面」<br/>练成一条线</h1>

@@ -21,12 +21,7 @@
         <div class="text-sm text-muted">有效期至 <b class="text-ink">{{ fmtDate(status.subscription?.expireAt) }}</b></div>
       </div>
       <div class="mt-4 flex flex-wrap items-center gap-3">
-        <span class="chip" :class="status.subscription?.autoRenew ? 'bg-emerald-500/10 text-emerald-600' : 'bg-ink/5 text-muted'">
-          自动续费：{{ status.subscription?.autoRenew ? '开启' : '关闭' }}
-        </span>
-        <button class="btn btn-ghost !py-2" :disabled="toggling" @click="toggleRenew">
-          {{ status.subscription?.autoRenew ? '取消自动续费' : '开启自动续费' }}
-        </button>
+        <span class="chip bg-ink/5 text-muted">自动续费：关闭（一次性付费，到期不扣款）</span>
         <NuxtLink to="/account" class="btn btn-ghost !py-2">个人中心</NuxtLink>
       </div>
       <div v-if="status.orders?.length" class="mt-5 pt-4 border-t border-line">
@@ -49,9 +44,9 @@
         <h3 class="text-xl font-extrabold">{{ p.name }}</h3>
         <div class="mt-3 flex items-end gap-1">
           <span class="text-4xl font-extrabold gradient-text">¥{{ p.price }}</span>
-          <span class="text-muted mb-1">/ {{ p.durationDays >= 360 ? '年' : (p.durationDays >= 90 ? '季' : '月') }}</span>
+          <span class="text-muted mb-1">/ {{ Math.round(p.durationDays / 30) }} 个月</span>
         </div>
-        <p class="mt-2 text-xs text-muted">{{ p.desc }}</p>
+        <p class="mt-2 text-xs text-muted">{{ p.desc }} · 一次性开通，到期不自动扣款</p>
         <ul class="mt-5 space-y-2.5">
           <li v-for="b in p.benefits" :key="b" class="flex items-start gap-2 text-sm text-sub">
             <Icon name="checkCircle" :size="17" class="text-emerald-500 shrink-0 mt-0.5" /> <span>{{ b }}</span>
@@ -86,7 +81,6 @@ const enabled = computed(() => !!plansRes.value?.enabled)
 
 const status = ref<any>(null)
 const buying = ref('')
-const toggling = ref(false)
 const err = ref('')
 
 onMounted(async () => {
@@ -111,14 +105,5 @@ async function buy(p: any) {
     const r: any = await request('/api/order/create', { method: 'POST', body: { planId: p.id } })
     await navigateTo('/vip/pay/' + r.orderId)
   } catch (e: any) { err.value = e.message || '创建订单失败' } finally { buying.value = '' }
-}
-async function toggleRenew() {
-  if (!status.value?.subscription) return
-  toggling.value = true
-  try {
-    const action = status.value.subscription.autoRenew ? 'cancel' : 'enable'
-    const r: any = await request('/api/subscription', { method: 'POST', body: { action } })
-    status.value.subscription.autoRenew = r.subscription.autoRenew
-  } catch (e: any) { err.value = e.message } finally { toggling.value = false }
 }
 </script>

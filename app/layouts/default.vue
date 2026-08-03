@@ -66,10 +66,27 @@
 
       <main class="px-4 sm:px-6 lg:px-10 py-6 lg:py-8 pb-24 md:pb-8 max-w-[1200px] mx-auto">
         <slot />
-        <footer class="mt-12 pt-6 border-t border-line flex items-center justify-center gap-5 text-xs text-muted">
-          <NuxtLink to="/privacy" class="hover:text-brand-coral transition">隐私政策</NuxtLink>
-          <NuxtLink to="/terms" class="hover:text-brand-coral transition">服务条款</NuxtLink>
-          <span>© 2026 MentorLoop</span>
+        <footer class="mt-16 pt-8 border-t border-line">
+          <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white brand-gradient"><Icon name="graduation" :size="18"/></div>
+              <div>
+                <div class="font-extrabold gradient-text">MentorLoop</div>
+                <div class="text-xs text-muted">把「学」与「面」练成一条线</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-5 text-sm">
+              <NuxtLink to="/learn" class="text-sub hover:text-brand-coral transition">学习路径</NuxtLink>
+              <NuxtLink to="/interview" class="text-sub hover:text-brand-coral transition">面试题库</NuxtLink>
+              <NuxtLink to="/exam" class="text-sub hover:text-brand-coral transition">模拟答卷</NuxtLink>
+              <NuxtLink to="/vip" class="text-sub hover:text-brand-coral transition">VIP 会员</NuxtLink>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center justify-center gap-4 text-xs text-sub">
+            <NuxtLink to="/privacy" class="hover:text-brand-coral transition">隐私政策</NuxtLink>
+            <NuxtLink to="/terms" class="hover:text-brand-coral transition">服务条款</NuxtLink>
+            <span>© 2026 MentorLoop · 学习 & 面试一体化导师</span>
+          </div>
         </footer>
       </main>
     </div>
