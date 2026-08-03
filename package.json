@@ -18,6 +18,7 @@
     "charter:bridge": "node charter_ai_bridge.mjs",
     "enrich:depth": "node enrich_depth_89.mjs",
     "reseed": "node _reseed.mjs",
+    "backup": "node scripts/backup-db.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

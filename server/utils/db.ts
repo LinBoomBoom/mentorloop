@@ -11,137 +11,158 @@ const g = globalThis as any
 const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'devmentor.db')
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 
+/* ---------------- 版本化迁移（B8：替代脆弱的内联 CREATE + try/catch ALTER） ----------------
+ * 规则：每个迁移均幂等（IF NOT EXISTS / 列存在性检查），因此对"已存在的老库"重跑也是安全的 no-op。
+ * 新增 schema 改动时，只需在 MIGRATIONS 末尾追加一个 { version, name, up }，不要再散落 ALTER 到各处。
+ */
+function colExists(db: any, table: string, col: string): boolean {
+  const info = db.prepare(`PRAGMA table_info(${table})`).all() as any[]
+  return info.some((c: any) => c.name === col)
+}
+
+const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
+  {
+    version: 1,
+    name: 'base-schema',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY, username TEXT UNIQUE, nickname TEXT,
+          email TEXT, phone TEXT, password TEXT, avatar TEXT,
+          providers TEXT DEFAULT '{}', vip TEXT DEFAULT '{"level":0,"expireAt":null}', created_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS sessions (
+          token TEXT PRIMARY KEY, user_id TEXT, created_at INTEGER, expires_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS login_attempts (
+          key TEXT PRIMARY KEY, fails INTEGER DEFAULT 0, locked_until INTEGER DEFAULT 0, updated_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS auth_codes (
+          key TEXT PRIMARY KEY, code TEXT, expires_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS modules (
+          id TEXT PRIMARY KEY, name TEXT, icon TEXT, color TEXT, desc TEXT, position INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS chapters (
+          id TEXT PRIMARY KEY, module_id TEXT, title TEXT, goal TEXT, position INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS sections (
+          id TEXT PRIMARY KEY, chapter_id TEXT, title TEXT, direction TEXT, content TEXT, position INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS interview_questions (
+          id TEXT PRIMARY KEY, track TEXT, type TEXT, q TEXT, a TEXT, keywords TEXT
+        );
+        CREATE TABLE IF NOT EXISTS exam_sets (
+          id TEXT PRIMARY KEY, name TEXT, track TEXT, level TEXT, duration INTEGER, vip_only INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS exam_choices (
+          id TEXT PRIMARY KEY, set_id TEXT, tag TEXT, q TEXT, options TEXT, answer TEXT, explain TEXT, multi INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS exam_written (
+          id TEXT PRIMARY KEY, set_id TEXT, q TEXT, points TEXT, reference TEXT
+        );
+        CREATE TABLE IF NOT EXISTS progress (
+          user_id TEXT, module_id TEXT, chapter_id TEXT, section_id TEXT, done_at INTEGER,
+          PRIMARY KEY (user_id, section_id)
+        );
+        CREATE TABLE IF NOT EXISTS exam_records (
+          id TEXT PRIMARY KEY, user_id TEXT, set_id TEXT, set_name TEXT, track TEXT,
+          score INTEGER, correct INTEGER, total INTEGER, weak_points TEXT, level TEXT,
+          advice TEXT, used_seconds INTEGER, choice_review TEXT, written_review TEXT, created_at INTEGER,
+          submit_nonce TEXT
+        );
+        CREATE TABLE IF NOT EXISTS interview_sessions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          track TEXT,
+          level TEXT,
+          goal TEXT,
+          status TEXT DEFAULT 'active',
+          messages TEXT,
+          turns INTEGER DEFAULT 0,
+          score REAL,
+          summary TEXT,
+          created_at INTEGER,
+          updated_at INTEGER,
+          finished_at INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_interview_user ON interview_sessions(user_id);
+        CREATE TABLE IF NOT EXISTS study_plans (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          track TEXT,
+          weak_points TEXT,
+          plan TEXT,
+          created_at INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_studyplan_user ON study_plans(user_id);
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id TEXT PRIMARY KEY, admin_id TEXT, action TEXT, target TEXT, meta TEXT, created_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS orders (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          plan_id TEXT NOT NULL,
+          amount INTEGER NOT NULL,
+          currency TEXT DEFAULT 'CNY',
+          status TEXT DEFAULT 'pending',
+          provider TEXT,
+          provider_order_id TEXT,
+          subject TEXT,
+          created_at INTEGER,
+          paid_at INTEGER,
+          expire_at INTEGER,
+          meta TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
+        CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+        CREATE TABLE IF NOT EXISTS subscriptions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          plan_id TEXT NOT NULL,
+          level INTEGER NOT NULL,
+          status TEXT DEFAULT 'active',
+          auto_renew INTEGER DEFAULT 0,
+          start_at INTEGER,
+          expire_at INTEGER,
+          created_at INTEGER,
+          canceled_at INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_subs_user ON subscriptions(user_id);
+      `)
+    }
+  },
+  {
+    version: 2,
+    name: 'columns-and-indexes',
+    up: (db) => {
+      if (!colExists(db, 'users', 'role')) db.prepare("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'").run()
+      if (!colExists(db, 'users', 'banned')) db.prepare('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0').run()
+      if (!colExists(db, 'sessions', 'expires_at')) db.prepare('ALTER TABLE sessions ADD COLUMN expires_at INTEGER').run()
+      if (!colExists(db, 'exam_records', 'submit_nonce')) db.prepare('ALTER TABLE exam_records ADD COLUMN submit_nonce TEXT').run()
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(submit_nonce) WHERE submit_nonce IS NOT NULL')
+    }
+  }
+]
+
+function runMigrations(db: any) {
+  db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT, applied_at INTEGER)')
+  const applied = new Set((db.prepare('SELECT version FROM schema_migrations').all() as any[]).map((r: any) => r.version))
+  for (const m of MIGRATIONS) {
+    if (applied.has(m.version)) continue
+    db.transaction(() => {
+      m.up(db)
+      db.prepare('INSERT INTO schema_migrations (version,name,applied_at) VALUES (?,?,?)').run(m.version, m.name, Date.now())
+    })()
+  }
+}
+
 function createDb() {
   const db = new Database(DB_PATH)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.pragma('busy_timeout = 5000')
-  // 业务索引（幂等；解决上线后 exam_records/progress/choices 全表扫描，见总体规划 B1）
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_exam_records_user ON exam_records(user_id);
-    CREATE INDEX IF NOT EXISTS idx_exam_records_set ON exam_records(set_id);
-    CREATE INDEX IF NOT EXISTS idx_progress_user ON progress(user_id);
-    CREATE INDEX IF NOT EXISTS idx_exam_choices_set ON exam_choices(set_id);
-    CREATE INDEX IF NOT EXISTS idx_sections_chapter ON sections(chapter_id);
-    CREATE INDEX IF NOT EXISTS idx_chapters_module ON chapters(module_id);
-    CREATE INDEX IF NOT EXISTS idx_interview_track ON interview_questions(track);
-    CREATE INDEX IF NOT EXISTS idx_exam_sets_track ON exam_sets(track);
-  `)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY, username TEXT UNIQUE, nickname TEXT,
-      email TEXT, phone TEXT, password TEXT, avatar TEXT,
-      providers TEXT DEFAULT '{}', vip TEXT DEFAULT '{"level":0,"expireAt":null}', created_at INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS sessions (
-      token TEXT PRIMARY KEY, user_id TEXT, created_at INTEGER, expires_at INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS login_attempts (
-      key TEXT PRIMARY KEY, fails INTEGER DEFAULT 0, locked_until INTEGER DEFAULT 0, updated_at INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS auth_codes (
-      key TEXT PRIMARY KEY, code TEXT, expires_at INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS modules (
-      id TEXT PRIMARY KEY, name TEXT, icon TEXT, color TEXT, desc TEXT, position INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS chapters (
-      id TEXT PRIMARY KEY, module_id TEXT, title TEXT, goal TEXT, position INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS sections (
-      id TEXT PRIMARY KEY, chapter_id TEXT, title TEXT, direction TEXT, content TEXT, position INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS interview_questions (
-      id TEXT PRIMARY KEY, track TEXT, type TEXT, q TEXT, a TEXT, keywords TEXT
-    );
-    CREATE TABLE IF NOT EXISTS exam_sets (
-      id TEXT PRIMARY KEY, name TEXT, track TEXT, level TEXT, duration INTEGER, vip_only INTEGER DEFAULT 0
-    );
-    CREATE TABLE IF NOT EXISTS exam_choices (
-      id TEXT PRIMARY KEY, set_id TEXT, tag TEXT, q TEXT, options TEXT, answer TEXT, explain TEXT, multi INTEGER DEFAULT 0
-    );
-    CREATE TABLE IF NOT EXISTS exam_written (
-      id TEXT PRIMARY KEY, set_id TEXT, q TEXT, points TEXT, reference TEXT
-    );
-    CREATE TABLE IF NOT EXISTS progress (
-      user_id TEXT, module_id TEXT, chapter_id TEXT, section_id TEXT, done_at INTEGER,
-      PRIMARY KEY (user_id, section_id)
-    );
-    CREATE TABLE IF NOT EXISTS exam_records (
-      id TEXT PRIMARY KEY, user_id TEXT, set_id TEXT, set_name TEXT, track TEXT,
-      score INTEGER, correct INTEGER, total INTEGER, weak_points TEXT, level TEXT,
-      advice TEXT, used_seconds INTEGER, choice_review TEXT, written_review TEXT, created_at INTEGER,
-      submit_nonce TEXT
-    );
-    CREATE TABLE IF NOT EXISTS interview_sessions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      track TEXT,
-      level TEXT,
-      goal TEXT,
-      status TEXT DEFAULT 'active',
-      messages TEXT,
-      turns INTEGER DEFAULT 0,
-      score REAL,
-      summary TEXT,
-      created_at INTEGER,
-      updated_at INTEGER,
-      finished_at INTEGER
-    );
-    CREATE INDEX IF NOT EXISTS idx_interview_user ON interview_sessions(user_id);
-    CREATE TABLE IF NOT EXISTS study_plans (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      track TEXT,
-      weak_points TEXT,
-      plan TEXT,
-      created_at INTEGER
-    );
-    CREATE INDEX IF NOT EXISTS idx_studyplan_user ON study_plans(user_id);
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id TEXT PRIMARY KEY, admin_id TEXT, action TEXT, target TEXT, meta TEXT, created_at INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS orders (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      plan_id TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      currency TEXT DEFAULT 'CNY',
-      status TEXT DEFAULT 'pending',
-      provider TEXT,
-      provider_order_id TEXT,
-      subject TEXT,
-      created_at INTEGER,
-      paid_at INTEGER,
-      expire_at INTEGER,
-      meta TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
-    CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-    CREATE TABLE IF NOT EXISTS subscriptions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      plan_id TEXT NOT NULL,
-      level INTEGER NOT NULL,
-      status TEXT DEFAULT 'active',
-      auto_renew INTEGER DEFAULT 0,
-      start_at INTEGER,
-      expire_at INTEGER,
-      created_at INTEGER,
-      canceled_at INTEGER
-    );
-    CREATE INDEX IF NOT EXISTS idx_subs_user ON subscriptions(user_id);
-  `)
-  // 迁移：管理员角色字段（兼容老库，无 role 列时补齐）
-  try { db.prepare("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'").run() } catch (e) { /* 列已存在 */ }
-  // 迁移：封禁标记（G4 用户体系：封禁/解封）
-  try { db.prepare("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0").run() } catch (e) { /* 列已存在 */ }
-  // 迁移：会话过期时间（A7 会话回收）
-  try { db.prepare("ALTER TABLE sessions ADD COLUMN expires_at INTEGER").run() } catch (e) { /* 列已存在 */ }
-  // 迁移：交卷幂等列（B10）
-  try { db.prepare("ALTER TABLE exam_records ADD COLUMN submit_nonce TEXT").run() } catch (e) { /* 列已存在 */ }
-  // 迁移：交卷幂等唯一索引（部分索引，仅对非空 nonce 生效）
-  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(submit_nonce) WHERE submit_nonce IS NOT NULL") } catch (e) { /* 索引已存在 */ }
+  runMigrations(db) // B8：版本化迁移（幂等，兼容老库），见上方 MIGRATIONS
   // 启动清理：过期会话与验证码（到期回收由 getUser 兜底；此处避免无限堆积）
   db.prepare('DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < ?').run(Date.now())
   db.prepare('DELETE FROM auth_codes WHERE expires_at < ?').run(Date.now())
