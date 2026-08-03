@@ -47,7 +47,7 @@ export default defineNuxtConfig({
       script: [
         {
           innerHTML:
-            "try{var t=localStorage.getItem('dm-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}"
+            "try{var t=localStorage.getItem('dm-theme');if(t==='dark')document.documentElement.classList.add('dark')}catch(e){}"
         }
       ]
     }

@@ -73,7 +73,8 @@ const ICONS: Record<string, string> = {
   bell: '<path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 19a2 2 0 0 0 4 0"/>',
   wallet: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/>',
   tree: '<path d="M12 21V11"/><circle cx="12" cy="7" r="4"/><path d="M12 11a3 3 0 0 0-3 3M12 11a3 3 0 0 1 3 3"/>',
-  chevronDown: '<path d="M6 9l6 6 6-6"/>'
+  chevronDown: '<path d="M6 9l6 6 6-6"/>',
+  box: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16"/><path d="M9 9v11M15 9v11"/>'
 }
 
 const inner = computed(() => ICONS[props.name] || ICONS.box || '')

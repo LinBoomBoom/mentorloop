@@ -141,7 +141,7 @@
       <div v-if="!sets.length" class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div v-for="i in 3" :key="i" class="card h-32 shimmer"></div>
       </div>
-      <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <NuxtLink v-for="s in sets" :key="s.id" :to="`/exam/sets/${s.id}`" class="card p-6 hover:-translate-y-1 transition reveal">
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="trackBadge(s.track)">{{ trackName(s.track) }}</span>
@@ -176,6 +176,7 @@ const modules = computed(() => modRes.value?.modules || [])
 const { data: feRes } = await useFetch('/api/interview/frontend')
 const { data: beRes } = await useFetch('/api/interview/backend')
 const { data: deRes } = await useFetch('/api/interview/devops')
+const { data: aiRes } = await useFetch('/api/interview/ai')
 const featuredQuestions = computed(() => {
   const merged: any[] = []
   const pushBank = (bank: any, track: string) => {
@@ -186,11 +187,19 @@ const featuredQuestions = computed(() => {
   pushBank(feRes.value?.bank, 'frontend')
   pushBank(beRes.value?.bank, 'backend')
   pushBank(deRes.value?.bank, 'devops')
-  return merged.slice(0, 6)
+  pushBank(aiRes.value?.bank, 'ai')
+  return merged.slice(0, 8)
 })
 
 const { data: setRes } = await useFetch('/api/exam/sets')
-const sets = computed(() => (setRes.value?.sets || []).slice(0, 3))
+// 首页试卷：每个方向各取一套代表卷，保证 AI 工程始终有曝光（避免 .slice(0,3) 只取到前三个非 AI 卷）
+const sets = computed(() => {
+  const all = setRes.value?.sets || []
+  const byTrack: Record<string, any> = {}
+  for (const s of all) if (!byTrack[s.track]) byTrack[s.track] = s
+  return (['frontend', 'backend', 'devops', 'ai'] as const)
+    .map((t) => byTrack[t]).filter(Boolean)
+})
 
 // 个性化看板：仅登录后拉取（避免 SSR 拿不到 token）
 const stats = ref<any>(null)

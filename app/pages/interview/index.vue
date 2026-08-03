@@ -49,30 +49,33 @@
 
     <div v-if="!bank" class="card h-40 shimmer"></div>
     <template v-else>
-      <h3 class="section-title mb-3 flex items-center gap-2"><Icon name="star" :size="18" class="text-brand-gold" /> 高频必刷题（{{ filteredHot.length }}）</h3>
-      <div v-if="filteredHot.length === 0" class="card p-8 text-center text-muted text-sm">没有匹配「{{ q }}」的题目</div>
-      <div v-else class="space-y-2 mb-7">
-        <div v-for="q in filteredHot" :key="q.id" class="card overflow-hidden">
-          <button class="w-full text-left p-4 flex items-center gap-3 hover:bg-ink/[.03] transition" @click="toggle(q.id)" :aria-expanded="openSet.has(q.id)">
-            <span class="w-7 h-7 rounded-lg bg-brand-coral/10 text-brand-coral flex items-center justify-center text-xs font-bold shrink-0">Q</span>
-            <span class="font-medium text-sm flex-1 pr-2">{{ q.q }}</span>
-            <Icon name="chevronRight" :size="16" class="text-muted transition-transform shrink-0" :class="openSet.has(q.id) ? 'rotate-90' : ''" />
-          </button>
-          <div v-if="openSet.has(q.id)" class="px-4 pb-4 pl-14 prose-dm"><div v-html="md(q.a)"></div></div>
-        </div>
+      <!-- 题型切换：必刷题 / 场景题 平等展示，避免场景题被长列表淹没 -->
+      <div class="flex gap-2 mb-4 flex-wrap">
+        <button @click="qTab = 'hot'; listOpen = false" class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
+                :class="qTab === 'hot' ? 'border-brand-gold/50 text-brand-gold bg-brand-gold/5' : 'border-line text-sub'">
+          <Icon name="star" :size="15" class="inline -mt-0.5" /> 高频必刷题（{{ filteredHot.length }}）
+        </button>
+        <button @click="qTab = 'special'; listOpen = false" class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
+                :class="qTab === 'special' ? 'border-brand-pink/50 text-brand-pink bg-brand-pink/5' : 'border-line text-sub'">
+          <Icon name="bolt" :size="15" class="inline -mt-0.5" /> 特殊场景题（{{ filteredSpecial.length }}）
+        </button>
       </div>
 
-      <h3 class="section-title mb-3 flex items-center gap-2"><Icon name="bolt" :size="18" class="text-brand-pink" /> 特殊场景题（{{ filteredSpecial.length }}）</h3>
-      <div v-if="filteredSpecial.length === 0" class="card p-8 text-center text-muted text-sm">没有匹配「{{ q }}」的题目</div>
-      <div v-else class="space-y-2">
-        <div v-for="q in filteredSpecial" :key="q.id" class="card overflow-hidden">
-          <button class="w-full text-left p-4 flex items-center gap-3 hover:bg-ink/[.03] transition" @click="toggle(q.id)" :aria-expanded="openSet.has(q.id)">
-            <span class="w-7 h-7 rounded-lg bg-brand-pink/10 text-brand-pink flex items-center justify-center text-xs font-bold shrink-0">S</span>
-            <span class="font-medium text-sm flex-1 pr-2">{{ q.q }}</span>
-            <Icon name="chevronRight" :size="16" class="text-muted transition-transform shrink-0" :class="openSet.has(q.id) ? 'rotate-90' : ''" />
-          </button>
-          <div v-if="openSet.has(q.id)" class="px-4 pb-4 pl-14 prose-dm"><div v-html="md(q.a)"></div></div>
+      <div v-if="activeList.length === 0" class="card p-8 text-center text-muted text-sm">没有匹配「{{ q }}」的题目</div>
+      <div v-else>
+        <div class="space-y-2">
+          <div v-for="q in shownList" :key="q.id" class="card overflow-hidden">
+            <button class="w-full text-left p-4 flex items-center gap-3 hover:bg-ink/[.03] transition" @click="toggle(q.id)" :aria-expanded="openSet.has(q.id)">
+              <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0" :class="qTab === 'hot' ? 'bg-brand-gold/10 text-brand-gold' : 'bg-brand-pink/10 text-brand-pink'">{{ qTab === 'hot' ? 'Q' : 'S' }}</span>
+              <span class="font-medium text-sm flex-1 pr-2">{{ q.q }}</span>
+              <Icon name="chevronRight" :size="16" class="text-muted transition-transform shrink-0" :class="openSet.has(q.id) ? 'rotate-90' : ''" />
+            </button>
+            <div v-if="openSet.has(q.id)" class="px-4 pb-4 pl-14 prose-dm"><div v-html="md(q.a)"></div></div>
+          </div>
         </div>
+        <button v-if="activeList.length > LIST_LIMIT" class="btn btn-ghost btn-block mt-3" @click="listOpen = !listOpen">
+          {{ listOpen ? '收起' : `查看全部 ${activeList.length} 道` }}
+        </button>
       </div>
     </template>
   </div>
@@ -96,6 +99,9 @@ useSeoMeta({
   ogUrl: safeOgUrl()
 })
 const openSet = ref(new Set<string>())
+const qTab = ref<'hot' | 'special'>('hot')
+const listOpen = ref(false)
+const LIST_LIMIT = 6
 const q = ref('')
 const filteredHot = computed(() => {
   const list = bank.value?.hot || []
@@ -109,6 +115,9 @@ const filteredSpecial = computed(() => {
   if (!kw) return list
   return list.filter((x: any) => (x.q || '').toLowerCase().includes(kw) || (x.a || '').toLowerCase().includes(kw))
 })
+// 题型切换 + 限显：当前题型列表与展示切片
+const activeList = computed(() => (qTab.value === 'hot' ? filteredHot.value : filteredSpecial.value))
+const shownList = computed(() => (listOpen.value ? activeList.value : activeList.value.slice(0, LIST_LIMIT)))
 const askText = ref('')
 const askTrack = ref('')
 const answer = ref<any>(null)
