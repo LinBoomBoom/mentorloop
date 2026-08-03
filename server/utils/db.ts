@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { getHeader, getCookie, setResponseStatus, createError } from 'h3'
+import { logWarn } from './logger'
 
 /* ---------------- 单例数据库 ---------------- */
 const g = globalThis as any
@@ -69,7 +70,11 @@ function createDb() {
     CREATE TABLE IF NOT EXISTS exam_records (
       id TEXT PRIMARY KEY, user_id TEXT, set_id TEXT, set_name TEXT, track TEXT,
       score INTEGER, correct INTEGER, total INTEGER, weak_points TEXT, level TEXT,
-      advice TEXT, used_seconds INTEGER, choice_review TEXT, written_review TEXT, created_at INTEGER
+      advice TEXT, used_seconds INTEGER, choice_review TEXT, written_review TEXT, created_at INTEGER,
+      submit_nonce TEXT
+    );
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY, admin_id TEXT, action TEXT, target TEXT, meta TEXT, created_at INTEGER
     );
     CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
@@ -108,6 +113,10 @@ function createDb() {
   try { db.prepare("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0").run() } catch (e) { /* 列已存在 */ }
   // 迁移：会话过期时间（A7 会话回收）
   try { db.prepare("ALTER TABLE sessions ADD COLUMN expires_at INTEGER").run() } catch (e) { /* 列已存在 */ }
+  // 迁移：交卷幂等列（B10）
+  try { db.prepare("ALTER TABLE exam_records ADD COLUMN submit_nonce TEXT").run() } catch (e) { /* 列已存在 */ }
+  // 迁移：交卷幂等唯一索引（部分索引，仅对非空 nonce 生效）
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(submit_nonce) WHERE submit_nonce IS NOT NULL") } catch (e) { /* 索引已存在 */ }
   // 启动清理：过期会话与验证码（到期回收由 getUser 兜底；此处避免无限堆积）
   db.prepare('DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < ?').run(Date.now())
   db.prepare('DELETE FROM auth_codes WHERE expires_at < ?').run(Date.now())
@@ -303,4 +312,27 @@ export function cleanupExpired() {
   const now = Date.now()
   sqlite.prepare('DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < ?').run(now)
   sqlite.prepare('DELETE FROM auth_codes WHERE expires_at < ?').run(now)
+}
+
+// G7 操作审计：写入审计日志（失败仅告警，不阻断主流程）。
+export function logAudit(adminId: string, action: string, target: string, meta?: any) {
+  try {
+    sqlite.prepare('INSERT INTO audit_logs (id,admin_id,action,target,meta,created_at) VALUES (?,?,?,?,?,?)')
+      .run(uid('a_'), adminId, action, target, meta !== undefined ? JSON.stringify(meta) : null, Date.now())
+  } catch (e: any) {
+    logWarn('audit.write_failed', { error: e?.message })
+  }
+}
+
+// A12 账号注销：级联清理该用户全部数据后删除账号（个保法删除权）。
+export function deleteAccount(userId: string) {
+  const tx = sqlite.transaction(() => {
+    sqlite.prepare('DELETE FROM exam_records WHERE user_id=?').run(userId)
+    sqlite.prepare('DELETE FROM progress WHERE user_id=?').run(userId)
+    sqlite.prepare('DELETE FROM sessions WHERE user_id=?').run(userId)
+    sqlite.prepare('DELETE FROM orders WHERE user_id=?').run(userId)
+    sqlite.prepare('DELETE FROM subscriptions WHERE user_id=?').run(userId)
+    sqlite.prepare('DELETE FROM users WHERE id=?').run(userId)
+  })
+  tx()
 }

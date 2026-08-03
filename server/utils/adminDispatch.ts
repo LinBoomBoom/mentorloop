@@ -1,5 +1,6 @@
 // 管理后台分发逻辑（纯函数，可单测）。路由层 server/api/admin/[...slug].ts 仅做鉴权 + 事件解析后调用本文件。
 import * as A from './admin'
+import { logAudit } from './db'
 
 class HttpErr extends Error {
   statusCode: number
@@ -12,7 +13,7 @@ function mapErr(e: any) {
   if (m === 'DUP_ID') return new HttpErr(409, 'ID 已存在')
   if (m === 'NO_MODULE') return new HttpErr(400, '所属模块不存在')
   if (m === 'NO_CHAPTER') return new HttpErr(400, '所属章节不存在')
-  if (m === 'WEAK_PASSWORD') return new HttpErr(400, '密码至少 6 位')
+  if (m === 'WEAK_PASSWORD') return new HttpErr(400, '密码至少 8 位')
   return new HttpErr(400, m || '请求错误')
 }
 
@@ -20,7 +21,23 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
   const ok = (data: any) => ({ ok: true, data })
   const list = (data: any) => ({ ok: true, ...data })
 
+  let result: any
   try {
+    result = run()
+  } catch (e: any) {
+    if (e instanceof HttpErr) throw e
+    if (e?.statusCode) throw e
+    throw mapErr(e)
+  }
+
+  // G7 操作审计：仅记录变更类动作（POST/PATCH/DELETE），读操作不记。
+  const isMutating = method === 'POST' || method === 'PATCH' || method === 'DELETE'
+  if (isMutating && result && result.ok) {
+    logAudit(admin.id, method, '/' + (seg || []).join('/'), { seg: seg || [] })
+  }
+  return result
+
+  function run(): any {
     // 自身信息 & 看板
     if (seg[0] === 'me' && method === 'GET') return ok(A.getUserById(admin.id))
     if (seg[0] === 'dashboard' && method === 'GET') return ok(A.dashboardStats())
@@ -99,9 +116,5 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
     if (seg[0] === 'subscriptions' && method === 'GET' && seg.length === 1) return list({ items: A.listSubscriptions() })
 
     throw new HttpErr(404, '未知的管理接口：' + method + ' /' + seg.join('/'))
-  } catch (e: any) {
-    if (e instanceof HttpErr) throw e
-    if (e?.statusCode) throw e
-    throw mapErr(e)
   }
 }

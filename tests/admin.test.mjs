@@ -99,11 +99,13 @@ describe('题库 CRUD (G3)', () => {
 })
 
 describe('用户体系 (G4)', () => {
-  it('创建用户需 ≥6 位密码', () => {
-    expect(() => A.createUser({ username: 'weak', password: '123' })).toThrow('WEAK_PASSWORD')
+  it('创建用户需 ≥8 位密码', () => {
+    expect(() => A.createUser({ username: 'weak', password: '1234567' })).toThrow('WEAK_PASSWORD')
+    const w = A.createUser({ username: 'weak_ok', password: '12345678' })
+    sqlite.prepare('DELETE FROM users WHERE id=?').run(w.id)
   })
   it('用户 增-查-改（角色/VIP/封禁）-删（级联）', () => {
-    const u = A.createUser({ username: 'tu_test_a', email: 'tu_test_a@x.com', password: 'secret1', role: 'user' })
+    const u = A.createUser({ username: 'tu_test_a', email: 'tu_test_a@x.com', password: 'secret12', role: 'user' })
     expect(u.role).toBe('user')
     // 重复用户名
     expect(() => A.createUser({ username: 'tu_test_a', password: 'secret1' })).toThrow('DUP_ID')
@@ -120,7 +122,7 @@ describe('用户体系 (G4)', () => {
     expect(sqlite.prepare('SELECT COUNT(*) c FROM progress WHERE user_id=?').get(u.id).c).toBe(0)
   })
   it('listUsers 支持搜索', () => {
-    const u = A.createUser({ username: 'tu_test_find', password: 'secret1' })
+    const u = A.createUser({ username: 'tu_test_find', password: 'secret12' })
     const r = A.listUsers({ q: 'tu_test_find' })
     expect(r.items.some((x) => x.id === u.id)).toBe(true)
     A.deleteUser(u.id)

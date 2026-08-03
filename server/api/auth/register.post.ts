@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   if (!b.mode) {
     const username = assertInput(b.username, { name: '用户名', required: true, min: 2, max: 64 })
-    const password = assertInput(b.password, { name: '密码', required: true, min: 6, max: 128 })
+    const password = assertPassword(b.password)
     if (sqlite.prepare('SELECT id FROM users WHERE username=?').get(username)) return json(event, 400, { error: '用户名已存在' })
     const user = insertUser(username, 'username', hashPwd(password), b.nickname)
     const token = newToken(user)
@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   if (b.mode === 'password') {
     const identifier = assertInput(b.identifier, { name: '账号', required: true, min: 3, max: 128 })
     const identifierType = assertInput(b.identifierType, { name: '账号类型', required: true, pattern: /^(email|phone)$/ })
-    const password = assertInput(b.password, { name: '密码', required: true, min: 6, max: 128 })
+    const password = assertPassword(b.password)
     if (!['email', 'phone'].includes(identifierType)) return json(event, 400, { error: '账号类型错误' })
     if (findByIdentifier(identifierType, identifier)) return json(event, 400, { error: '该账号已注册，请直接登录' })
     const user = insertUser(identifier, identifierType, hashPwd(password), b.nickname)

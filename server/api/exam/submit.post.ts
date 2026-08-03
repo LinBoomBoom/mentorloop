@@ -1,11 +1,18 @@
-// 交卷判分 + 复盘生成
+// 交卷判分 + 复盘生成（含 B10 幂等：相同 submit_nonce 重复提交返回首次记录，防止刷成绩）
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '请先登录后再交卷' })
-  const { setId, choiceAnswers = {}, writtenAnswers = {}, usedSeconds = 0 } = await readBody(event)
+  const { setId, choiceAnswers = {}, writtenAnswers = {}, usedSeconds = 0, nonce } = await readBody(event)
   const set = sqlite.prepare('SELECT * FROM exam_sets WHERE id=?').get(setId)
   if (!set) return json(event, 404, { error: '试卷不存在' })
   if (!requireVip(user, set)) return json(event, 403, { error: '该试卷为 VIP 专属，请先开通会员' })
+
+  // B10 幂等：若携带 nonce，先查是否已存在该用户的同卷同 nonce 记录
+  const effNonce = typeof nonce === 'string' && nonce ? nonce.slice(0, 64) : uid('n_')
+  const existing = sqlite.prepare('SELECT * FROM exam_records WHERE user_id=? AND set_id=? AND submit_nonce=?').get(user.id, setId, effNonce) as any
+  if (existing) {
+    return json(event, 200, { record: rowToRecord(existing), idempotent: true })
+  }
 
   const choiceRows = sqlite.prepare('SELECT * FROM exam_choices WHERE set_id=?').all(setId)
   let correct = 0
@@ -34,12 +41,23 @@ export default defineEventHandler(async (event) => {
   else { level = '待加强'; advice = '当前阶段不建议直接面试。请从学习中心第一章开始系统学习，配合高频面试题理解概念，循序渐进。' }
 
   const id = uid('r_')
-  sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,used_seconds,choice_review,written_review,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(id, user.id, set.id, set.name, set.track, choiceScore, correct, choiceRows.length, JSON.stringify(weakPoints), level, advice, usedSeconds, JSON.stringify(choiceReview), JSON.stringify(writtenReview), Date.now())
+  sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,used_seconds,choice_review,written_review,created_at,submit_nonce) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(id, user.id, set.id, set.name, set.track, choiceScore, correct, choiceRows.length, JSON.stringify(weakPoints), level, advice, usedSeconds, JSON.stringify(choiceReview), JSON.stringify(writtenReview), Date.now(), effNonce)
   const record = {
     id, userId: user.id, setId: set.id, setName: set.name, track: set.track,
     score: choiceScore, correct, total: choiceRows.length, weakPoints, level, advice, usedSeconds,
-    choiceReview, writtenReview, createdAt: Date.now()
+    choiceReview, writtenReview, createdAt: Date.now(), nonce: effNonce
   }
-  return json(event, 200, { record })
+  return json(event, 200, { record, idempotent: false })
 })
+
+function safeParse(s: any, d: any) { try { return JSON.parse(s) } catch { return d } }
+function rowToRecord(r: any) {
+  return {
+    id: r.id, userId: r.user_id, setId: r.set_id, setName: r.set_name, track: r.track,
+    score: r.score, correct: r.correct, total: r.total,
+    weakPoints: safeParse(r.weak_points, []), level: r.level, advice: r.advice, usedSeconds: r.used_seconds,
+    choiceReview: safeParse(r.choice_review, []), writtenReview: safeParse(r.written_review, []), createdAt: r.created_at,
+    nonce: r.submit_nonce
+  }
+}

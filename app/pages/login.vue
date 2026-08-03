@@ -57,7 +57,7 @@
             </div>
             <div class="relative">
               <span class="absolute left-4 top-1/2 -translate-y-1/2 text-muted"><Icon name="lock" :size="17"/></span>
-              <input class="input !pl-11 !pr-11" :type="showPwd?'text':'password'" v-model="password" placeholder="密码（至少6位）" />
+              <input class="input !pl-11 !pr-11" :type="showPwd?'text':'password'" v-model="password" placeholder="密码（至少8位，含字母与数字）" />
               <button class="absolute right-3 top-1/2 -translate-y-1/2 text-muted" @click="showPwd=!showPwd"><Icon :name="showPwd?'eyeOff':'eye'" :size="17"/></button>
             </div>
             <button class="btn btn-primary btn-block" @click="submitAccount" :disabled="loading">
@@ -135,7 +135,7 @@ async function submitAccount() {
     const body: any = { mode: mode.value, identifierType: idType.value, identifier: identifier.value }
     if (mode.value === 'password') { body.password = password.value } else { body.code = code.value }
     if (!body.identifier) throw new Error('请填写' + (idType.value === 'phone' ? '手机号' : '邮箱'))
-    if (mode.value === 'password' && (!body.password || body.password.length < 6)) throw new Error('密码至少6位')
+    if (mode.value === 'password' && (!body.password || body.password.length < 8)) throw new Error('密码至少8位，且需含字母与数字两类')
     if (mode.value === 'code' && !body.code) throw new Error('请填写验证码')
     const action = isReg.value ? 'register' : 'login'
     const { user } = await request('/api/auth/' + action, { method: 'POST', body })

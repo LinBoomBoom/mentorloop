@@ -67,6 +67,22 @@ export function resetLoginFailure(ip: string, identifier: string) {
 /* ---------------- A8 输入长度/类型校验 ---------------- */
 export class InputError extends Error {}
 
+// 密码强度基线（A14）：长度 >= 8 且至少包含「字母 / 数字 / 特殊字符」中的两类。
+// 返回规范化字符串（明文），校验失败抛 InputError（register/login 统一映射 400）。
+export const PASSWORD_MIN_LEN = 8
+export function assertPassword(value: any): string {
+  const s = typeof value === 'string' ? value : ''
+  if (!s) throw new InputError('密码不能为空')
+  if (s.length < PASSWORD_MIN_LEN) throw new InputError('密码至少 ' + PASSWORD_MIN_LEN + ' 位')
+  if (s.length > 128) throw new InputError('密码长度超限（最多 128 个字符）')
+  const hasLetter = /[a-zA-Z]/.test(s)
+  const hasDigit = /\d/.test(s)
+  const hasSpecial = /[^A-Za-z0-9]/.test(s)
+  const classes = [hasLetter, hasDigit, hasSpecial].filter(Boolean).length
+  if (classes < 2) throw new InputError('密码需至少包含字母、数字中的两类（建议字母+数字组合）')
+  return s
+}
+
 // 统一校验：必填、长度区间、正则。返回规范化字符串（截断前不改动）。
 export function assertInput(value: any, opts: { name: string; required?: boolean; min?: number; max?: number; pattern?: RegExp }): string {
   const s = typeof value === 'string' ? value : value == null ? '' : String(value)

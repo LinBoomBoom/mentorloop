@@ -50,6 +50,22 @@
         </div>
         <p v-else class="text-sm text-muted">暂无订单记录。</p>
       </div>
+
+      <!-- 账号安全 -->
+      <div class="card p-6 border border-red-200/60">
+        <h3 class="font-bold mb-2">账号安全</h3>
+        <p class="text-sm text-muted mb-3">注销后将永久删除你的账号、学习进度与答卷记录，且不可恢复。</p>
+        <button class="btn border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" @click="showDelete = true">注销账号</button>
+
+        <div v-if="showDelete" class="mt-4 space-y-3">
+          <input class="input" :type="showDelPwd?'text':'password'" v-model="deletePwd" placeholder="请输入登录密码以确认" />
+          <div class="flex items-center gap-3">
+            <button class="btn border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" :disabled="deleteLoading" @click="doDelete">{{ deleteLoading ? '处理中…' : '确认注销' }}</button>
+            <button class="btn" @click="showDelete = false">取消</button>
+          </div>
+          <p v-if="deleteError" class="text-sm text-red-500">{{ deleteError }}</p>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -69,6 +85,21 @@ const avatarBg = computed(() => auth.isVip
 function planName(id?: string) { return id || '—' }
 function statusText(s: string) { return s === 'paid' ? '已支付' : s === 'pending' ? '待支付' : s === 'refunded' ? '已退款' : s }
 function fmtDate(ts?: number) { return ts ? new Date(ts).toLocaleDateString('zh-CN') : '—' }
+
+const showDelete = ref(false)
+const deletePwd = ref('')
+const showDelPwd = ref(false)
+const deleteLoading = ref(false)
+const deleteError = ref('')
+async function doDelete() {
+  if (!deletePwd.value) { deleteError.value = '请输入密码'; return }
+  deleteLoading.value = true; deleteError.value = ''
+  try {
+    await request('/api/auth/delete', { method: 'POST', body: { password: deletePwd.value } })
+    auth.logout()
+    await navigateTo('/')
+  } catch (e: any) { deleteError.value = e.message } finally { deleteLoading.value = false }
+}
 
 onMounted(async () => {
   if (auth.isLoggedIn) {

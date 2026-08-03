@@ -66,6 +66,11 @@
 
       <main class="px-4 sm:px-6 lg:px-10 py-6 lg:py-8 pb-24 md:pb-8 max-w-[1200px] mx-auto">
         <slot />
+        <footer class="mt-12 pt-6 border-t border-line flex items-center justify-center gap-5 text-xs text-muted">
+          <NuxtLink to="/privacy" class="hover:text-brand-coral transition">隐私政策</NuxtLink>
+          <NuxtLink to="/terms" class="hover:text-brand-coral transition">服务条款</NuxtLink>
+          <span>© 2026 MentorLoop</span>
+        </footer>
       </main>
     </div>
 

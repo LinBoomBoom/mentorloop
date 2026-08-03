@@ -63,7 +63,7 @@ export function createUser(data: any) {
   if (!username && !email) throw new Error('INVALID_ID')
   if (username && (sqlite.prepare('SELECT 1 FROM users WHERE username=?').get(username))) throw new Error('DUP_ID')
   if (email && (sqlite.prepare('SELECT 1 FROM users WHERE lower(email)=?').get(email.toLowerCase()))) throw new Error('DUP_ID')
-  if (!password || password.length < 6) throw new Error('WEAK_PASSWORD')
+  if (!password || password.length < 8) throw new Error('WEAK_PASSWORD')
   const id = 'u_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
   sqlite.prepare('INSERT INTO users (id,username,nickname,password,email,phone,providers,vip,role,banned,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
     .run(id, username || null, data.nickname || username || email, hashPwd(password), email || null, null, '{}',
