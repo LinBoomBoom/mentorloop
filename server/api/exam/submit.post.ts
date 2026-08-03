@@ -41,23 +41,32 @@ export default defineEventHandler(async (event) => {
   else { level = '待加强'; advice = '当前阶段不建议直接面试。请从学习中心第一章开始系统学习，配合高频面试题理解概念，循序渐进。' }
 
   const id = uid('r_')
-  sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,used_seconds,choice_review,written_review,created_at,submit_nonce) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(id, user.id, set.id, set.name, set.track, choiceScore, correct, choiceRows.length, JSON.stringify(weakPoints), level, advice, usedSeconds, JSON.stringify(choiceReview), JSON.stringify(writtenReview), Date.now(), effNonce)
+  const now = Date.now()
+  // B7 拆表：主表双写老列（回滚安全网）+ 子表结构化写入，同一事务保证一致
+  const insRec = sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,used_seconds,choice_review,written_review,created_at,submit_nonce) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  const insC = sqlite.prepare('INSERT INTO exam_choice_reviews (id,record_id,choice_id,q,options,user_answer,answer,right,explain,tag) VALUES (?,?,?,?,?,?,?,?,?,?)')
+  const insW = sqlite.prepare('INSERT INTO exam_written_reviews (id,record_id,written_id,q,user_answer,reference,points) VALUES (?,?,?,?,?,?,?,?)')
+  const tx = sqlite.transaction(() => {
+    insRec.run(id, user.id, set.id, set.name, set.track, choiceScore, correct, choiceRows.length, JSON.stringify(weakPoints), level, advice, usedSeconds, JSON.stringify(choiceReview), JSON.stringify(writtenReview), now, effNonce)
+    for (const c of choiceReview) insC.run(uid('cr_'), id, c.id, c.q, JSON.stringify(c.options), JSON.stringify(c.userAnswer), JSON.stringify(c.answer), c.right ? 1 : 0, c.explain, c.tag)
+    for (const w of writtenReview) insW.run(uid('wr_'), id, w.id, w.q, w.userAnswer, w.reference, JSON.stringify(w.points))
+  })
+  tx()
   const record = {
     id, userId: user.id, setId: set.id, setName: set.name, track: set.track,
     score: choiceScore, correct, total: choiceRows.length, weakPoints, level, advice, usedSeconds,
-    choiceReview, writtenReview, createdAt: Date.now(), nonce: effNonce
+    choiceReview, writtenReview, createdAt: now, nonce: effNonce
   }
   return json(event, 200, { record, idempotent: false })
 })
 
-function safeParse(s: any, d: any) { try { return JSON.parse(s) } catch { return d } }
 function rowToRecord(r: any) {
+  const { choiceReview, writtenReview } = loadExamReviews(r.id, r.choice_review, r.written_review)
   return {
     id: r.id, userId: r.user_id, setId: r.set_id, setName: r.set_name, track: r.track,
     score: r.score, correct: r.correct, total: r.total,
-    weakPoints: safeParse(r.weak_points, []), level: r.level, advice: r.advice, usedSeconds: r.used_seconds,
-    choiceReview: safeParse(r.choice_review, []), writtenReview: safeParse(r.written_review, []), createdAt: r.created_at,
+    weakPoints: safeJson(r.weak_points, []), level: r.level, advice: r.advice, usedSeconds: r.used_seconds,
+    choiceReview, writtenReview, createdAt: r.created_at,
     nonce: r.submit_nonce
   }
 }

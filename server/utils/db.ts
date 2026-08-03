@@ -224,6 +224,27 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       db.exec('CREATE INDEX IF NOT EXISTS idx_interview_user ON interview_sessions(user_id)')
       db.exec('CREATE INDEX IF NOT EXISTS idx_studyplan_user ON study_plans(user_id)')
     }
+  },
+  {
+    version: 4,
+    name: 'exam-review-split',
+    up: (db) => {
+      // B7 拆表：将 exam_records 的 choice_review/written_review 大文本字段拆到子表，消除行膨胀。
+      // 安全策略：保留主表老列（新数据双写 + 回滚安全网），读取统一走子表（子表为空 fallback 主表老列）。
+      db.exec(`CREATE TABLE IF NOT EXISTS exam_choice_reviews (
+        id TEXT PRIMARY KEY, record_id TEXT NOT NULL, choice_id TEXT, q TEXT, options TEXT,
+        user_answer TEXT, answer TEXT, right INTEGER, explain TEXT, tag TEXT,
+        FOREIGN KEY(record_id) REFERENCES exam_records(id) ON DELETE CASCADE
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_ecr_record ON exam_choice_reviews(record_id)')
+      db.exec(`CREATE TABLE IF NOT EXISTS exam_written_reviews (
+        id TEXT PRIMARY KEY, record_id TEXT NOT NULL, written_id TEXT, q TEXT,
+        user_answer TEXT, reference TEXT, points TEXT,
+        FOREIGN KEY(record_id) REFERENCES exam_records(id) ON DELETE CASCADE
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_ewr_record ON exam_written_reviews(record_id)')
+      backfillExamReviews(db)
+    }
   }
 ]
 
@@ -390,6 +411,56 @@ export function newToken(user: any): string {
 }
 export function genCode() { return String(Math.floor(100000 + Math.random() * 900000)) }
 export function uid(prefix = 'u_') { return prefix + crypto.randomBytes(6).toString('hex') }
+
+export function safeJson(s: any, d: any) {
+  try { return JSON.parse(s) } catch { return d }
+}
+
+// B7 拆表后统一读取作答复盘：优先子表（结构化、可查询），子表为空则 fallback 主表老列
+export function loadExamReviews(recordId: string, fallbackChoice?: string | null, fallbackWritten?: string | null) {
+  const cr = sqlite.prepare('SELECT * FROM exam_choice_reviews WHERE record_id=? ORDER BY rowid').all(recordId) as any[]
+  const wr = sqlite.prepare('SELECT * FROM exam_written_reviews WHERE record_id=? ORDER BY rowid').all(recordId) as any[]
+  if (cr.length) {
+    return {
+      choiceReview: cr.map((r) => ({
+        id: r.choice_id, q: r.q,
+        options: safeJson(r.options, []),
+        userAnswer: safeJson(r.user_answer, []),
+        answer: safeJson(r.answer, []),
+        right: !!r.right, explain: r.explain, tag: r.tag
+      })),
+      writtenReview: wr.map((r) => ({
+        id: r.written_id, q: r.q,
+        userAnswer: r.user_answer || '（未作答）',
+        reference: r.reference,
+        points: safeJson(r.points, [])
+      }))
+    }
+  }
+  return {
+    choiceReview: safeJson(fallbackChoice, []),
+    writtenReview: safeJson(fallbackWritten, [])
+  }
+}
+
+// B7 迁移回填：解析主表 choice_review/written_review JSON 写入子表（幂等：已有子表记录则跳过）
+export function backfillExamReviews(db: any) {
+  const rows = db.prepare("SELECT id, choice_review, written_review FROM exam_records WHERE choice_review IS NOT NULL AND choice_review <> '[]'").all() as any[]
+  const insC = db.prepare('INSERT OR IGNORE INTO exam_choice_reviews (id,record_id,choice_id,q,options,user_answer,answer,right,explain,tag) VALUES (?,?,?,?,?,?,?,?,?,?)')
+  const insW = db.prepare('INSERT OR IGNORE INTO exam_written_reviews (id,record_id,written_id,q,user_answer,reference,points) VALUES (?,?,?,?,?,?,?)')
+  for (const rec of rows) {
+    const cnt = (db.prepare('SELECT COUNT(*) c FROM exam_choice_reviews WHERE record_id=?').get(rec.id) as any).c
+    if (cnt > 0) continue
+    try {
+      const cr = JSON.parse(rec.choice_review || '[]')
+      for (const c of cr) insC.run(uid('cr_'), rec.id, c.id, c.q, JSON.stringify(c.options), JSON.stringify(c.userAnswer), JSON.stringify(c.answer), c.right ? 1 : 0, c.explain, c.tag)
+    } catch { /* ignore malformed */ }
+    try {
+      const wr = JSON.parse(rec.written_review || '[]')
+      for (const w of wr) insW.run(uid('wr_'), rec.id, w.id, w.q, w.userAnswer, w.reference, JSON.stringify(w.points))
+    } catch { /* ignore malformed */ }
+  }
+}
 export function sendCode(type: string, identifier: string): string {
   const code = genCode()
   sqlite.prepare('INSERT OR REPLACE INTO auth_codes (key, code, expires_at) VALUES (?,?,?)')
