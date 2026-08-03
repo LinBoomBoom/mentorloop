@@ -14,6 +14,7 @@ function mapErr(e: any) {
   if (m === 'NO_MODULE') return new HttpErr(400, '所属模块不存在')
   if (m === 'NO_CHAPTER') return new HttpErr(400, '所属章节不存在')
   if (m === 'WEAK_PASSWORD') return new HttpErr(400, '密码至少 8 位')
+  if (m === 'BAD_STATUS') return new HttpErr(400, '非法的申请状态')
   return new HttpErr(400, m || '请求错误')
 }
 
@@ -114,6 +115,21 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
     // 订单 / 订阅 (G5)
     if (seg[0] === 'orders' && method === 'GET' && seg.length === 1) return list({ items: A.listOrders() })
     if (seg[0] === 'subscriptions' && method === 'GET' && seg.length === 1) return list({ items: A.listSubscriptions() })
+
+    // 内推资源库管理 (H4, M4 维护)
+    if (seg[0] === 'referrals') {
+      if (method === 'GET' && seg.length === 1) return list({ items: A.listReferralsAdmin({ track: q.track as string, city: q.city as string, level: q.level as string }) })
+      if (method === 'POST' && seg.length === 1) return ok(A.createReferral(body))
+      if (seg.length === 2) {
+        if (method === 'GET') return ok(A.getReferral(seg[1]))
+        if (method === 'PATCH') return ok(A.updateReferral(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: A.deleteReferral(seg[1]) })
+      }
+    }
+    if (seg[0] === 'referral-applications') {
+      if (method === 'GET' && seg.length === 1) return list({ items: A.listReferralApplications(q.status as string) })
+      if (seg.length === 2 && method === 'PATCH') return ok(A.updateReferralApplication(seg[1], body.status))
+    }
 
     throw new HttpErr(404, '未知的管理接口：' + method + ' /' + seg.join('/'))
   }

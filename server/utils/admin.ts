@@ -1,6 +1,7 @@
 // 管理后台数据访问层（G 类：用户体系 / 内容 / 题库 / 订单 CRUD + 看板）
 // 纯函数式助手，直接操作 sqlite；路由层只负责鉴权 + 包装响应。可被 vitest 直接测试。
 import { sqlite, hashPwd, publicUser } from './db'
+import { trackName } from './referral'
 
 /* ============ 用户体系 (G4) ============ */
 export interface UserFilter { q?: string; role?: string; page?: number; pageSize?: number }
@@ -316,4 +317,57 @@ export function dashboardStats() {
     revenue: (sqlite.prepare("SELECT COALESCE(SUM(amount),0) s FROM orders WHERE status='paid'").get() as any).s,
     activeSubs: c('SELECT COUNT(*) c FROM subscriptions WHERE status=? AND expire_at>?', ['active', Date.now()])
   }
+}
+
+/* ============ 内推资源库管理 (H4，M4 维护) ============ */
+export function listReferralsAdmin(filter: { track?: string; city?: string; level?: string } = {}) {
+  const where: string[] = []; const params: any[] = []
+  if (filter.track) { where.push('track=?'); params.push(filter.track) }
+  if (filter.city) { where.push('city=?'); params.push(filter.city) }
+  if (filter.level) { where.push('level=?'); params.push(filter.level) }
+  const sql = 'SELECT * FROM referrals' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY created_at DESC'
+  return (sqlite.prepare(sql).all(...params) as any[]).map((r: any) => ({ ...r, trackName: trackName(r.track) }))
+}
+export function getReferral(id: string) { return sqlite.prepare('SELECT * FROM referrals WHERE id=?').get(id) || null }
+export function createReferral(data: any) {
+  const id = String(data.id || '').trim()
+  if (!/^[a-z0-9_-]{2,60}$/.test(id)) throw new Error('INVALID_ID')
+  if (getReferral(id)) throw new Error('DUP_ID')
+  sqlite.prepare('INSERT INTO referrals (id,company,title,track,city,level,type,requirement,intro,contact,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+    .run(id, data.company || '', data.title || '', data.track || 'frontend', data.city || '', data.level || '',
+      data.type || '社招', data.requirement || '', data.intro || '', data.contact || '', Date.now())
+  return getReferral(id)
+}
+export function updateReferral(id: string, patch: any) {
+  const r = getReferral(id); if (!r) return null
+  const sets: string[] = []; const v: any[] = []
+  for (const f of ['company', 'title', 'track', 'city', 'level', 'type', 'requirement', 'intro', 'contact']) {
+    if (patch[f] !== undefined) { sets.push(`${f}=?`); v.push(patch[f]) }
+  }
+  if (!sets.length) return r
+  v.push(id); sqlite.prepare(`UPDATE referrals SET ${sets.join(',')} WHERE id=?`).run(...v)
+  return getReferral(id)
+}
+export function deleteReferral(id: string) {
+  const r = getReferral(id); if (!r) return false
+  sqlite.prepare('DELETE FROM referrals WHERE id=?').run(id)
+  return true
+}
+
+export function listReferralApplications(status?: string) {
+  const where = status ? 'WHERE a.status=?' : ''
+  const rows = sqlite.prepare(
+    `SELECT a.id,a.user_id,a.referral_id,a.name,a.contact,a.note,a.status,a.created_at,r.company,r.title,r.track
+     FROM referral_applications a LEFT JOIN referrals r ON r.id=a.referral_id
+     ${where} ORDER BY a.created_at DESC`
+  ).all(...(status ? [status] : [])) as any[]
+  return rows.map((r: any) => ({ ...r, trackName: trackName(r.track) }))
+}
+export function updateReferralApplication(id: string, status: string) {
+  const a = sqlite.prepare('SELECT * FROM referral_applications WHERE id=?').get(id) as any
+  if (!a) return null
+  const ok = ['pending', 'contacted', 'done', 'rejected']
+  if (!ok.includes(status)) throw new Error('BAD_STATUS')
+  sqlite.prepare('UPDATE referral_applications SET status=? WHERE id=?').run(status, id)
+  return sqlite.prepare('SELECT * FROM referral_applications WHERE id=?').get(id)
 }

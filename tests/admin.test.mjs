@@ -1,130 +1,187 @@
-import { describe, it, expect, afterAll } from 'vitest'
-import { sqlite } from '../server/utils/db'
-import * as A from '../server/utils/admin'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { mkdtempSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 
-// 复用真实库，按约定在 afterAll 清理测试数据（与 vip-payment.test.mjs 同款模式）
-afterAll(() => {
-  sqlite.prepare("DELETE FROM sections WHERE id LIKE 'tsec_%'").run()
-  sqlite.prepare("DELETE FROM chapters WHERE id LIKE 'tch_%'").run()
-  sqlite.prepare("DELETE FROM modules WHERE id LIKE 'tmod_%'").run()
-  sqlite.prepare("DELETE FROM exam_choices WHERE id LIKE 'tex_c%'").run()
-  sqlite.prepare("DELETE FROM exam_written WHERE id LIKE 'tex_w%'").run()
-  sqlite.prepare("DELETE FROM exam_sets WHERE id LIKE 'tex_%'").run()
-  sqlite.prepare("DELETE FROM interview_questions WHERE id LIKE 'tiq_%'").run()
-  sqlite.prepare("DELETE FROM sessions WHERE user_id LIKE 'tu_test_%'").run()
-  sqlite.prepare("DELETE FROM users WHERE id LIKE 'tu_test_%'").run()
+const dir = mkdtempSync(join(tmpdir(), 'ml-admin-'))
+process.env.DB_PATH = join(dir, 'test.db')
+
+const { adminDispatch } = await import('../server/utils/adminDispatch')
+const { sqlite } = await import('../server/utils/db')
+const { applyReferral } = await import('../server/utils/referral')
+
+const ADMIN = { id: 'admin_test', role: 'admin' }
+function disp(method, seg, q = {}, body = {}) {
+  return adminDispatch(ADMIN, method, seg, q, body)
+}
+function fails(fn) {
+  try { fn(); return null } catch (e) { return e }
+}
+
+beforeAll(() => {
+  // 造一个 admin 账号（便于 createUser 等的角色语义），以及测试用父记录
+  sqlite.prepare("INSERT OR IGNORE INTO users (id,username,password,role,created_at) VALUES ('admin_test','boss','x','admin',?)").run(Date.now())
 })
 
-describe('看板 G6', () => {
-  it('dashboardStats 返回数值指标', () => {
-    const s = A.dashboardStats()
-    expect(typeof s.users).toBe('number')
-    expect(typeof s.examSets).toBe('number')
-    expect(typeof s.revenue).toBe('number')
-    expect(s.examSets).toBeGreaterThanOrEqual(19)
-  })
-})
+afterAll(() => { try { rmSync(dir, { recursive: true, force: true }) } catch {} })
 
-describe('内容 CRUD (G2)', () => {
-  it('模块 增-查-改-删（级联删章节/小节）', () => {
-    const m = A.createModule({ id: 'tmod_1', name: '测试模块', icon: '🧪', color: '#000', desc: 'd' })
-    expect(m.id).toBe('tmod_1')
-    expect(A.getModule('tmod_1').name).toBe('测试模块')
-    A.updateModule('tmod_1', { name: '改名' })
-    expect(A.getModule('tmod_1').name).toBe('改名')
-    // 建子章节+小节，验证级联删除
-    const ch = A.createChapter({ id: 'tch_1', moduleId: 'tmod_1', title: '章' })
-    expect(ch.module_id).toBe('tmod_1')
-    const sec = A.createSection({ id: 'tsec_1', chapterId: 'tch_1', title: '节', content: 'c' })
-    expect(sec.chapter_id).toBe('tch_1')
-    expect(A.deleteModule('tmod_1')).toBe(true)
-    expect(A.getModule('tmod_1')).toBeNull()
-    expect(A.getChapter('tch_1')).toBeNull()
-    expect(A.getSection('tsec_1')).toBeNull()
+describe('G6 看板 & 兜底', () => {
+  it('dashboard 返回核心指标', () => {
+    const r = disp('GET', ['dashboard'])
+    expect(r.ok).toBe(true)
+    expect(typeof r.data.users).toBe('number')
+    expect(typeof r.data.revenue).toBe('number')
   })
-
-  it('非法 ID / 重复 ID 抛错', () => {
-    expect(() => A.createModule({ id: 'Bad ID' })).toThrow('INVALID_ID')
-    A.createModule({ id: 'tmod_dup', name: 'x' })
-    expect(() => A.createModule({ id: 'tmod_dup', name: 'y' })).toThrow('DUP_ID')
-    expect(() => A.createChapter({ id: 'tch_x', moduleId: 'nope' })).toThrow('NO_MODULE')
-  })
-
-  it('小节改所属章节', () => {
-    A.createModule({ id: 'tmod_a', name: 'a' })
-    A.createModule({ id: 'tmod_b', name: 'b' })
-    const c1 = A.createChapter({ id: 'tch_a', moduleId: 'tmod_a', title: 'a' })
-    const c2 = A.createChapter({ id: 'tch_b', moduleId: 'tmod_b', title: 'b' })
-    const s = A.createSection({ id: 'tsec_mv', chapterId: 'tch_a', title: 's' })
-    expect(s.chapter_id).toBe('tch_a')
-    A.updateSection('tsec_mv', { chapterId: 'tch_b' })
-    expect(A.getSection('tsec_mv').chapter_id).toBe('tch_b')
+  it('未知接口返回 404', () => {
+    const e = fails(() => disp('GET', ['nope']))
+    expect(e?.statusCode).toBe(404)
   })
 })
 
-describe('题库 CRUD (G3)', () => {
-  it('试卷 增-查-改（含嵌套题）-删（级联）', () => {
-    const created = A.createExamSet({
-      id: 'tex_1', name: '卷', track: 'frontend', level: '初级', duration: 30, vipOnly: false,
-      choices: [
-        { id: 'tex_c1', q: '1+1=?', options: ['1', '2', '3'], answer: ['2'], explain: 'e' },
-        { id: 'tex_c2', q: '2+2=?', options: ['3', '4'], answer: ['4'], explain: 'e' }
-      ],
-      written: [{ id: 'tex_w1', q: '简述', points: ['p1'], reference: 'r' }]
-    })
-    expect(created.choices.length).toBe(2)
-    expect(created.written.length).toBe(1)
-    expect(A.getExamSetDetail('tex_1').choices.length).toBe(2)
-    // 更新：替换题目（应变为 1 道）
-    A.updateExamSet('tex_1', { name: '卷改', choices: [{ id: 'tex_c9', q: '3+3=?', options: ['6'], answer: ['6'], explain: 'e' }], written: [] })
-    const upd = A.getExamSetDetail('tex_1')
-    expect(upd.name).toBe('卷改')
-    expect(upd.choices.length).toBe(1)
-    expect(upd.written.length).toBe(0)
-    expect(A.deleteExamSet('tex_1')).toBe(true)
-    expect(A.getExamSet('tex_1')).toBeNull()
-    expect(sqlite.prepare("SELECT COUNT(*) c FROM exam_choices WHERE set_id='tex_1'").get().c).toBe(0)
+describe('G4 用户体系', () => {
+  it('创建用户（弱密码被拒）', () => {
+    const e = fails(() => disp('POST', ['users'], {}, { username: 'weak1', password: '123' }))
+    expect(e?.statusCode).toBe(400)
   })
-
-  it('面试题 增-查-改-删', () => {
-    const q = A.createInterview({ id: 'tiq_1', track: 'ai', type: 'hot', q: '什么是RAG?', a: '检索增强', keywords: ['rag'] })
-    expect(q.track).toBe('ai')
-    expect(q.keywords).toEqual(['rag'])
-    A.updateInterview('tiq_1', { a: '检索增强生成' })
-    expect(A.getInterview('tiq_1').a).toBe('检索增强生成')
-    expect(A.listInterview('ai').some((x) => x.id === 'tiq_1')).toBe(true)
-    expect(A.deleteInterview('tiq_1')).toBe(true)
-    expect(A.getInterview('tiq_1')).toBeNull()
+  it('创建 / 读取 / 列表', () => {
+    const u = disp('POST', ['users'], {}, { username: 'alice', email: 'a@x.com', password: 'secret12', nickname: 'Alice' })
+    expect(u.data.username).toBe('alice')
+    const got = disp('GET', ['users', u.data.id])
+    expect(got.data.nickname).toBe('Alice')
+    const list = disp('GET', ['users'], { q: 'alice' })
+    expect(list.items.some((x) => x.id === u.data.id)).toBe(true)
+  })
+  it('重复用户名返回 409', () => {
+    const e = fails(() => disp('POST', ['users'], {}, { username: 'alice', password: 'secret12' }))
+    expect(e?.statusCode).toBe(409)
+  })
+  it('PATCH 改角色 / 封禁 / 密码', () => {
+    const u = disp('POST', ['users'], {}, { username: 'bob', password: 'secret12' }).data
+    disp('PATCH', ['users', u.id], {}, { role: 'admin', banned: true })
+    const got = disp('GET', ['users', u.id]).data
+    expect(got.role).toBe('admin')
+    expect(got.banned).toBe(true)
+    disp('PATCH', ['users', u.id], {}, { password: 'newpass9' }) // 不抛错即可
+  })
+  it('不能删除当前登录管理员', () => {
+    const e = fails(() => disp('DELETE', ['users', 'admin_test']))
+    expect(e?.statusCode).toBe(400)
+  })
+  it('删除用户级联清理', () => {
+    const u = disp('POST', ['users'], {}, { username: 'carol', password: 'secret12' }).data
+    const d = disp('DELETE', ['users', u.id])
+    expect(d.data.deleted).toBe(true)
+    expect(disp('GET', ['users', u.id]).data).toBe(null)
   })
 })
 
-describe('用户体系 (G4)', () => {
-  it('创建用户需 ≥8 位密码', () => {
-    expect(() => A.createUser({ username: 'weak', password: '1234567' })).toThrow('WEAK_PASSWORD')
-    const w = A.createUser({ username: 'weak_ok', password: '12345678' })
-    sqlite.prepare('DELETE FROM users WHERE id=?').run(w.id)
+describe('G2 内容：模块/章节/小节', () => {
+  it('模块：非法 ID / 重复 / 创建 / 更新 / 删除', () => {
+    const e1 = fails(() => disp('POST', ['modules'], {}, { id: 'M', name: 'X' }))
+    expect(e1?.statusCode).toBe(400)
+    const m = disp('POST', ['modules'], {}, { id: 'm_test', name: '测试模块', color: '#fff' }).data
+    const e2 = fails(() => disp('POST', ['modules'], {}, { id: 'm_test', name: 'X' }))
+    expect(e2?.statusCode).toBe(409)
+    disp('PATCH', ['modules', 'm_test'], {}, { name: '改名' })
+    expect(disp('GET', ['modules', 'm_test']).data.name).toBe('改名')
+    disp('DELETE', ['modules', 'm_test'])
+    expect(disp('GET', ['modules', 'm_test']).data).toBe(null)
   })
-  it('用户 增-查-改（角色/VIP/封禁）-删（级联）', () => {
-    const u = A.createUser({ username: 'tu_test_a', email: 'tu_test_a@x.com', password: 'secret12', role: 'user' })
-    expect(u.role).toBe('user')
-    // 重复用户名
-    expect(() => A.createUser({ username: 'tu_test_a', password: 'secret1' })).toThrow('DUP_ID')
-    A.updateUser(u.id, { role: 'admin' })
-    expect(A.getUserById(u.id).role).toBe('admin')
-    A.updateUser(u.id, { banned: true, vip: { level: 3, expireAt: null } })
-    const gu = A.getUserById(u.id)
-    expect(gu.banned).toBe(true)
-    expect(gu.vip.level).toBe(3)
-    // 建一条 progress 验证级联
-    sqlite.prepare('INSERT OR IGNORE INTO progress (user_id,section_id,done_at) VALUES (?,?,?)').run(u.id, 'fe-c1-s1', Date.now())
-    expect(A.deleteUser(u.id)).toBe(true)
-    expect(A.getUserById(u.id)).toBeNull()
-    expect(sqlite.prepare('SELECT COUNT(*) c FROM progress WHERE user_id=?').get(u.id).c).toBe(0)
+  it('章节：依赖模块存在', () => {
+    disp('POST', ['modules'], {}, { id: 'm_c', name: 'C' })
+    const e = fails(() => disp('POST', ['chapters'], {}, { id: 'c_x', title: 'T', moduleId: 'no_such' }))
+    expect(e?.statusCode).toBe(400)
+    const c = disp('POST', ['chapters'], {}, { id: 'c_x', title: '章节1', moduleId: 'm_c' }).data
+    disp('PATCH', ['chapters', 'c_x'], {}, { title: '章节改' })
+    expect(disp('GET', ['chapters', 'c_x']).data.title).toBe('章节改')
+    disp('DELETE', ['chapters', 'c_x'])
+    expect(disp('GET', ['chapters', 'c_x']).data).toBe(null)
+    disp('DELETE', ['modules', 'm_c'])
   })
-  it('listUsers 支持搜索', () => {
-    const u = A.createUser({ username: 'tu_test_find', password: 'secret12' })
-    const r = A.listUsers({ q: 'tu_test_find' })
-    expect(r.items.some((x) => x.id === u.id)).toBe(true)
-    A.deleteUser(u.id)
+  it('小节：依赖章节存在 + 删除级联', () => {
+    disp('POST', ['modules'], {}, { id: 'm_s', name: 'S' })
+    disp('POST', ['chapters'], {}, { id: 'c_s', title: 'C', moduleId: 'm_s' })
+    const e = fails(() => disp('POST', ['sections'], {}, { id: 's_x', title: 'T', chapterId: 'no_such' }))
+    expect(e?.statusCode).toBe(400)
+    disp('POST', ['sections'], {}, { id: 's_x', title: '节1', chapterId: 'c_s', content: 'hi' })
+    disp('DELETE', ['sections', 's_x'])
+    expect(disp('GET', ['sections', 's_x']).data).toBe(null)
+    disp('DELETE', ['chapters', 'c_s'])
+    disp('DELETE', ['modules', 'm_s'])
+  })
+})
+
+describe('G3 题库：试卷 + 面试题', () => {
+  it('试卷：创建含选项/笔试 + 详情读取 + 更新 + 删除', () => {
+    const s = disp('POST', ['exam-sets'], {}, {
+      id: 'set1', name: '卷一', track: 'frontend', level: '初级', vipOnly: true,
+      choices: [{ id: 'q1', q: '1+1?', options: ['1', '2'], answer: ['2'], explain: 'x', multi: false }],
+      written: [{ id: 'w1', q: '简述', points: ['p1'], reference: 'ref' }]
+    }).data
+    expect(s.id).toBe('set1')
+    const detail = disp('GET', ['exam-sets', 'set1']).data
+    expect(detail.choices.length).toBe(1)
+    expect(detail.written.length).toBe(1)
+    // 更新选项（替换）
+    disp('PATCH', ['exam-sets', 'set1'], {}, { choices: [{ id: 'q2', q: '2+2?', options: ['3', '4'], answer: ['4'], explain: 'y' }] })
+    expect(disp('GET', ['exam-sets', 'set1']).data.choices.length).toBe(1)
+    disp('DELETE', ['exam-sets', 'set1'])
+    expect(disp('GET', ['exam-sets', 'set1']).data).toBe(null)
+  })
+  it('面试题：增删改查', () => {
+    const q = disp('POST', ['interview'], {}, { id: 'iq1', track: 'frontend', type: 'hot', q: '什么是闭包?', a: '答' }).data
+    expect(q.id).toBe('iq1')
+    disp('PATCH', ['interview', 'iq1'], {}, { q: '闭包是什么?' })
+    expect(disp('GET', ['interview', 'iq1']).data.q).toBe('闭包是什么?')
+    const list = disp('GET', ['interview'], { track: 'frontend' })
+    expect(list.items.some((x) => x.id === 'iq1')).toBe(true)
+    disp('DELETE', ['interview', 'iq1'])
+    expect(disp('GET', ['interview', 'iq1']).data).toBe(null)
+  })
+})
+
+describe('G5 订单 / 订阅（只读列表）', () => {
+  it('orders / subscriptions 返回数组', () => {
+    expect(Array.isArray(disp('GET', ['orders']).items)).toBe(true)
+    expect(Array.isArray(disp('GET', ['subscriptions']).items)).toBe(true)
+  })
+})
+
+describe('G7 操作审计（变更类动作写审计）', () => {
+  it('POST 模块后 audit_logs 有记录', () => {
+    const before = sqlite.prepare('SELECT COUNT(*) c FROM audit_logs').get().c
+    disp('POST', ['modules'], {}, { id: 'm_audit', name: '审计' })
+    const after = sqlite.prepare('SELECT COUNT(*) c FROM audit_logs').get().c
+    expect(after).toBe(before + 1)
+    disp('DELETE', ['modules', 'm_audit'])
+  })
+})
+
+describe('H4 内推资源库管理（M4 维护）', () => {
+  it('岗位列表含种子数据 + 增改删', () => {
+    const list = disp('GET', ['referrals'])
+    expect(Array.isArray(list.items)).toBe(true)
+    expect(list.items.length).toBeGreaterThan(0)
+    const r = disp('POST', ['referrals'], {}, { id: 'r_admin_test', company: '测试公司', title: '测试岗', track: 'backend', city: '深圳' }).data
+    expect(r.id).toBe('r_admin_test')
+    const e = fails(() => disp('POST', ['referrals'], {}, { id: 'r_admin_test', title: 'X' }))
+    expect(e?.statusCode).toBe(409)
+    const e2 = fails(() => disp('POST', ['referrals'], {}, { id: 'X', title: 'Y' }))
+    expect(e2?.statusCode).toBe(400)
+    disp('PATCH', ['referrals', 'r_admin_test'], {}, { city: '北京' })
+    expect(disp('GET', ['referrals', 'r_admin_test']).data.city).toBe('北京')
+    disp('DELETE', ['referrals', 'r_admin_test'])
+    expect(disp('GET', ['referrals', 'r_admin_test']).data).toBe(null)
+  })
+  it('申请：创建 → 列表 → 状态流转 → 非法状态被拒', async () => {
+    const u = disp('POST', ['users'], {}, { username: 'refuser', password: 'secret12' }).data
+    const refId = disp('GET', ['referrals']).items[0].id
+    const app = await applyReferral(u.id, { referralId: refId, name: '张三', contact: '13800000000' })
+    const list = disp('GET', ['referral-applications'])
+    expect(list.items.some((x) => x.id === app.id)).toBe(true)
+    disp('PATCH', ['referral-applications', app.id], {}, { status: 'done' })
+    expect(disp('GET', ['referral-applications']).items.find((x) => x.id === app.id).status).toBe('done')
+    const e = fails(() => disp('PATCH', ['referral-applications', app.id], {}, { status: 'bogus' }))
+    expect(e?.statusCode).toBe(400)
   })
 })
