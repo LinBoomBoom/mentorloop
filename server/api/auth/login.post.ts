@@ -24,12 +24,5 @@ export default defineEventHandler(async (event) => {
     if (denyBanned(user)) return json(event, 403, { error: '账号已被封禁' })
     return json(event, 200, { token: newToken(user), user: publicUser(user) })
   }
-  if (b.mode === 'oauth') {
-    const { provider, openid } = b
-    const user = sqlite.prepare('SELECT * FROM users WHERE json_extract(providers,?)=?').get('$.' + provider, openid)
-    if (!user) return json(event, 401, { error: '该第三方账号未绑定' })
-    if (denyBanned(user)) return json(event, 403, { error: '账号已被封禁' })
-    return json(event, 200, { token: newToken(user), user: publicUser(user) })
-  }
   return json(event, 400, { error: '不支持的登录方式' })
 })

@@ -37,17 +37,5 @@ export default defineEventHandler(async (event) => {
     }
     return json(event, 200, { token: newToken(u), user: publicUser(u) })
   }
-  if (b.mode === 'oauth') {
-    const { provider, openid, nickname, avatar } = b
-    if (!provider || !openid) return json(event, 400, { error: '第三方授权信息缺失' })
-    let u = sqlite.prepare('SELECT * FROM users WHERE json_extract(providers,?)=?').get('$.' + provider, openid)
-    if (!u) {
-      const id = uid()
-      sqlite.prepare('INSERT INTO users (id,username,nickname,password,email,phone,providers,vip,created_at,avatar) VALUES (?,?,?,?,?,?,?,?,?,?)')
-        .run(id, 'oauth_' + provider + '_' + String(openid).slice(-6), nickname || (provider + '用户'), null, null, null, JSON.stringify({ [provider]: openid }), JSON.stringify({ level: 0, expireAt: null }), Date.now(), avatar || null)
-      u = sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
-    }
-    return json(event, 200, { token: newToken(u), user: publicUser(u) })
-  }
   return json(event, 400, { error: '不支持的注册方式' })
 })

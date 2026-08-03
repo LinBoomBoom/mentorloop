@@ -37,21 +37,6 @@
           <h2 class="text-2xl font-extrabold mb-1">欢迎回来 👋</h2>
           <p class="text-muted text-sm mb-6">选择你喜欢的方式登录 / 注册</p>
 
-          <!-- 第三方 -->
-          <div class="space-y-2.5 mb-5">
-            <button class="btn btn-block btn-ghost justify-start !py-3" @click="socialLogin('google')" :disabled="loading">
-              <Icon name="google" :size="18" /> <span class="flex-1 text-left">使用 Google 账户{{ isReg ? '注册' : '登录' }}</span>
-            </button>
-            <div class="grid grid-cols-2 gap-2.5">
-              <button class="btn btn-ghost !py-3" @click="openScan('wechat')" :disabled="loading"><Icon name="wechat" :size="18"/> 微信扫码</button>
-              <button class="btn btn-ghost !py-3" @click="openScan('qq')" :disabled="loading"><Icon name="qq" :size="18"/> QQ 扫码</button>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-3 my-5 text-muted text-xs">
-            <div class="h-px flex-1 bg-line"></div><span>或使用账号</span><div class="h-px flex-1 bg-line"></div>
-          </div>
-
           <!-- 账号类型 & 方式切换 -->
           <div class="flex gap-2 mb-4">
             <button v-for="t in idTypes" :key="t.v" @click="idType = t.v"
@@ -103,22 +88,6 @@
         </div>
       </div>
     </div>
-
-    <!-- 扫码弹窗 -->
-    <div v-if="scan.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="closeScan">
-      <div class="card w-[320px] p-6 text-center reveal">
-        <button class="absolute top-3 right-3 text-muted" @click="closeScan"><Icon name="x" :size="18"/></button>
-        <h3 class="font-bold text-lg mb-1">扫码登录 {{ scan.provider==='wechat'?'微信':'QQ' }}</h3>
-        <p class="text-xs text-muted mb-4">请使用{{ scan.provider==='wechat'?'微信':'QQ' }}扫一扫</p>
-        <div class="mx-auto w-40 h-40 rounded-2xl bg-surface-2 border border-line flex flex-col items-center justify-center relative overflow-hidden">
-          <div class="absolute inset-0 aura opacity-60"></div>
-          <Icon :name="scan.provider" :size="46" class="relative z-10 text-ink" />
-          <div class="relative z-10 text-[10px] text-muted font-mono mt-2 break-all px-3">{{ scan.qrData }}</div>
-        </div>
-        <p class="text-xs text-muted mt-4">演示环境无真实扫码，点击下方按钮模拟确认</p>
-        <button class="btn btn-primary btn-block mt-3" @click="confirmScan">模拟扫码确认</button>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -149,17 +118,6 @@ const error = ref('')
 const devCode = ref('')
 const codeCountdown = ref(0)
 
-const scan = reactive({ show: false, provider: '', qrToken: '', qrData: '' })
-let pollTimer: any = null
-
-async function socialLogin(provider: string) {
-  loading.value = true; error.value = ''
-  try {
-    const { token, user } = await request('/api/auth/login', { method: 'POST', body: { mode: 'oauth', provider, openid: 'demo_' + provider } })
-    auth.setSession(token, user); await navigateTo(redirectTo())
-  } catch (e: any) { error.value = e.message } finally { loading.value = false }
-}
-
 async function sendCode() {
   if (!identifier.value) { error.value = '请先填写' + (idType.value === 'phone' ? '手机号' : '邮箱'); return }
   try {
@@ -184,26 +142,4 @@ async function submitAccount() {
     auth.setSession(token, user); await navigateTo(redirectTo())
   } catch (e: any) { error.value = e.message } finally { loading.value = false }
 }
-
-function openScan(provider: string) {
-  scan.provider = provider; scan.show = true; error.value = ''
-  request('/api/auth/social/start', { method: 'POST', body: { provider } }).then((r: any) => {
-    scan.qrToken = r.qrToken; scan.qrData = r.qrData
-    pollTimer = setInterval(pollStatus, 1500)
-  }).catch((e: any) => { error.value = e.message; scan.show = false })
-}
-function pollStatus() {
-  request('/api/auth/social/status?qrToken=' + scan.qrToken).then((r: any) => {
-    if (r.status === 'confirmed') {
-      clearInterval(pollTimer)
-      auth.setSession(r.token, r.user); navigateTo(redirectTo())
-    }
-  }).catch(() => {})
-}
-function confirmScan() {
-  request('/api/auth/social/confirm', { method: 'POST', body: { provider: scan.provider, qrToken: scan.qrToken } }).catch(() => {})
-}
-function closeScan() { scan.show = false; if (pollTimer) clearInterval(pollTimer) }
-
-onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
 </script>
