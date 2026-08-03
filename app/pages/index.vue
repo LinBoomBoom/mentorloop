@@ -7,7 +7,7 @@
         <span class="inline-flex items-center gap-2 text-sm font-semibold bg-white/20 backdrop-blur px-3 py-1.5 rounded-full">🌱 学习 & 面试一体化导师</span>
         <h1 class="text-[34px] md:text-[46px] font-extrabold leading-tight mt-5 max-w-2xl">把「学」与「面」<br/>练成一条线</h1>
         <p class="mt-4 text-white/90 text-[15px] md:text-base max-w-xl leading-relaxed">
-          前端 / 后端 / 运维三方向系统学习路径，配套高频面试题、模拟答卷与 AI 复盘。
+          前端 / 后端 / 运维 / AI 工程四方向系统学习路径，配套高频面试题、模拟答卷与 AI 复盘。
           无需登录即可浏览全部课程与题库，注册后开启打卡与智能复盘。
         </p>
         <div class="mt-7 flex flex-wrap gap-3">
@@ -19,7 +19,7 @@
     </section>
 
     <!-- 登录用户：个人看板 -->
-    <div v-if="auth.isLoggedIn && !stats" class="grid grid-cols-1 md:grid-cols-3 gap-4 stagger mb-7">
+    <div v-if="auth.isLoggedIn && statsLoading" class="grid grid-cols-1 md:grid-cols-3 gap-4 stagger mb-7">
       <div v-for="i in 3" :key="i" class="card h-32 shimmer"></div>
     </div>
     <template v-else-if="showDash">
@@ -81,6 +81,10 @@
         </div>
       </div>
     </template>
+
+    <div v-if="auth.isLoggedIn && !statsLoading && !showDash" class="card p-8 text-center text-muted mb-7">
+      看板暂时无法加载，请稍后重试
+    </div>
 
     <!-- 三方向学习路径（公开） -->
     <section class="mb-7">
@@ -152,14 +156,15 @@
 </template>
 
 <script setup lang="ts">
+import { trackMeta, trackBadge } from '~/composables/useTrack'
 const { request } = useApi()
 const auth = useAuthStore()
 
 useSeoMeta({
   title: '学面一体导师平台',
-  description: '前端/后端/运维三方向系统学习路径，配套高频面试题、模拟答卷与 AI 复盘。无需登录即可浏览全部课程与题库。',
+  description: '前端/后端/运维/AI 四方向系统学习路径，配套高频面试题、模拟答卷与 AI 复盘。无需登录即可浏览全部课程与题库。',
   ogTitle: 'MentorLoop · 学面一体导师平台',
-  ogDescription: '系统学习路径 + 高频面试题库 + 模拟答卷，全部内容免费浏览。',
+  ogDescription: '四方向系统学习路径 + 高频面试题库 + 模拟答卷，全部内容免费浏览。',
   ogType: 'website',
   ogUrl: safeOgUrl()
 })
@@ -189,10 +194,13 @@ const sets = computed(() => (setRes.value?.sets || []).slice(0, 3))
 
 // 个性化看板：仅登录后拉取（避免 SSR 拿不到 token）
 const stats = ref<any>(null)
+const statsLoading = ref(false)
 const showDash = computed(() => auth.isLoggedIn && !!stats.value?.modules?.length)
 watch(() => auth.isLoggedIn, async (v) => {
-  if (v) { try { stats.value = await request('/api/stats') } catch (e) { /* ignore */ } }
+  if (!v) return
+  statsLoading.value = true
+  try { stats.value = await request('/api/stats') } catch (e) { stats.value = null } finally { statsLoading.value = false }
 }, { immediate: true })
 
-const trackName = (t: string) => ({ frontend: '前端', backend: '后端', devops: '运维' }[t] || t)
+const trackName = (t: string) => trackMeta[t]?.name || t
 </script>

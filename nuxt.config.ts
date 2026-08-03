@@ -32,7 +32,7 @@ export default defineNuxtConfig({
       title: 'MentorLoop · 学面一体导师',
       titleTemplate: '%s · MentorLoop',
       meta: [
-        { name: 'description', content: 'MentorLoop 是前端 / 后端 / 运维三方向的学习与面试一体化平台：系统学习路径、高频面试题库、模拟答卷与 AI 复盘，全部内容免费浏览。' },
+        { name: 'description', content: 'MentorLoop 是前端 / 后端 / 运维 / AI 工程四方向的学习与面试一体化平台：系统学习路径、高频面试题库、模拟答卷与 AI 复盘，全部内容免费浏览。' },
         { property: 'og:site_name', content: 'MentorLoop' },
         { property: 'og:type', content: 'website' },
         { property: 'og:image', content: '' },

@@ -102,7 +102,8 @@ const avatarBg = computed(() => auth.isVip
   ? 'linear-gradient(120deg,#ff5e7e,#ff8a5c 55%,#ffc24b)'
   : 'linear-gradient(120deg,#94a3b8,#64748b)')
 
-function planName(id?: string) { return id || '—' }
+const { data: plansRes } = await useFetch('/api/vip/plans')
+function planName(id?: string) { return plansRes.value?.plans?.find((p: any) => p.id === id)?.name || id || '—' }
 function statusText(s: string) { return s === 'paid' ? '已支付' : s === 'pending' ? '待支付' : s === 'refunded' ? '已退款' : s }
 function fmtDate(ts?: number) { return ts ? new Date(ts).toLocaleDateString('zh-CN') : '—' }
 

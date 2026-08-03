@@ -61,6 +61,7 @@
 </template>
 
 <script setup lang="ts">
+import { trackMeta } from '~/composables/useTrack'
 const { request } = useApi()
 const auth = useAuthStore()
 const { data: setRes } = await useFetch('/api/exam/sets')
@@ -68,7 +69,7 @@ const sets = computed(() => setRes.value?.sets || null)
 
 useSeoMeta({
   title: '模拟答卷',
-  description: '限时实战模拟试卷，交卷即出判分、薄弱点诊断与逐题复盘建议，覆盖前端/后端/运维方向。',
+  description: '限时实战模拟试卷，交卷即出判分、薄弱点诊断与逐题复盘建议，覆盖前端/后端/运维/AI 方向。',
   ogTitle: '模拟答卷 · MentorLoop',
   ogDescription: '模拟试卷限时实战，交卷即出判分与薄弱点诊断。',
   ogType: 'website',

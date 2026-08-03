@@ -37,9 +37,9 @@ const modules = computed(() => data.value?.modules || null)
 
 useSeoMeta({
   title: '学习中心',
-  description: '前端、后端、运维三大方向系统学习路径，按章节循序渐进，完成打卡解锁进阶内容。',
+  description: '前端、后端、运维、AI 四方向系统学习路径，按章节循序渐进，完成打卡解锁进阶内容。',
   ogTitle: '学习中心 · MentorLoop',
-  ogDescription: '三方向系统学习路径，免费浏览全部课程章节。',
+  ogDescription: '四方向系统学习路径，免费浏览全部课程章节。',
   ogType: 'website',
   ogUrl: safeOgUrl()
 })

@@ -194,6 +194,7 @@
 </template>
 
 <script setup lang="ts">
+import { trackMeta } from '~/composables/useTrack'
 const { request } = useApi()
 const { guard } = useLoginGate()
 const route = useRoute()

@@ -12,7 +12,7 @@
       <div class="relative z-10">
         <h1 class="text-[40px] leading-tight font-extrabold">把「学」与「面」<br/>练成一条线</h1>
         <p class="mt-5 text-white/85 text-[15px] leading-relaxed max-w-md">
-          前端 / 后端 / 运维三方向系统学习路径，配套高频面试题、模拟答卷与 AI 复盘。
+          前端 / 后端 / 运维 / AI 工程四方向系统学习路径，配套高频面试题、模拟答卷与 AI 复盘。
           一步一打卡，学完即掌握，面试有底气。
         </p>
         <div class="mt-8 flex gap-3">

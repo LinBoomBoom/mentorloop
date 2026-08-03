@@ -75,7 +75,7 @@
       <div v-if="phase === 'done'" class="px-5 py-4 border-t border-line bg-emerald-500/[.04]">
         <div class="flex items-center gap-2 font-bold mb-2"><Icon name="trophy" :size="18" class="text-brand-gold" /> 面试完成 · 综合评分 {{ finalScore }}/100</div>
         <p class="text-sm whitespace-pre-line">{{ summary }}</p>
-        <button class="btn mt-4" @click="reset">再来一场</button>
+        <button class="btn btn-ghost mt-4" @click="reset">再来一场</button>
       </div>
 
       <!-- 作答输入 -->
