@@ -83,6 +83,9 @@
         <span>{{ item.short }}</span>
       </NuxtLink>
     </nav>
+
+    <!-- 长内容页回到顶部（全局） -->
+    <BackToTop />
   </div>
 </template>
 

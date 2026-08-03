@@ -15,8 +15,28 @@
 
     <div v-if="!section" class="card h-72 shimmer"></div>
     <template v-else>
-      <div class="text-xs text-muted mb-1">{{ chapter?.title }}</div>
-      <h1 class="text-2xl font-extrabold">{{ section.title }}</h1>
+      <div class="lg:grid lg:grid-cols-[1fr_264px] lg:gap-6 items-start">
+        <!-- 主内容 -->
+        <div class="min-w-0">
+          <!-- 移动端本章目录 -->
+          <div class="lg:hidden mb-4">
+            <button class="btn btn-ghost w-full !justify-between" @click="tocOpen = !tocOpen" :aria-expanded="tocOpen">
+              <span class="flex items-center gap-1.5"><Icon name="list" :size="16" class="text-brand-coral" /> 本章目录（{{ chapter?.sections.length }}）</span>
+              <Icon name="chevronRight" :size="16" class="transition-transform" :class="tocOpen ? 'rotate-90' : ''" />
+            </button>
+            <div v-if="tocOpen" class="card mt-2 p-3 space-y-0.5">
+              <NuxtLink v-for="s in (chapter?.sections || [])" :key="s.id" :to="`/learn/${route.params.module}/${chapter.id}/${s.id}`"
+                        class="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg transition truncate"
+                        :class="route.params.section === s.id ? 'bg-brand-coral/10 text-brand-coral font-semibold'
+                          : (isDone(progress, module.id, chapter.id, s.id) ? 'text-emerald-600' : 'text-muted')">
+                <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, chapter.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
+                <span class="truncate">{{ s.title }}</span>
+              </NuxtLink>
+            </div>
+          </div>
+
+          <div class="text-xs text-muted mb-1">{{ chapter?.title }}</div>
+          <h1 class="text-2xl font-extrabold">{{ section.title }}</h1>
 
       <div class="card p-6 mt-5">
         <div class="flex items-start gap-3 mb-5 p-4 rounded-xl" style="background:linear-gradient(120deg,rgba(255,94,126,.1),rgba(255,194,75,.1))">
@@ -71,6 +91,24 @@
         </div>
       </div>
       <p v-if="auth.isLoggedIn && !done" class="text-xs text-muted mt-2 text-right">勾选即记录已掌握，进度自动保存</p>
+        </div>
+
+        <!-- 桌面端：本章目录（粘性侧栏） -->
+        <aside class="hidden lg:block sticky top-6">
+          <div class="card p-5">
+            <div class="text-sm font-bold mb-3 flex items-center gap-1.5"><Icon name="list" :size="15" class="text-brand-coral" /> 本章目录</div>
+            <div class="space-y-0.5 max-h-[72vh] overflow-auto scrollbar-thin pr-1">
+              <NuxtLink v-for="s in (chapter?.sections || [])" :key="s.id" :to="`/learn/${route.params.module}/${chapter.id}/${s.id}`"
+                        class="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg transition truncate"
+                        :class="route.params.section === s.id ? 'bg-brand-coral/10 text-brand-coral font-semibold'
+                          : (isDone(progress, module.id, chapter.id, s.id) ? 'text-emerald-600' : 'text-muted')">
+                <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, chapter.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
+                <span class="truncate">{{ s.title }}</span>
+              </NuxtLink>
+            </div>
+          </div>
+        </aside>
+      </div>
     </template>
   </div>
 </template>
@@ -86,6 +124,7 @@ const auth = useAuthStore()
 const { guard } = useLoginGate()
 const browseMode = computed(() => !auth.isLoggedIn)
 const isAdmin = computed(() => auth.user?.role === 'admin')
+const tocOpen = ref(false)
 
 // 公开模块内容：SSR 加载
 const { data: modRes } = await useFetch(() => '/api/modules/' + route.params.module)

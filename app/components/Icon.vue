@@ -29,6 +29,8 @@ const ICONS: Record<string, string> = {
   checkCircle: '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5 11 15l5-6"/>',
   arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   arrowLeft: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  arrowUp: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  alertTriangle: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
   compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
   trophy: '<path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M9 14h6M10 14v4M14 14v4M8 21h8"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',

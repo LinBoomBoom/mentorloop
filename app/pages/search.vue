@@ -25,37 +25,61 @@
 
       <section v-if="res.sections.length">
         <h2 class="section-title"><Icon name="book" :size="16" /> 学习小节 <span class="count">{{ res.sections.length }}</span></h2>
-        <NuxtLink v-for="s in res.sections" :key="s.id" :to="s.href"
+        <NuxtLink v-for="s in shown('sections')" :key="s.id" :to="s.href"
                   class="card block p-4 mb-2 hover:border-brand-coral/50 transition">
           <div class="font-semibold">{{ s.title }}</div>
           <div class="text-xs text-muted mt-0.5">{{ s.chapterTitle }} · {{ s.snippet }}</div>
         </NuxtLink>
+        <div v-if="hasMore('sections')" class="mt-1">
+          <button class="btn btn-ghost !py-2 !text-xs" @click="loadMore('sections')">加载更多（剩 {{ res.sections.length - pages.sections * PAGE }} 条）</button>
+        </div>
+        <div v-else-if="res.sections.length > PAGE" class="mt-1">
+          <button class="btn btn-ghost !py-2 !text-xs" @click="collapse('sections')">收起</button>
+        </div>
       </section>
 
       <section v-if="res.chapters.length">
         <h2 class="section-title"><Icon name="layers" :size="16" /> 章节 <span class="count">{{ res.chapters.length }}</span></h2>
-        <NuxtLink v-for="c in res.chapters" :key="c.id" :to="c.href"
+        <NuxtLink v-for="c in shown('chapters')" :key="c.id" :to="c.href"
                   class="card block p-4 mb-2 hover:border-brand-coral/50 transition">
           <div class="font-semibold">{{ c.title }}</div>
         </NuxtLink>
+        <div v-if="hasMore('chapters')" class="mt-1">
+          <button class="btn btn-ghost !py-2 !text-xs" @click="loadMore('chapters')">加载更多（剩 {{ res.chapters.length - pages.chapters * PAGE }} 条）</button>
+        </div>
+        <div v-else-if="res.chapters.length > PAGE" class="mt-1">
+          <button class="btn btn-ghost !py-2 !text-xs" @click="collapse('chapters')">收起</button>
+        </div>
       </section>
 
       <section v-if="res.questions.length">
         <h2 class="section-title"><Icon name="chat" :size="16" /> 面试题 <span class="count">{{ res.questions.length }}</span></h2>
-        <NuxtLink v-for="q in res.questions" :key="q.id" :to="q.href"
+        <NuxtLink v-for="qq in shown('questions')" :key="qq.id" :to="qq.href"
                   class="card block p-4 mb-2 hover:border-brand-coral/50 transition">
-          <div class="font-semibold">{{ q.q }}</div>
-          <div class="text-xs text-muted mt-0.5 uppercase">{{ q.track }} · {{ q.type }}</div>
+          <div class="font-semibold">{{ qq.q }}</div>
+          <div class="text-xs text-muted mt-0.5 uppercase">{{ qq.track }} · {{ qq.type }}</div>
         </NuxtLink>
+        <div v-if="hasMore('questions')" class="mt-1">
+          <button class="btn btn-ghost !py-2 !text-xs" @click="loadMore('questions')">加载更多（剩 {{ res.questions.length - pages.questions * PAGE }} 条）</button>
+        </div>
+        <div v-else-if="res.questions.length > PAGE" class="mt-1">
+          <button class="btn btn-ghost !py-2 !text-xs" @click="collapse('questions')">收起</button>
+        </div>
       </section>
 
       <section v-if="res.exams.length">
         <h2 class="section-title"><Icon name="clipboard" :size="16" /> 模拟答卷 <span class="count">{{ res.exams.length }}</span></h2>
-        <NuxtLink v-for="e in res.exams" :key="e.id" :to="e.href"
+        <NuxtLink v-for="e in shown('exams')" :key="e.id" :to="e.href"
                   class="card block p-4 mb-2 hover:border-brand-coral/50 transition">
           <div class="font-semibold">{{ e.name }}</div>
           <div class="text-xs text-muted mt-0.5 uppercase">{{ e.track }} · {{ e.level }}</div>
         </NuxtLink>
+        <div v-if="hasMore('exams')" class="mt-1">
+          <button class="btn btn-ghost !py-2 !text-xs" @click="loadMore('exams')">加载更多（剩 {{ res.exams.length - pages.exams * PAGE }} 条）</button>
+        </div>
+        <div v-else-if="res.exams.length > PAGE" class="mt-1">
+          <button class="btn btn-ghost !py-2 !text-xs" @click="collapse('exams')">收起</button>
+        </div>
       </section>
     </div>
   </div>
@@ -68,12 +92,22 @@ const loading = ref(false)
 const res = ref<any>(null)
 const hot = ['事件循环', 'RAG', 'DORA', '闭包', '索引', 'CSS 居中', 'K8s', '提示注入']
 
+// 搜索结果按类分页（客户端，数据量小）：每类每页 PAGE 条，可加载更多 / 收起
+const PAGE = 8
+const pages = reactive({ sections: 1, chapters: 1, questions: 1, exams: 1 })
+type GroupKey = 'sections' | 'chapters' | 'questions' | 'exams'
+function shown(key: GroupKey) { return (res.value?.[key] || []).slice(0, pages[key] * PAGE) }
+function hasMore(key: GroupKey) { return (res.value?.[key]?.length || 0) > pages[key] * PAGE }
+function loadMore(key: GroupKey) { pages[key]++ }
+function collapse(key: GroupKey) { pages[key] = 1 }
+
 async function run(keyword: string) {
   q.value = keyword
   if (!keyword.trim()) { res.value = null; return }
   loading.value = true
   try {
     res.value = await $fetch('/api/search', { query: { q: keyword } }) as any
+    pages.sections = 1; pages.chapters = 1; pages.questions = 1; pages.exams = 1
   } finally {
     loading.value = false
   }

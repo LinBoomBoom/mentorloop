@@ -21,6 +21,12 @@
         </NuxtLink>
       </div>
 
+      <!-- 时间紧张提示 -->
+      <div v-if="timeTight" class="card p-3 mb-5 flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 reveal">
+        <Icon name="alertTriangle" :size="18" class="text-rose-500 shrink-0 animate-pulse" />
+        <div class="text-sm font-semibold text-rose-600">时间紧张，还剩 {{ fmt(timeLeft) }}，系统将自动交卷</div>
+      </div>
+
       <!-- 试卷信息条 -->
       <div class="card p-5 mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -40,6 +46,11 @@
           <button class="btn btn-primary" @click="submit" :disabled="submitting || vipLocked">
             <Icon :name="submitting ? 'spinner' : 'check'" :size="16" :class="submitting ? 'animate-spin' : ''" /> 交卷
           </button>
+        </div>
+        <div v-if="dur" class="w-full mt-1 h-1.5 rounded-full bg-ink/8 overflow-hidden">
+          <div class="h-full transition-[width] duration-1000 ease-linear"
+               :class="timeLeft <= 30 ? 'bg-rose-500' : 'bg-brand-coral'"
+               :style="{ width: usedPct + '%' }"></div>
         </div>
       </div>
 
@@ -209,6 +220,9 @@ const writtenAnswers = reactive<Record<string, any>>({})
 const dur = ref(0)
 const timeLeft = ref(0)
 let timer: any = null
+const totalSec = computed(() => dur.value * 60)
+const usedPct = computed(() => totalSec.value > 0 ? Math.min(100, Math.round(((totalSec.value - timeLeft.value) / totalSec.value) * 100)) : 0)
+const timeTight = computed(() => !!dur.value && timeLeft.value <= 60)
 
 const vipLocked = computed(() => !!set.value?.vipOnly && !auth.isVip)
 
