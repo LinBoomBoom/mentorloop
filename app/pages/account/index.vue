@@ -48,6 +48,14 @@
           <div class="flex items-center gap-2 mb-1.5"><Icon name="sparkles" :size="18" class="text-brand-coral" /><span class="font-bold">AI 模拟面试</span></div>
           <p class="text-xs text-muted">多轮实战 + 逐题评分反馈</p>
         </NuxtLink>
+        <NuxtLink to="/resume/diag" class="card p-5 hover:-translate-y-0.5 transition group">
+          <div class="flex items-center gap-2 mb-1.5"><Icon name="document" :size="18" class="text-brand-coral" /><span class="font-bold">AI 简历诊断</span></div>
+          <p class="text-xs text-muted">AI 把脉简历亮点与短板</p>
+        </NuxtLink>
+        <NuxtLink to="/referral" class="card p-5 hover:-translate-y-0.5 transition group">
+          <div class="flex items-center gap-2 mb-1.5"><Icon name="briefcase" :size="18" class="text-brand-coral" /><span class="font-bold">内推资源库</span></div>
+          <p class="text-xs text-muted">VIP 专属内推岗位 + 申请</p>
+        </NuxtLink>
       </div>
 
       <!-- 订单 -->

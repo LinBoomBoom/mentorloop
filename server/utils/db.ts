@@ -245,6 +245,53 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       db.exec('CREATE INDEX IF NOT EXISTS idx_ewr_record ON exam_written_reviews(record_id)')
       backfillExamReviews(db)
     }
+  },
+  {
+    version: 5,
+    name: 'vip-resume-referral',
+    up: (db) => {
+      // M3 · H3 简历诊断 + H4 内推资源库
+      db.exec(`CREATE TABLE IF NOT EXISTS resume_diags (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, content_hash TEXT,
+        content TEXT, result TEXT, created_at INTEGER,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resumediag_user ON resume_diags(user_id)')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resumediag_hash ON resume_diags(content_hash)')
+      db.exec(`CREATE TABLE IF NOT EXISTS referrals (
+        id TEXT PRIMARY KEY, company TEXT, title TEXT, track TEXT, city TEXT,
+        level TEXT, type TEXT, requirement TEXT, intro TEXT, contact TEXT, created_at INTEGER
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_referrals_track ON referrals(track)')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_referrals_city ON referrals(city)')
+      db.exec(`CREATE TABLE IF NOT EXISTS referral_applications (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL, referral_id TEXT NOT NULL,
+        name TEXT, contact TEXT, note TEXT, status TEXT DEFAULT 'pending', created_at INTEGER,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(referral_id) REFERENCES referrals(id) ON DELETE CASCADE
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_refapp_user ON referral_applications(user_id)')
+      // 初始内推资源（仅当为空时写入；后续由管理后台 M4 维护编辑）
+      const cnt = (db.prepare('SELECT COUNT(*) AS c FROM referrals').get() as any).c
+      if (cnt === 0) {
+        const ins = db.prepare('INSERT INTO referrals (id,company,title,track,city,level,type,requirement,intro,contact,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+        const now = Date.now()
+        const seed: any[] = [
+          ['rf_1', '字节跳动', '前端工程师', 'frontend', '北京', 'mid', '社招', '精通 React/Vue，有组件库或工程化经验优先', '抖音电商前端团队，业务体量大、技术氛围好', 'refer-fe@mentorloop.example', now],
+          ['rf_2', '阿里巴巴', '后端开发工程师', 'backend', '杭州', 'mid', '社招', 'Java/Go 熟练，熟悉分布式与高并发', '淘天集团核心交易链路，成长快', 'refer-be@mentorloop.example', now],
+          ['rf_3', '腾讯', 'DevOps 工程师', 'devops', '深圳', 'senior', '社招', '精通 Kubernetes/Docker，有 CI/CD 平台经验', '云原生 PaaS 团队，基础设施稳定', 'refer-ops@mentorloop.example', now],
+          ['rf_4', '百度', 'AI 算法工程师', 'ai', '北京', 'junior', '校招', '掌握 Python/PyTorch，有 CV/NLP 项目经历', '文心大模型相关方向，学术与工程结合', 'refer-ai@mentorloop.example', now],
+          ['rf_5', '美团', '高级前端工程师', 'frontend', '北京', 'senior', '社招', '前端工程化、性能优化、微前端经验', '到店业务前端，技术挑战丰富', 'refer-fe2@mentorloop.example', now],
+          ['rf_6', '京东', '后端开发工程师', 'backend', '北京', 'junior', '校招', 'Java 基础扎实，了解 Spring 生态', '零售供应链系统，业务稳定', 'refer-be2@mentorloop.example', now],
+          ['rf_7', '字节跳动', '测试开发工程师', 'backend', '上海', 'mid', '社招', '熟悉自动化测试框架与质量保障流程', '多产品线质量中台，覆盖面广', 'refer-qa@mentorloop.example', now],
+          ['rf_8', '华为', '云原生工程师', 'devops', '东莞', 'mid', '社招', 'K8s/容器编排，有公有云经验优先', '华为云底座团队，技术深度足', 'refer-ops2@mentorloop.example', now],
+          ['rf_9', '商汤科技', 'AI 平台工程师', 'ai', '上海', 'mid', '社招', '深度学习框架、推理优化经验', '多模态大模型平台，前沿性强', 'refer-ai2@mentorloop.example', now],
+          ['rf_10', '蚂蚁集团', '后端技术专家', 'backend', '杭州', 'senior', '社招', '分布式架构、高可用、金融级稳定性', '支付宝核心系统，技术壁垒高', 'refer-be3@mentorloop.example', now]
+        ]
+        const tx = db.transaction(() => { for (const r of seed) ins.run(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10]) })
+        tx()
+      }
+    }
   }
 ]
 

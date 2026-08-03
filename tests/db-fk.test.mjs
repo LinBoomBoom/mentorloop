@@ -21,9 +21,9 @@ describe('B2 外键作用域化', () => {
     expect(row.foreign_keys).toBe(1)
   })
 
-  it('版本化迁移已记录 v4（含 foreign-keys + exam-review-split）', () => {
+  it('版本化迁移已记录 v5（含 foreign-keys + exam-review-split + resume-referral）', () => {
     const vers = sqlite.prepare('SELECT version FROM schema_migrations').all().map((r) => r.version).sort()
-    expect(vers).toEqual([1, 2, 3, 4])
+    expect(vers).toEqual([1, 2, 3, 4, 5])
   })
 
   it('逻辑父子表均声明 FOREIGN KEY 且级联', () => {

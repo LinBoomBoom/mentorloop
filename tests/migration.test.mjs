@@ -21,9 +21,9 @@ describe('B8 版本化迁移机制', () => {
     }
   })
 
-  it('迁移已记录到 schema_migrations（v1 + v2 + v3 + v4）', () => {
+  it('迁移已记录到 schema_migrations（v1 + v2 + v3 + v4 + v5）', () => {
     const vers = sqlite.prepare('SELECT version FROM schema_migrations').all().map((r) => r.version).sort()
-    expect(vers).toEqual([1, 2, 3, 4])
+    expect(vers).toEqual([1, 2, 3, 4, 5])
   })
 
   it('关键列通过迁移补齐（role/banned/expires_at/submit_nonce）', () => {
