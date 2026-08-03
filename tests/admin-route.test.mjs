@@ -55,8 +55,11 @@ describe('管理后台分发逻辑', () => {
   })
   it('GET /exam-sets 共 19 套且 8 套 VIP', () => {
     const r = adminDispatch(admin, 'GET', ['exam-sets'], {}, {})
-    expect(r.items.length).toBe(19)
-    expect(r.items.filter((s) => s.vip_only).length).toBe(8)
+    // 过滤测试期间可能并发产生的测试行（tex_ 前缀，来自 admin.test.mjs CRUD），
+    // 避免与并行执行的测试文件互相干扰导致断言偶发失败。
+    const real = r.items.filter((s) => !String(s.id).startsWith('tex_'))
+    expect(real.length).toBe(19)
+    expect(real.filter((s) => s.vip_only).length).toBe(8)
   })
   it('GET /interview?track=ai 按方向过滤', () => {
     const r = adminDispatch(admin, 'GET', ['interview'], { track: 'ai' }, {})

@@ -6,7 +6,12 @@ export default defineEventHandler((event) => {
   const q = (getQuery(event).q || '').toString().trim()
   if (!q) return json(event, 200, { q: '', total: 0, sections: [], chapters: [], questions: [], exams: [] })
 
-  const like = `%${q}%`
+  // A5 限流：搜索每 IP 60s 内最多 30 次
+  const rl = rateLimit('search', getClientIp(event), 30, 60_000)
+  if (!rl.ok) return json(event, 429, { error: '搜索过于频繁，请 ' + rl.retryAfter + ' 秒后重试' })
+
+  // A10 转义 LIKE 通配符，避免 %/_ 被当成通配导致越权/失控匹配
+  const like = likeWrap(q)
   const LIMIT = 12
 
   // 小节：标题或内容命中（内容命中取章节路径）

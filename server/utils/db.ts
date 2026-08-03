@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { getHeader, setResponseStatus, createError } from 'h3'
+import { getHeader, getCookie, setResponseStatus, createError } from 'h3'
 
 /* ---------------- 单例数据库 ---------------- */
 const g = globalThis as any
@@ -33,7 +33,10 @@ function createDb() {
       providers TEXT DEFAULT '{}', vip TEXT DEFAULT '{"level":0,"expireAt":null}', created_at INTEGER
     );
     CREATE TABLE IF NOT EXISTS sessions (
-      token TEXT PRIMARY KEY, user_id TEXT, created_at INTEGER
+      token TEXT PRIMARY KEY, user_id TEXT, created_at INTEGER, expires_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      key TEXT PRIMARY KEY, fails INTEGER DEFAULT 0, locked_until INTEGER DEFAULT 0, updated_at INTEGER
     );
     CREATE TABLE IF NOT EXISTS auth_codes (
       key TEXT PRIMARY KEY, code TEXT, expires_at INTEGER
@@ -103,6 +106,11 @@ function createDb() {
   try { db.prepare("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'").run() } catch (e) { /* 列已存在 */ }
   // 迁移：封禁标记（G4 用户体系：封禁/解封）
   try { db.prepare("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0").run() } catch (e) { /* 列已存在 */ }
+  // 迁移：会话过期时间（A7 会话回收）
+  try { db.prepare("ALTER TABLE sessions ADD COLUMN expires_at INTEGER").run() } catch (e) { /* 列已存在 */ }
+  // 启动清理：过期会话与验证码（到期回收由 getUser 兜底；此处避免无限堆积）
+  db.prepare('DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < ?').run(Date.now())
+  db.prepare('DELETE FROM auth_codes WHERE expires_at < ?').run(Date.now())
   seedIfEmpty(db)
   return db
 }
@@ -148,6 +156,9 @@ export const sqlite = g.__dmDb ?? (g.__dmDb = createDb())
 
 /* ---------------- 工具 ---------------- */
 export const DEV_CODE = process.env.DEV_CODE === 'true' // 演示模式：验证码明文下发；生产必须 unset / 置 false，并接入真实短信/邮件
+
+// 会话有效期（毫秒）：7 天。配合 getUser 到期回收，避免长期有效的盗用风险。
+export const SESSION_TTL_MS = 7 * 86400000
 
 export function hashPwd(pwd: string, salt?: string): string {
   salt = salt || crypto.randomBytes(8).toString('hex')
@@ -223,15 +234,21 @@ export function getActiveSubscription(userId: string): any {
   ).get(userId, Date.now()) || null
 }
 export function getUser(event: any): any {
-  const token = getHeader(event, 'x-token')
+  // 优先 HttpOnly Cookie（A11：JS 不可读，防 XSS 盗用）；兼容旧 x-token 头（过渡期）
+  const token = (event && getCookie(event, 'ml_token')) || getHeader(event, 'x-token')
   if (!token) return null
-  const row = sqlite.prepare('SELECT user_id FROM sessions WHERE token = ?').get(token) as any
+  const row = sqlite.prepare('SELECT user_id, expires_at FROM sessions WHERE token = ?').get(token) as any
   if (!row) return null
+  if (row.expires_at && row.expires_at < Date.now()) {
+    sqlite.prepare('DELETE FROM sessions WHERE token = ?').run(token)
+    return null
+  }
   return sqlite.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id) || null
 }
 export function newToken(user: any): string {
   const t = crypto.randomBytes(16).toString('hex')
-  sqlite.prepare('INSERT OR REPLACE INTO sessions (token, user_id, created_at) VALUES (?,?,?)').run(t, user.id, Date.now())
+  const expires = Date.now() + SESSION_TTL_MS
+  sqlite.prepare('INSERT OR REPLACE INTO sessions (token, user_id, created_at, expires_at) VALUES (?,?,?,?)').run(t, user.id, Date.now(), expires)
   return t
 }
 export function genCode() { return String(Math.floor(100000 + Math.random() * 900000)) }
@@ -279,4 +296,11 @@ export function requireAdmin(event: any): any {
 export function json(event: any, code: number, data: any) {
   setResponseStatus(event, code)
   return data
+}
+
+// 清理过期会话与验证码（可由定时任务/启动钩子调用）。getUser 也兜底回收单次过期会话。
+export function cleanupExpired() {
+  const now = Date.now()
+  sqlite.prepare('DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < ?').run(now)
+  sqlite.prepare('DELETE FROM auth_codes WHERE expires_at < ?').run(now)
 }

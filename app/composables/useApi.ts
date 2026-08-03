@@ -1,9 +1,7 @@
-// 统一请求封装：自动携带 token，统一错误提示
+// 统一请求封装：鉴权由 HttpOnly Cookie 自动携带，无需手动注入 token
 export const useApi = () => {
   const request = async (url: string, opts: any = {}) => {
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('dm-token') : ''
     const headers: any = { ...(opts.headers || {}) }
-    if (token) headers['x-token'] = token
     try {
       return await $fetch(url, { ...opts, headers })
     } catch (e: any) {

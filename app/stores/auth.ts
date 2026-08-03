@@ -3,37 +3,40 @@ import { defineStore } from 'pinia'
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as any,
-    token: '' as string,
     loaded: false
   }),
   getters: {
-    isLoggedIn: (s) => !!s.token && !!s.user,
+    isLoggedIn: (s) => !!s.user,
     isVip: (s) => !!(s.user && s.user.vip && s.user.vip.active)
   },
   actions: {
-    init() {
-      this.token = (typeof localStorage !== 'undefined' && localStorage.getItem('dm-token')) || ''
+    // 启动时恢复登录态：服务端通过 HttpOnly Cookie 鉴权，无需前端持有 token
+    async init() {
+      await this.fetchMe()
     },
     async fetchMe() {
-      if (!this.token) return
       try {
         const { request } = useApi()
         const { user } = await request('/api/auth/me')
         this.user = user
         this.loaded = true
       } catch {
-        this.logout()
+        this.user = null
+        this.loaded = true
       }
     },
-    setSession(token: string, user: any) {
-      this.token = token
+    // 登录/注册成功后服务端已写入 HttpOnly Cookie，前端只需保存用户信息
+    setSession(user: any) {
       this.user = user
-      if (typeof localStorage !== 'undefined') localStorage.setItem('dm-token', token)
+      this.loaded = true
     },
-    logout() {
-      this.token = ''
+    async logout() {
+      try {
+        const { request } = useApi()
+        await request('/api/auth/logout', { method: 'POST' })
+      } catch { /* ignore */ }
       this.user = null
-      if (typeof localStorage !== 'undefined') localStorage.removeItem('dm-token')
+      this.loaded = false
     }
   }
 })

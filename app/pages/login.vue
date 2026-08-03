@@ -138,8 +138,8 @@ async function submitAccount() {
     if (mode.value === 'password' && (!body.password || body.password.length < 6)) throw new Error('密码至少6位')
     if (mode.value === 'code' && !body.code) throw new Error('请填写验证码')
     const action = isReg.value ? 'register' : 'login'
-    const { token, user } = await request('/api/auth/' + action, { method: 'POST', body })
-    auth.setSession(token, user); await navigateTo(redirectTo())
+    const { user } = await request('/api/auth/' + action, { method: 'POST', body })
+    auth.setSession(user); await navigateTo(redirectTo())
   } catch (e: any) { error.value = e.message } finally { loading.value = false }
 }
 </script>

@@ -1,6 +1,5 @@
-// 客户端启动：恢复登录态
+// 客户端启动：经 HttpOnly Cookie 恢复登录态
 export default defineNuxtPlugin(async () => {
   const auth = useAuthStore()
-  auth.init()
-  if (auth.token) await auth.fetchMe()
+  await auth.init()
 })
