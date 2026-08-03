@@ -292,6 +292,22 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
         tx()
       }
     }
+  },
+  {
+    version: 6,
+    name: 'interview-weight',
+    up: (db) => {
+      // M5 · 面试题权重化：支持按权重/难度抽题（VIP 模拟面试、智能练习）
+      if (!colExists(db, 'interview_questions', 'weight')) {
+        db.prepare("ALTER TABLE interview_questions ADD COLUMN weight INTEGER DEFAULT 3").run()
+      }
+      if (!colExists(db, 'interview_questions', 'difficulty')) {
+        db.prepare("ALTER TABLE interview_questions ADD COLUMN difficulty TEXT DEFAULT 'normal'").run()
+      }
+      // 存量回填：专项(special)题权重更高、难度 hard；热点(hot)常规
+      db.prepare("UPDATE interview_questions SET weight=5, difficulty='hard' WHERE type='special' AND weight IS NULL").run()
+      db.prepare("UPDATE interview_questions SET weight=3, difficulty='normal' WHERE type='hot' AND weight IS NULL").run()
+    }
   }
 ]
 
