@@ -472,7 +472,7 @@ export function newToken(user: any): string {
   sqlite.prepare('INSERT OR REPLACE INTO sessions (token, user_id, created_at, expires_at) VALUES (?,?,?,?)').run(t, user.id, Date.now(), expires)
   return t
 }
-export function genCode() { return String(Math.floor(100000 + Math.random() * 900000)) }
+export function genCode() { return String(crypto.randomInt(100000, 1000000)) }
 export function uid(prefix = 'u_') { return prefix + crypto.randomBytes(6).toString('hex') }
 
 export function safeJson(s: any, d: any) {

@@ -137,10 +137,33 @@ class AlipayProvider implements PaymentProvider {
   }
 
   verifyCallback(headers: Record<string, string>, rawBody: string | Buffer): CallbackResult | null {
-    const obj = JSON.parse(rawBody as string)
-    const notify = obj?.alipay_trade_status_sync_response || obj
-    if (notify?.trade_status !== 'TRADE_SUCCESS') return null
-    return { orderId: notify.out_trade_no, transactionId: notify.trade_no, paid: true, paidAt: Date.now() }
+    // 支付宝异步通知为 form-urlencoded（非 JSON）；解析为键值对
+    const body = rawBody.toString()
+    const pairs = body.split('&')
+    const map: Record<string, string> = {}
+    for (const p of pairs) {
+      const i = p.indexOf('=')
+      if (i < 0) continue
+      try { map[decodeURIComponent(p.slice(0, i))] = decodeURIComponent(p.slice(i + 1)) } catch { /* ignore malformed */ }
+    }
+    if (map.trade_status !== 'TRADE_SUCCESS') return null
+    const orderId = map.out_trade_no
+    const tradeNo = map.trade_no
+    // 验签：配置了支付宝公钥才验（否则仅本地联调，生产务必配置 ALIPAY_PUBLIC_KEY）
+    if (this.publicKey) {
+      const sign = map.sign
+      const signType = map.sign_type
+      if (!sign || signType !== 'RSA2') return null
+      const sorted = Object.keys(map)
+        .filter((k) => k !== 'sign' && k !== 'sign_type' && map[k] !== '')
+        .sort()
+        .map((k) => `${k}=${map[k]}`)
+        .join('&')
+      let ok = false
+      try { ok = crypto.createVerify('RSA-SHA256').update(sorted, 'utf8').verify(this.publicKey, Buffer.from(sign, 'base64')) } catch { ok = false }
+      if (!ok) return null
+    }
+    return { orderId, transactionId: tradeNo, paid: true, paidAt: Date.now() }
   }
 }
 

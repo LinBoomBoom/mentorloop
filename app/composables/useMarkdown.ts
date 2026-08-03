@@ -4,19 +4,21 @@ export interface Freshness { 核验?: string; 风险?: string; 版本?: string; 
 const FRESH_LINE = /^>[ \t]*时效[ \t]*\|(.+)$/m
 
 export const useMarkdown = () => {
+  // 属性值转义：阻断 " 闭合属性、< > 形成标签、& 误解析（用于 v-html 渲染的 URL/文本）
+  const escAttr = (s: any) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   function inline(t: string) {
     return t
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+?)`/g, '<code>$1</code>')
       // 知识图谱内链：[名字](doc:module/chapter/section) → 站内可点击链接（宪章「可导航」）
       .replace(
-        /\[([^\]]+)\]\(doc:([\w-]+)\/([\w-]+)\/([\w-]+)\)/g,
-        '<a class="doc-link" href="/learn/$2/$3/$4">$1</a>'
+        /\[([^\]]+)\]\((doc:([\w-]+)\/([\w-]+)\/([\w-]+))\)/g,
+        (_m, text, _p, m, c, s) => `<a class="doc-link" href="/learn/${m}/${c}/${s}">${escAttr(text)}</a>`
       )
-      // 外链
+      // 外链（必须 http/https，且对 URL/文本做属性转义，阻断 " 闭合属性注入 XSS）
       .replace(
         /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
-        '<a class="doc-link" href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+        (_m, text, url) => `<a class="doc-link" href="${escAttr(url)}" target="_blank" rel="noopener noreferrer">${escAttr(text)}</a>`
       )
   }
 

@@ -24,17 +24,25 @@ class DeepseekClient implements LlmClient {
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
     const apiKey = process.env.DEEPSEEK_API_KEY
     if (!apiKey) throw new Error('LLM 未配置：缺少 DEEPSEEK_API_KEY')
-    const res = await (globalThis as any).fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        temperature: opts.temperature ?? 0.7,
-        max_tokens: opts.maxTokens ?? 1500,
-        stream: false
+    const timeoutMs = opts.timeoutMs ?? 30000
+    let res
+    try {
+      res = await (globalThis as any).fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
+        body: JSON.stringify({
+          model: this.model,
+          messages,
+          temperature: opts.temperature ?? 0.7,
+          max_tokens: opts.maxTokens ?? 1500,
+          stream: false
+        }),
+        signal: AbortSignal.timeout(timeoutMs)
       })
-    })
+    } catch (e: any) {
+      if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw new Error(`LLM 请求超时（${timeoutMs}ms），请稍后重试`)
+      throw e
+    }
     if (!res.ok) {
       const txt = await res.text().catch(() => '')
       throw new Error(`LLM 请求失败 ${res.status}: ${txt.slice(0, 200)}`)

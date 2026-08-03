@@ -117,10 +117,20 @@ export function clearAuthCookie(event: any) {
 }
 
 /* ---------------- 客户端 IP ---------------- */
+// 真实客户端 IP：直连公网 IP 优先；来自可信代理（私有地址）时取 XFF 链最右（由最近代理追加，不可伪造）。
+// 避免直接信任 XFF 首值导致攻击者可伪造 IP 绕过限流/防爆破。
 export function getClientIp(event: any): string {
+  const sock: string = event?.node?.req?.socket?.remoteAddress || ''
+  const isPrivate = (ip: string) => !ip || /^::1$/.test(ip) || /^127\./.test(ip) || /^10\./.test(ip) ||
+    /^192\.168\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
+    /^::ffff:(127|10|192\.168|172\.(1[6-9]|2\d|3[01]))/.test(ip)
+  if (sock && !isPrivate(sock)) return sock
   const xff = getRequestHeader(event, 'x-forwarded-for')
-  if (xff) return String(xff).split(',')[0].trim()
-  return (event?.node?.req?.socket?.remoteAddress) || 'unknown'
+  if (xff) {
+    const parts = String(xff).split(',').map((s) => s.trim()).filter(Boolean)
+    if (parts.length) return parts[parts.length - 1]
+  }
+  return sock || 'unknown'
 }
 
 // 登录失败统一延迟（A9 防时序侧信道：无论用户是否存在都消耗相似时间）
