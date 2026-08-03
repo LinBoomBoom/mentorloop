@@ -3,6 +3,15 @@
     <h1 class="text-2xl font-extrabold mb-1">面试题库 &amp; AI 陪练</h1>
     <p class="text-muted text-sm mb-5">高频必刷题 + 特殊场景题，也能直接提问让 AI 帮你梳理思路。</p>
 
+    <NuxtLink to="/interview/sim" class="card flex items-center gap-3 p-4 mb-6 border border-brand-coral/30 bg-brand-coral/5 reveal hover:-translate-y-0.5 transition">
+      <span class="w-10 h-10 rounded-xl bg-brand-coral/15 text-brand-coral flex items-center justify-center shrink-0"><Icon name="sparkles" :size="20" /></span>
+      <div class="flex-1 min-w-0">
+        <div class="font-bold text-sm">AI 深度模拟面试 <span class="chip bg-brand-coral/15 text-brand-coral !ml-1">VIP</span></div>
+        <div class="text-xs text-muted truncate">多轮实战问答 + 逐题评分反馈，还原真实面试节奏</div>
+      </div>
+      <Icon name="arrowRight" :size="18" class="text-muted shrink-0" />
+    </NuxtLink>
+
     <!-- 提问 -->
     <div class="card p-5 mb-6 reveal">
       <div class="flex flex-col sm:flex-row gap-2 mb-3">

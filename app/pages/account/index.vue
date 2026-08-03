@@ -38,6 +38,18 @@
         <p v-else class="mt-3 text-sm text-muted">你当前为免费用户，开通会员解锁全部专属内容。</p>
       </div>
 
+      <!-- VIP 专属功能 -->
+      <div v-if="auth.isVip" class="grid sm:grid-cols-2 gap-4">
+        <NuxtLink to="/learn/path" class="card p-5 hover:-translate-y-0.5 transition group">
+          <div class="flex items-center gap-2 mb-1.5"><Icon name="compass" :size="18" class="text-brand-coral" /><span class="font-bold">我的学习路径</span></div>
+          <p class="text-xs text-muted">基于薄弱点的 AI 定制进阶路线</p>
+        </NuxtLink>
+        <NuxtLink to="/interview/sim" class="card p-5 hover:-translate-y-0.5 transition group">
+          <div class="flex items-center gap-2 mb-1.5"><Icon name="sparkles" :size="18" class="text-brand-coral" /><span class="font-bold">AI 模拟面试</span></div>
+          <p class="text-xs text-muted">多轮实战 + 逐题评分反馈</p>
+        </NuxtLink>
+      </div>
+
       <!-- 订单 -->
       <div class="card p-6">
         <h3 class="font-bold mb-3">订单记录</h3>

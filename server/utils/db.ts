@@ -73,6 +73,31 @@ function createDb() {
       advice TEXT, used_seconds INTEGER, choice_review TEXT, written_review TEXT, created_at INTEGER,
       submit_nonce TEXT
     );
+    CREATE TABLE IF NOT EXISTS interview_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      track TEXT,
+      level TEXT,
+      goal TEXT,
+      status TEXT DEFAULT 'active',
+      messages TEXT,
+      turns INTEGER DEFAULT 0,
+      score REAL,
+      summary TEXT,
+      created_at INTEGER,
+      updated_at INTEGER,
+      finished_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_interview_user ON interview_sessions(user_id);
+    CREATE TABLE IF NOT EXISTS study_plans (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      track TEXT,
+      weak_points TEXT,
+      plan TEXT,
+      created_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_studyplan_user ON study_plans(user_id);
     CREATE TABLE IF NOT EXISTS audit_logs (
       id TEXT PRIMARY KEY, admin_id TEXT, action TEXT, target TEXT, meta TEXT, created_at INTEGER
     );
@@ -300,6 +325,14 @@ export function requireAdmin(event: any): any {
   const user = getUser(event)
   if (!user) throw createError({ statusCode: 401, statusMessage: '未登录' })
   if (user.role !== 'admin') throw createError({ statusCode: 403, statusMessage: '需要管理员权限' })
+  return user
+}
+
+// VIP 门禁：未登录 401 / 非有效会员 403。与 effectiveVip 到期回收逻辑一致。
+export function requireVipUser(event: any): any {
+  const user = getUser(event)
+  if (!user) throw createError({ statusCode: 401, statusMessage: '未登录' })
+  if (!effectiveVip(user).active) throw createError({ statusCode: 403, statusMessage: '该功能为 VIP 专属，请先开通会员' })
   return user
 }
 export function json(event: any, code: number, data: any) {

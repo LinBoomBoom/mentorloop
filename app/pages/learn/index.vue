@@ -3,6 +3,15 @@
     <h1 class="text-2xl font-extrabold mb-1">学习中心</h1>
     <p class="text-muted text-sm mb-6">选择方向，按章节系统学习，完成打卡解锁下一章。</p>
 
+    <NuxtLink to="/learn/path" class="card flex items-center gap-3 p-4 mb-6 border border-brand-coral/30 bg-brand-coral/5 reveal hover:-translate-y-0.5 transition">
+      <span class="w-10 h-10 rounded-xl bg-brand-coral/15 text-brand-coral flex items-center justify-center shrink-0"><Icon name="compass" :size="20" /></span>
+      <div class="flex-1 min-w-0">
+        <div class="font-bold text-sm">AI 个性化学习路径 <span class="chip bg-brand-coral/15 text-brand-coral !ml-1">VIP</span></div>
+        <div class="text-xs text-muted truncate">基于你的模拟考试薄弱点，由大模型定制专属进阶路线</div>
+      </div>
+      <Icon name="arrowRight" :size="18" class="text-muted shrink-0" />
+    </NuxtLink>
+
     <div v-if="!modules" class="grid md:grid-cols-3 gap-5 stagger"><div v-for="i in 3" :key="i" class="card h-48 shimmer"></div></div>
 
     <div v-else class="grid md:grid-cols-3 gap-5 stagger">
