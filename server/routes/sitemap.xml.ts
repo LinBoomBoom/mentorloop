@@ -1,5 +1,4 @@
 import { setResponseHeader } from 'h3'
-import { sqlite } from '../utils/db'
 
 // 动态生成 sitemap：遍历全部公开内容页（模块/章节/小节/试卷）
 export default defineEventHandler((event) => {

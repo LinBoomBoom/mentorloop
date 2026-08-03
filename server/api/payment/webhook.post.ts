@@ -1,7 +1,4 @@
 // 支付回调（真实通道：微信/支付宝推送）。校验签名 + 解密后开通会员。
-import { getProvider } from '../../utils/payment'
-import { fulfillOrder, json, sqlite } from '../../utils/db'
-
 export default defineEventHandler(async (event) => {
   const provider = getProvider()
   const raw = (await readRawBody(event, 'utf8').catch(() => '')) || ''

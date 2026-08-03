@@ -1,6 +1,4 @@
 // 当前用户的会员状态、有效订阅与订单历史
-import { getUser, getActiveSubscription, json, sqlite } from '../../utils/db'
-
 export default defineEventHandler((event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })

@@ -1,7 +1,5 @@
 // 管理后台统一路由（catch-all）。鉴权 + 事件解析后委托 server/utils/adminDispatch.ts。
 import { defineEventHandler, getMethod, getRouterParams, getQuery, readBody, createError } from 'h3'
-import { requireAdmin } from '../../utils/db'
-import { adminDispatch } from '../../utils/adminDispatch'
 
 export default defineEventHandler(async (event) => {
   const admin = requireAdmin(event) // 401 / 403 统一拦

@@ -1,6 +1,5 @@
 // 健康检查接口：供负载均衡 / 监控探活（C2）
 import { defineEventHandler } from 'h3'
-import { sqlite } from '../utils/db'
 
 export default defineEventHandler(async () => {
   try {

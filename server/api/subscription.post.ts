@@ -1,6 +1,4 @@
 // 订阅管理：取消/恢复自动续费（会员资格保留至 expireAt，仅停止续费）
-import { getUser, getActiveSubscription, json, sqlite } from '../utils/db'
-
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })

@@ -1,8 +1,4 @@
 // 查询订单状态（支付页轮询用）
-import { getUser, json, sqlite } from '../../utils/db'
-import { getPlan } from '../../utils/plans'
-import { getProvider } from '../../utils/payment'
-
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })

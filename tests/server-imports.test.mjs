@@ -81,3 +81,29 @@ describe('server 源文件 esbuild 打包可解析整条 import 图（等效 Nit
   }
 })
 
+// 回归闸门升级：路由文件（server/api、server/routes）严禁相对 import server/utils/*。
+// server/utils 是 Nitro 自动导入目录，路由 handler 应直接以自动导入方式使用其导出（sqlite/json/getUser/...）。
+// 显式相对 import 在 Nitro 对 server/routes（及双扩展名路由如 sitemap.xml.ts）的虚拟化路径下会解析基准错位，
+// 导致构建期 "Could not resolve"，而本环境的 esbuild 闸门按真实文件系统解析无法复现该失败。
+// 故以「禁止此类写法」作为确定性防线——任何新增的相对 import server/utils 都会在此被拦截。
+const ROUTE_DIRS = [path.join(SERVER_DIR, 'api'), path.join(SERVER_DIR, 'routes')]
+const UTILS_IMPORT_RE = /(?:import|export)[\s\S]*?from\s*['"]([^'"]*utils\/[^'"]*)['"]|import\(\s*['"]([^'"]*utils\/[^'"]*)['"]\s*\)/
+
+describe('route 文件禁止相对 import server/utils（应使用 Nitro 自动导入）', () => {
+  for (const d of ROUTE_DIRS) {
+    if (!fs.existsSync(d)) continue
+    for (const f of walk(d)) {
+      it(`route 文件 ${path.relative(ROOT, f)} 不得相对 import server/utils`, () => {
+        const src = fs.readFileSync(f, 'utf8')
+        const bad = []
+        let m
+        while ((m = UTILS_IMPORT_RE.exec(src))) {
+          const spec = m[1] || m[2]
+          if (spec && spec.includes('utils/')) bad.push(spec)
+        }
+        expect(bad, `${path.relative(ROOT, f)} 含对 server/utils 的相对 import（应使用自动导入）: ${bad.join(', ')}`).toEqual([])
+      })
+    }
+  }
+})
+

@@ -1,8 +1,4 @@
 // 创建 VIP 订单（待支付），返回支付通道信息
-import { getUser, uid, json, sqlite } from '../../utils/db'
-import { getPlan, VIP_ENABLED } from '../../utils/plans'
-import { getProvider } from '../../utils/payment'
-
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
