@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div class="max-w-4xl mx-auto">
     <h1 class="text-2xl font-extrabold mb-1">AI 深度模拟面试</h1>
     <p class="text-muted text-sm mb-5">多轮实战问答 + 逐题评分反馈，还原真实面试节奏。共 {{ maxTurns }} 题，结束后给出综合评估。</p>
 
@@ -53,19 +53,29 @@
       </div>
 
       <!-- 对话流 -->
-      <div class="px-5 py-4 space-y-4 max-h-[52vh] overflow-y-auto" ref="scrollEl">
+      <div class="px-5 py-4 space-y-4 max-h-[64vh] overflow-y-auto" ref="scrollEl">
         <template v-for="(m, i) in messages" :key="i">
           <div v-if="m.role === 'assistant'" class="flex gap-3">
-            <div class="w-8 h-8 rounded-lg bg-brand-coral/15 text-brand-coral flex items-center justify-center shrink-0"><Icon name="sparkles" :size="15" /></div>
-            <div class="flex-1">
-              <div v-if="m.score != null" class="inline-flex items-center gap-1 mb-1.5 chip bg-emerald-500/10 text-emerald-600">
-                <Icon name="checkCircle" :size="13" /> 评分 {{ m.score }}/10
-              </div>
-              <div class="rounded-2xl rounded-tl-sm bg-ink/5 px-4 py-3 text-sm whitespace-pre-line">{{ m.content }}</div>
+            <div class="w-9 h-9 rounded-lg bg-brand-coral/15 text-brand-coral flex items-center justify-center shrink-0 mt-0.5"><Icon name="sparkles" :size="16" /></div>
+            <div class="flex-1 min-w-0 space-y-2">
+              <template v-if="m.score != null">
+                <div class="inline-flex items-center gap-1 chip bg-emerald-500/10 text-emerald-600">
+                  <Icon name="checkCircle" :size="13" /> 评分 {{ m.score }}/10
+                </div>
+                <div v-if="m.feedback" class="rounded-2xl rounded-tl-sm bg-emerald-500/[.06] border border-emerald-500/15 px-4 py-3 text-sm">
+                  <div class="font-semibold text-emerald-700 mb-1 flex items-center gap-1"><Icon name="bulb" :size="13" /> 改进建议</div>
+                  <p class="whitespace-pre-line text-sub">{{ m.feedback }}</p>
+                </div>
+                <div v-if="m.analysis" class="rounded-2xl rounded-tl-sm bg-sky-500/[.07] border border-sky-500/20 px-4 py-3 text-sm">
+                  <div class="font-semibold text-sky-700 mb-1 flex items-center gap-1"><Icon name="book" :size="13" /> 答案解析</div>
+                  <p class="whitespace-pre-line text-sub">{{ m.analysis }}</p>
+                </div>
+              </template>
+              <div v-if="m.content" class="rounded-2xl rounded-tl-sm bg-ink/5 px-4 py-3 text-sm whitespace-pre-line">{{ m.content }}</div>
             </div>
           </div>
           <div v-else class="flex gap-3 flex-row-reverse">
-            <div class="w-8 h-8 rounded-lg bg-brand-gold/15 text-brand-gold flex items-center justify-center shrink-0"><Icon name="user" :size="15" /></div>
+            <div class="w-9 h-9 rounded-lg bg-brand-gold/15 text-brand-gold flex items-center justify-center shrink-0 mt-0.5"><Icon name="user" :size="16" /></div>
             <div class="rounded-2xl rounded-tr-sm bg-brand-coral/10 px-4 py-3 text-sm whitespace-pre-line max-w-[85%]">{{ m.content }}</div>
           </div>
         </template>
@@ -79,9 +89,9 @@
       </div>
 
       <!-- 作答输入 -->
-      <div v-else class="p-4 border-t border-line flex gap-2">
-        <textarea v-model="userAnswer" rows="2" class="input flex-1 resize-none" :placeholder="currentQuestion ? '输入你的回答…' : '等待面试官提问…'" :disabled="evaluating || !currentQuestion" @keydown.ctrl.enter="submitAnswer"></textarea>
-        <button class="btn btn-primary shrink-0 self-end" :disabled="evaluating || !userAnswer.trim()" @click="submitAnswer">
+      <div v-else class="p-5 border-t border-line flex gap-3 items-end">
+        <textarea v-model="userAnswer" rows="3" class="input flex-1 resize-none" placeholder="输入你的回答…（不会也可直接写「不会」继续）" :disabled="evaluating" @keydown.ctrl.enter="submitAnswer"></textarea>
+        <button class="btn btn-primary shrink-0" :disabled="evaluating || !userAnswer.trim()" @click="submitAnswer">
           <Icon name="send" :size="16" /> {{ evaluating ? '评分中' : '提交' }}
         </button>
       </div>
@@ -164,9 +174,9 @@ async function submitAnswer() {
   evaluating.value = true; err.value = ''
   try {
     const r: any = await request('/api/vip/interview/answer', { method: 'POST', body: { sessionId: sessionId.value, answer: ans } })
-    messages.value.push({ role: 'assistant', content: (r.evaluation.feedback ? r.evaluation.feedback + '\n\n' : '') + (r.isLast ? '' : '下一题：' + r.nextQuestion), score: r.evaluation.score, feedback: r.evaluation.feedback })
+    messages.value.push({ role: 'assistant', content: r.isLast ? '' : '下一题：' + r.nextQuestion, score: r.evaluation.score, feedback: r.evaluation.feedback, analysis: r.analysis || '' })
     turns.value = r.turns
-    currentQuestion.value = r.nextQuestion
+    currentQuestion.value = r.nextQuestion || (r.isLast ? '' : '（请尝试回答，或写「不会」继续）')
     userAnswer.value = ''
     if (r.isLast) { phase.value = 'done'; finalScore.value = r.score; summary.value = r.summary || '' }
     scrollToEnd()
