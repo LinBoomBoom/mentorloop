@@ -62,10 +62,10 @@
                 <div class="text-xs font-semibold text-sub mb-1.5 leading-snug">{{ ci + 1 }}. {{ ch.title }}</div>
                 <div class="space-y-0.5">
                   <NuxtLink v-for="s in (ch.sections || [])" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
-                            class="flex items-center gap-2 text-xs py-1 px-2 rounded-lg hover:bg-brand-coral/5 transition truncate"
+                            class="flex items-center gap-2 text-xs py-1 px-2 rounded-lg hover:bg-brand-coral/5 transition min-w-0"
                             :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-600 font-medium' : 'text-muted'">
                     <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, ch.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
-                    <span class="truncate">{{ s.title }}</span>
+                    <span class="break-words min-w-0">{{ s.title }}</span>
                   </NuxtLink>
                 </div>
               </div>

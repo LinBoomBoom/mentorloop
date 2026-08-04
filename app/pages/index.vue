@@ -26,16 +26,16 @@
     <template v-else-if="showDash">
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4 stagger">
         <div class="card p-6 flex items-center gap-5 col-span-1 lg:col-span-1">
-          <ProgressRing :value="stats.overall.percent" :size="108" :stroke="11" color="#ff5e7e" label="总进度" />
+          <ProgressRing :value="stats.overall.percent" :size="108" :stroke="11" color="#e11d48" label="总进度" />
           <div>
             <div class="text-sm text-muted">已掌握</div>
             <div class="text-xl font-extrabold">{{ stats.overall.done }}<span class="text-muted text-sm font-normal"> / {{ stats.overall.total }} 节</span></div>
             <div class="text-[12px] text-muted mt-1">距离学完还差 {{ stats.overall.total - stats.overall.done }} 节</div>
           </div>
         </div>
-        <StatCard title="连续学习" :value="stats.streak.current + ' 天'" :sub="`最长 ${stats.streak.longest} 天 · 累计 ${stats.streak.totalDays} 天`" icon="flame" color="#ff8a5c" />
+        <StatCard title="连续学习" :value="stats.streak.current + ' 天'" :sub="`最长 ${stats.streak.longest} 天 · 累计 ${stats.streak.totalDays} 天`" icon="flame" color="#ea580c" />
         <StatCard title="答卷均分" :value="stats.exams.avg" :sub="stats.exams.count ? `共 ${stats.exams.count} 套 · 最高 ${stats.exams.best} 分` : '还没有答卷记录，去试试'" icon="chart" color="#14b8a6" />
-        <StatCard title="能力雷达" :value="stats.radar.filter((r:any)=>r.value>=60).length + '/6'" :sub="'笔试能力 ' + stats.exams.avg + ' 分'" icon="target" color="#ffc24b" />
+        <StatCard title="能力雷达" :value="stats.radar.filter((r:any)=>r.value>=60).length + '/6'" :sub="'笔试能力 ' + stats.exams.avg + ' 分'" icon="target" color="#d97706" />
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 stagger">
         <div class="card p-6">

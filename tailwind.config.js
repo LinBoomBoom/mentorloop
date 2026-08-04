@@ -11,9 +11,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 日落暖色品牌色
+        // 日落暖色品牌色（UI 审计 P5：coral 改为主题感知变量，浅色更深、深色更亮，提升对比度）
         brand: {
-          coral: '#ff5e7e',
+          coral: 'rgb(var(--brand-coral) / <alpha-value>)',
           pink: '#ff8a5c',
           gold: '#ffc24b',
           deep: '#ff4d6d'

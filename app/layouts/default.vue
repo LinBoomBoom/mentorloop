@@ -92,12 +92,12 @@
     </div>
 
     <!-- 移动端底部 Tab -->
-    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 glass border-t border-line grid grid-cols-5">
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 glass border-t border-line grid grid-cols-6 overflow-hidden">
       <NuxtLink v-for="item in nav" :key="item.to" :to="item.to"
-                class="flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition"
+                class="flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition min-w-0"
                 :class="isActive(item) ? 'text-brand-coral' : 'text-muted'">
         <Icon :name="item.icon" :size="20" />
-        <span>{{ item.short }}</span>
+        <span class="truncate max-w-full">{{ item.short }}</span>
       </NuxtLink>
     </nav>
 

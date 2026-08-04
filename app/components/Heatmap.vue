@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full">
+  <div class="w-full max-w-full">
     <div class="flex gap-[3px] overflow-x-auto scrollbar-thin pb-1">
       <div v-for="(week, wi) in weeks" :key="wi" class="flex flex-col gap-[3px]">
         <div v-for="(day, di) in week" :key="di"
