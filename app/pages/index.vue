@@ -45,9 +45,17 @@
         </div>
         <div class="card p-6">
           <h3 class="section-title mb-1">学习热力图</h3>
-          <p class="text-xs text-muted mb-3">近 20 周打卡密度</p>
+          <p class="text-xs text-muted mb-3">近 20 周学习活跃度</p>
           <Heatmap :days="stats.heatmap" />
+          <a-alert class="mt-4" type="info" :show-icon="true">
+            <template #message>
+              <div class="text-[12px] leading-relaxed">
+                <b>点亮规则：</b>每完成 1 节课程学习、或每日打卡 1 次，对应日期即点亮；颜色越深表示当日学习 / 打卡越活跃。连续活跃天数会在「连续学习」中累计。
+              </div>
+            </template>
+          </a-alert>
         </div>
+        <CheckinCard />
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 stagger mb-7">
         <div class="card p-6 lg:col-span-2">
@@ -73,7 +81,7 @@
             <div v-for="r in stats.exams.recent" :key="r.createdAt" class="flex items-center justify-between p-3 rounded-xl bg-ink/5">
               <div class="min-w-0">
                 <div class="text-sm font-semibold truncate">{{ r.name }}</div>
-                <div class="text-[11px] text-muted">{{ new Date(r.createdAt).toLocaleDateString() }}</div>
+                <div class="text-[11px] text-muted" :title="fmtDateTime(r.createdAt)">{{ fmtDateTime(r.createdAt) }}</div>
               </div>
               <div class="text-lg font-extrabold" :class="r.score>=70?'text-emerald-500':r.score>=50?'text-amber-500':'text-red-500'">{{ r.score }}</div>
             </div>

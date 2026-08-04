@@ -46,6 +46,10 @@ export default defineEventHandler((event) => {
     const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
     days[key] = (days[key] || 0) + 1
   })
+  // 合并每日打卡：打卡日期同样点亮热力图、计入连续活跃
+  sqlite.prepare('SELECT check_date FROM checkins WHERE user_id=?').all(user.id).forEach((r: any) => {
+    days[r.check_date] = (days[r.check_date] || 0) + 1
+  })
   const heatmap: any[] = []
   const today = new Date()
   for (let i = 139; i >= 0; i--) {

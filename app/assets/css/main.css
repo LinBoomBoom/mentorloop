@@ -1,3 +1,6 @@
+/* antd-vue 基础样式（置于 Tailwind 之前，确保应用自身样式可覆盖） */
+@import 'ant-design-vue/dist/reset.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
