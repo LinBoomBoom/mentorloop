@@ -2,7 +2,7 @@
   <div class="max-w-2xl mx-auto">
     <h1 class="text-2xl font-extrabold mb-6">个人中心</h1>
 
-    <div v-if="!auth.isLoggedIn" class="card p-8 text-center">
+    <div v-if="!isAuthed" class="card p-8 text-center">
       <p class="text-muted">请先登录后查看个人中心</p>
       <NuxtLink to="/login" class="btn btn-primary mt-4">登录 / 注册</NuxtLink>
     </div>
@@ -15,10 +15,10 @@
             {{ avatarText }}
           </div>
           <div class="min-w-0">
-            <div class="text-lg font-bold truncate">{{ auth.user?.nickname || '学员' }}</div>
-            <div class="text-sm text-muted truncate">{{ auth.user?.email || auth.user?.phone || '—' }}</div>
+            <div class="text-lg font-bold truncate">{{ currentUser?.nickname || '学员' }}</div>
+            <div class="text-sm text-muted truncate">{{ currentUser?.email || currentUser?.phone || '—' }}</div>
           </div>
-          <span v-if="auth.isVip" class="ml-auto tag tag-vip !px-3">👑 VIP</span>
+          <span v-if="isVip" class="ml-auto tag tag-vip !px-3">👑 VIP</span>
           <span v-else class="ml-auto chip">免费用户</span>
         </div>
       </div>
@@ -29,23 +29,24 @@
           <h3 class="font-bold">会员状态</h3>
           <NuxtLink to="/vip" class="text-sm text-brand-coral font-semibold">管理 / 开通 →</NuxtLink>
         </div>
-        <!-- 有订阅记录：完整展示；仅有 vip 等级（如后台直接授予）：降级展示，避免误判为免费用户 -->
+        <!-- 有订阅记录：完整展示；仅有 vip 等级（如后台直接授予）：降级展示；auth store 已知的 VIP 兜底展示，
+             避免 status API 尚未返回时截屏/首屏出现「免费用户」闪烁。 -->
         <div v-if="status?.subscription" class="mt-3 space-y-2 text-sm">
           <div class="flex justify-between"><span class="text-muted">套餐</span><b>{{ planName(status.subscription.planId) }}</b></div>
           <div class="flex justify-between"><span class="text-muted">等级</span><b>VIP Lv.{{ status.subscription.level }}</b></div>
           <div class="flex justify-between"><span class="text-muted">有效期至</span><b>{{ fmtExpire(status.subscription.expireAt) }}</b></div>
           <div class="flex justify-between"><span class="text-muted">自动续费</span><b :class="status.subscription.autoRenew ? 'text-emerald-600' : 'text-muted'">{{ status.subscription.autoRenew ? '开启' : '关闭' }}</b></div>
         </div>
-        <div v-else-if="status?.vip?.active" class="mt-3 space-y-2 text-sm">
-          <div class="flex justify-between"><span class="text-muted">等级</span><b>VIP Lv.{{ status.vip.level }}</b></div>
-          <div class="flex justify-between"><span class="text-muted">有效期至</span><b>{{ fmtExpire(status.vip.expireAt) }}</b></div>
-          <div class="flex justify-between"><span class="text-muted">开通方式</span><b class="text-muted">平台授予</b></div>
+        <div v-else-if="status?.vip?.active || isVip" class="mt-3 space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-muted">等级</span><b>VIP Lv.{{ status?.vip?.level ?? currentUser?.vip?.level ?? '—' }}</b></div>
+          <div class="flex justify-between"><span class="text-muted">有效期至</span><b>{{ fmtExpire(status?.vip?.expireAt ?? currentUser?.vip?.expireAt) }}</b></div>
+          <div class="flex justify-between"><span class="text-muted">开通方式</span><b class="text-muted">{{ status?.vip ? '平台授予' : '已开通会员' }}</b></div>
         </div>
         <p v-else class="mt-3 text-sm text-muted">你当前为免费用户，开通会员解锁全部专属内容。</p>
       </div>
 
       <!-- VIP 专属功能 -->
-      <div v-if="auth.isVip" class="grid sm:grid-cols-2 gap-4 mb-5">
+      <div v-if="isVip" class="grid sm:grid-cols-2 gap-4 mb-5">
         <NuxtLink to="/learn/path" class="card p-5 hover:-translate-y-0.5 transition group">
           <div class="flex items-center gap-2 mb-1.5"><Icon name="compass" :size="18" class="text-brand-coral" /><span class="font-bold">我的学习路径</span></div>
           <p class="text-xs text-muted">基于薄弱点的 AI 定制进阶路线</p>
@@ -88,7 +89,7 @@
              否则浏览器密码管理器会在整个文档范围内寻找「用户名」输入框，
              把当前账号自动填进侧边导航的搜索框（type=search 被误判为账号字段）。 -->
         <form v-if="showDelete" class="mt-4 space-y-3" autocomplete="off" @submit.prevent="doDelete">
-          <input type="text" :value="auth.user?.email || auth.user?.phone || ''" autocomplete="username"
+          <input type="text" :value="currentUser?.email || currentUser?.phone || ''" autocomplete="username"
                  tabindex="-1" aria-hidden="true" readonly
                  style="position:absolute;opacity:0;height:0;width:0;pointer-events:none" />
           <input class="input" :type="showDelPwd?'text':'password'" v-model="deletePwd"
@@ -107,12 +108,21 @@
 <script setup lang="ts">
 const { request } = useApi()
 const auth = useAuthStore()
-const status = ref<any>(null)
+
+// 个人中心必须 SSR 感知登录态：Pinia auth store 在 SSR 阶段未填充（它在 onNuxtReady 才 init），
+// 若页面用 auth.isLoggedIn 做渲染闸门，服务端会永远输出「请先登录」的骨架。
+// 这里直接通过 HttpOnly cookie 在 setup/SSR 阶段拉取 /api/auth/me 与 /api/vip/status，
+// 用本地 ref 驱动首屏，避免闪烁与 hydration mismatch。
+const { data: me } = await useFetch('/api/auth/me', { server: true, default: () => null })
+const { data: status } = await useFetch('/api/vip/status', { server: true, default: () => null })
+const isAuthed = computed(() => !!me.value || auth.isLoggedIn)
+const currentUser = computed(() => me.value?.user || auth.user)
+const isVip = computed(() => status.value?.vip?.active || auth.isVip)
 
 useSeoMeta({ title: '个人中心 · MentorLoop', ogUrl: safeOgUrl() })
 
-const avatarText = computed(() => (auth.user?.nickname || '学').slice(0, 1).toUpperCase())
-const avatarBg = computed(() => auth.isVip
+const avatarText = computed(() => (currentUser.value?.nickname || '学').slice(0, 1).toUpperCase())
+const avatarBg = computed(() => isVip.value
   ? 'linear-gradient(120deg,#ff5e7e,#ff8a5c 55%,#ffc24b)'
   : 'linear-gradient(120deg,#94a3b8,#64748b)')
 
@@ -141,9 +151,4 @@ async function doDelete() {
   } catch (e: any) { deleteError.value = e.message } finally { deleteLoading.value = false }
 }
 
-onMounted(async () => {
-  if (auth.isLoggedIn) {
-    try { const r: any = await request('/api/vip/status'); status.value = r } catch { /* ignore */ }
-  }
-})
 </script>

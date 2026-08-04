@@ -310,14 +310,20 @@ function retake() {
 }
 
 // 公开试卷：SSR 加载（预览题目），无需登录即可浏览
+const mounted = ref(false)
 const { data: setRes, error: fetchError, refresh } = await useFetch(() => '/api/exam/sets/' + route.params.id)
 watch(setRes, (v: any) => {
   if (v?.set) {
     set.value = v.set
     dur.value = v.set.duration || 0
+    // 关键：服务端与客户端首屏必须渲染同一个剩余时间（满时长），
+    // 否则 SSR 会把 timeLeft=0 渲染成「时间紧张 00:00」红色告警态，
+    // 客户端 startTimer() 立刻重置为满时长 → hydration mismatch。
+    // 计时器只在挂载后（客户端）启动，绝不在 SSR 可执行路径里改状态。
+    timeLeft.value = dur.value * 60
     if (!route.query.record && phase.value === 'loading') {
       phase.value = 'take'
-      if (import.meta.client) startTimer()
+      if (mounted.value) startTimer()
     }
   } else if (v?.error || fetchError.value) {
     err.value = v?.error || fetchError.value?.message || '试卷加载失败'
@@ -327,6 +333,7 @@ watch(setRes, (v: any) => {
 
 // 历史复盘（需登录）：客户端拉取
 onMounted(async () => {
+  mounted.value = true
   const recordId = route.query.record
   if (recordId) {
     try {
@@ -335,7 +342,10 @@ onMounted(async () => {
       phase.value = 'review'
       stopTimer()
     } catch (e: any) { err.value = e.message || '加载复盘失败' }
+    return
   }
+  // 首屏 hydration 完成后再启动倒计时，避免计时器读数进入 SSR 快照
+  if (phase.value === 'take' && dur.value) startTimer()
 })
 onBeforeUnmount(stopTimer)
 </script>
