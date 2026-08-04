@@ -4,7 +4,11 @@ import { defineEventHandler, getMethod, getRouterParams, getQuery, readBody, cre
 export default defineEventHandler(async (event) => {
   const admin = requireAdmin(event) // 401 / 403 统一拦
   const method = getMethod(event)
-  const seg = ((getRouterParams(event).slug as string[]) || []).filter(Boolean)
+  // Nitro 对 catch-all 路由的 slug 在不同版本下可能是字符串或数组，统一规整为数组。
+  const rawSlug = getRouterParams(event).slug
+  const seg: string[] = typeof rawSlug === 'string'
+    ? rawSlug.split('/').filter(Boolean)
+    : Array.isArray(rawSlug) ? rawSlug.filter(Boolean) : []
   const body = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method) ? (await readBody(event).catch(() => ({})) || {}) : {}
   const q = getQuery(event) as any
   try {

@@ -1,11 +1,21 @@
 import { describe, it, expect, afterAll } from 'vitest'
-import { sqlite, newToken, requireAdmin } from '../server/utils/db'
-import { adminDispatch } from '../server/utils/adminDispatch'
+import { mkdtempSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import Database from 'better-sqlite3'
 
-// 取真实管理员（create_admin.mjs 已建 admin@mentorloop.com）
+// 自建独立临时库，避免与同 worker 内其他测试文件共享 sqlite 单例导致数据串扰。
+const dir = mkdtempSync(join(tmpdir(), 'ml-admin-route-'))
+process.env.DB_PATH = join(dir, 'test.db')
+
+const { sqlite, newToken, requireAdmin } = await import('../server/utils/db')
+const { adminDispatch } = await import('../server/utils/adminDispatch')
+
+// 本测试库内置管理员与普通用户（不依赖生产库 / 其他测试的临时库）。
+sqlite.prepare("INSERT INTO users (id,username,email,password,role,vip) VALUES ('admin_test','admin@mentorloop.com','admin@mentorloop.com','x','admin','{}')").run()
+sqlite.prepare("INSERT INTO users (id,username,email,password,role,vip) VALUES ('normal_test','normal@mentorloop.com','normal@mentorloop.com','x','user','{}')").run()
 const admin = sqlite.prepare("SELECT * FROM users WHERE email='admin@mentorloop.com'").get()
 const adminToken = newToken(admin)
-// 取一个真实非管理员用户做 403 验证
 const normal = sqlite.prepare("SELECT * FROM users WHERE role<>'admin' ORDER BY id LIMIT 1").get()
 const normalToken = normal ? newToken(normal) : null
 
@@ -19,8 +29,9 @@ function statusOf(fn) {
 }
 
 afterAll(() => {
-  // 清理测试期间可能产生的会话行（token 写入 sessions），不影响业务数据
-  sqlite.prepare("DELETE FROM sessions WHERE token IN (?, ?)").run(adminToken, normalToken || '')
+  // 清理本测试产生的会话行，并删除临时库目录
+  try { sqlite.prepare("DELETE FROM sessions WHERE token IN (?, ?)").run(adminToken, normalToken || '') } catch {}
+  try { rmSync(dir, { recursive: true, force: true }) } catch {}
 })
 
 describe('管理后台鉴权闸口', () => {
