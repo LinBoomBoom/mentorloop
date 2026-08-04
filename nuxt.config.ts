@@ -2,6 +2,12 @@
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: false },
+  // 局域网访问：监听所有网卡接口（Nuxt 默认 localhost 仅本机可访问）。
+  // 改完需重启 dev server；同时需在系统防火墙放行 3000 入站（见下方说明）。
+  devServer: {
+    host: '0.0.0.0',
+    port: 3000
+  },
   // 默认开启 SSR（利于 SEO / 自然流量）。内容页公开可浏览，仅写操作（打卡/交卷/付费）才需登录。
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   // 按页面实际情况开启/关闭 SSR：内容公开，仅登录态相关的写操作才需鉴权
