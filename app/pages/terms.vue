@@ -3,13 +3,6 @@
     <h1 class="text-2xl font-extrabold mb-1">服务条款</h1>
     <p class="text-sm text-muted mb-6">最后更新日期：2026 年 8 月 3 日　生效日期：2026 年 8 月 3 日</p>
 
-    <nav class="card p-5 mb-5">
-      <div class="text-xs font-semibold text-muted mb-2">目录</div>
-      <ul class="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
-        <li v-for="s in sections" :key="s.id"><a :href="'#' + s.id" class="text-brand-coral hover:underline">{{ s.no }} {{ s.title }}</a></li>
-      </ul>
-    </nav>
-
     <article class="card p-7 sm:p-9 leading-relaxed">
       <p class="text-sub mb-7">
         欢迎使用 MentorLoop。本条款是您与本平台之间关于使用本平台服务的法律协议。请您在注册或使用本平台前，仔细阅读并充分理解本条款的全部内容，特别是以加粗形式提示的责任限制、免责等条款。当您完成注册或开始使用本平台服务时，即视为您已阅读、理解并同意接受本条款的约束。

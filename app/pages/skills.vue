@@ -90,7 +90,7 @@ watch(() => auth.isLoggedIn, async (v) => {
 }, { immediate: true })
 
 async function toggle(p: { moduleId: string; chapterId: string; sectionId: string; current: boolean }) {
-  if (guard()) return
+  if (await guard()) return
   try {
     const r: any = await request('/api/progress/toggle', {
       method: 'POST',

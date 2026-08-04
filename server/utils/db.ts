@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { getHeader, getCookie, setResponseStatus, createError } from 'h3'
+import { getHeader, getCookie, setCookie, setResponseStatus, createError } from 'h3'
 import { logWarn } from './logger'
 
 /* ---------------- 单例数据库 ---------------- */
@@ -587,11 +587,41 @@ export function getUser(event: any): any {
   if (!token) return null
   const row = sqlite.prepare('SELECT user_id, expires_at FROM sessions WHERE token = ?').get(token) as any
   if (!row) return null
-  if (row.expires_at && row.expires_at < Date.now()) {
+  const now = Date.now()
+  if (row.expires_at && row.expires_at < now) {
     sqlite.prepare('DELETE FROM sessions WHERE token = ?').run(token)
     return null
   }
   return sqlite.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id) || null
+}
+
+/* ---------------- 会话滑动续期 ----------------
+ * 只要用户在活跃，有效期就从「最后一次访问」重新计算 7 天，避免用着用着被动登出。
+ * 由 server/middleware/session-touch.ts 在真实请求上调用（拿得到真实 res 才能刷新 Cookie）。
+ * 每天最多续一次，写库开销可忽略。
+ */
+const SESSION_RENEW_AFTER_MS = 86400000
+export function touchSession(event: any): void {
+  try {
+    const token = getCookie(event, 'ml_token')
+    if (!token) return
+    const row = sqlite.prepare('SELECT expires_at FROM sessions WHERE token=?').get(token) as any
+    if (!row) return
+    const now = Date.now()
+    if (row.expires_at && row.expires_at < now) return // 已过期交给 getUser 回收
+    // 剩余有效期仍接近满额（说明今天已续过）→ 跳过
+    if (row.expires_at && row.expires_at - now > SESSION_TTL_MS - SESSION_RENEW_AFTER_MS) return
+    sqlite.prepare('UPDATE sessions SET expires_at=? WHERE token=?').run(now + SESSION_TTL_MS, token)
+    if (event?.node?.res && !event.node.res.headersSent) {
+      setCookie(event, 'ml_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: Math.floor(SESSION_TTL_MS / 1000)
+      })
+    }
+  } catch { /* 续期失败不影响本次请求 */ }
 }
 export function newToken(user: any): string {
   const t = crypto.randomBytes(16).toString('hex')

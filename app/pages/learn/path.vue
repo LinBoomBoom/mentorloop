@@ -1,10 +1,21 @@
 <template>
   <div class="max-w-3xl mx-auto">
-    <div class="flex items-center justify-between mb-1">
+    <div class="mb-1">
       <h1 class="text-2xl font-extrabold">AI 个性化学习路径</h1>
-      <button v-if="plan && vipOk" class="btn text-sm" :disabled="loading" @click="generate(true)"><Icon name="refresh" :size="15" /> {{ loading ? '生成中' : '重新生成' }}</button>
     </div>
-    <p class="text-muted text-sm mb-5">基于你模拟考试的薄弱点，由大模型定制的有序进阶路线。</p>
+    <p class="text-muted text-sm mb-4">基于你模拟考试的薄弱点，由大模型定制的有序进阶路线。切换方向可动态生成对应路径。</p>
+
+    <!-- 方向选择 -->
+    <div v-if="vipOk && !noRecord" class="flex flex-wrap gap-2 mb-5">
+      <button
+        v-for="t in TRACKS"
+        :key="t"
+        class="px-3.5 py-1.5 rounded-full text-sm font-medium transition disabled:opacity-50"
+        :class="selectedTrack === t ? 'bg-brand-coral text-white shadow-sm' : 'bg-ink/5 text-sub hover:bg-ink/10'"
+        :disabled="loading"
+        @click="selectTrack(t)"
+      >{{ trackName(t) }}</button>
+    </div>
 
     <!-- 门禁 -->
     <div v-if="gate" class="card p-8 text-center reveal">
@@ -27,15 +38,29 @@
 
     <!-- 路径 -->
     <div v-else-if="plan" class="space-y-5">
+      <!-- AI 教学联动：把纯文本路径变成可执行的练习入口 -->
+      <div class="card p-5 border border-brand-coral/20 bg-gradient-to-br from-brand-coral/[.06] to-transparent reveal">
+        <div class="flex items-center gap-2 mb-2 text-sm font-semibold text-brand-coral">
+          <Icon name="sparkles" :size="16" /> 把这条路径用起来
+        </div>
+        <p class="text-sm text-muted mb-3">光看路径不够——用 AI 教学把它变成真本事：针对「{{ trackName(plan.track) }}」方向做模拟面试，或就路径里的卡点向 AI 提问。</p>
+        <div class="flex flex-wrap gap-2">
+          <NuxtLink :to="`/interview/sim?track=${plan.track}`" class="btn btn-primary text-sm"><Icon name="chat" :size="15" /> AI 模拟面试（{{ trackName(plan.track) }}）</NuxtLink>
+          <NuxtLink :to="`/interview?askTrack=${plan.track}`" class="btn text-sm"><Icon name="send" :size="15" /> 向 AI 提问答疑</NuxtLink>
+        </div>
+      </div>
+
       <div class="card p-5 border border-brand-coral/20 bg-brand-coral/[.03] reveal">
         <div class="flex items-center gap-2 mb-1.5 text-sm font-semibold text-brand-coral">
           <Icon name="target" :size="16" /> 方向：{{ trackName(plan.track) }}
           <span v-if="plan.cached" class="chip bg-ink/5 text-sub ml-1">已缓存</span>
+          <span v-if="plan.inferred" class="chip bg-amber-500/10 text-amber-600 ml-1">跨方向推断</span>
         </div>
         <p class="text-sm whitespace-pre-line">{{ plan.plan.summary }}</p>
         <div v-if="plan.weakPoints?.length" class="flex flex-wrap gap-2 mt-3">
           <span v-for="w in plan.weakPoints" :key="w.tag" class="chip bg-red-500/10 text-red-500">弱：{{ w.tag }} ×{{ w.count }}</span>
         </div>
+        <p v-if="plan.inferred" class="text-xs text-amber-600 mt-3">该方向暂无你的作答记录，已结合全部方向的作答为你推断，结果仅供参考；做一次该方向的模拟卷后会更精准。</p>
       </div>
 
       <div v-for="(m, i) in plan.plan.milestones" :key="i" class="card p-5 reveal">
@@ -44,12 +69,18 @@
           <h3 class="font-bold">{{ m.title }}</h3>
         </div>
         <p v-if="m.focus" class="text-xs text-muted mb-3">聚焦：{{ m.focus }}</p>
-        <div v-if="m.chapters?.length" class="flex flex-wrap gap-2 mb-3">
-          <NuxtLink v-for="c in m.chapters" :key="c" to="/learn" class="chip bg-brand-coral/10 text-brand-coral hover:bg-brand-coral/15 transition">{{ c }}</NuxtLink>
+        <div v-if="m.chapterLinks?.length" class="flex flex-wrap gap-2 mb-3">
+          <template v-for="c in m.chapterLinks" :key="c.title">
+            <NuxtLink v-if="c.moduleId" :to="`/learn/${c.moduleId}/${c.chapterId}`" class="chip bg-brand-coral/10 text-brand-coral hover:bg-brand-coral/15 transition">{{ c.title }}</NuxtLink>
+            <span v-else class="chip bg-ink/5 text-sub">{{ c.title }}</span>
+          </template>
         </div>
         <ul v-if="m.tasks?.length" class="space-y-1.5 text-sm">
           <li v-for="(t, j) in m.tasks" :key="j" class="flex items-start gap-2"><Icon name="checkCircle" :size="15" class="text-emerald-500 mt-0.5 shrink-0" /><span>{{ t }}</span></li>
         </ul>
+        <div v-if="m.interviewGoal" class="mt-3 pt-3 border-t border-dashed border-ink/10">
+          <NuxtLink :to="`/interview/sim?track=${plan.track}`" class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-coral hover:underline"><Icon name="chat" :size="13" /> AI 模拟面试：{{ m.interviewGoal }}</NuxtLink>
+        </div>
       </div>
     </div>
 
@@ -67,31 +98,43 @@ const loading = ref(true)
 const plan = ref<any>(null)
 const noRecord = ref(false)
 const err = ref('')
+const selectedTrack = ref<string>('')
+
+const TRACKS = ['frontend', 'backend', 'devops', 'ai'] as const
+const TRACK_NAMES: Record<string, string> = { frontend: '前端', backend: '后端', devops: '运维 / DevOps', ai: 'AI 工程' }
+function trackName(t: string) { return TRACK_NAMES[t] || t }
 
 useSeoMeta({
   title: 'AI 个性化学习路径 · MentorLoop',
-  description: '基于模拟考试薄弱点，由大模型为你定制的专属进阶学习路线。',
+  description: '基于模拟考试薄弱点，由大模型为你定制的专属进阶学习路线，可切换方向并联动 AI 教学。',
   ogTitle: '学习路径 · MentorLoop',
   ogType: 'website',
   ogUrl: safeOgUrl()
 })
 
-const TRACK_NAMES: Record<string, string> = { frontend: '前端', backend: '后端', devops: '运维 / DevOps', ai: 'AI 工程' }
-function trackName(t: string) { return TRACK_NAMES[t] || t }
-
-async function generate(force = false) {
+// 生成/获取学习路径；不传 track 时由后端按作答推断主方向，传 track 时按方向切缓存动态切换
+async function generate(track?: string, force = false) {
   loading.value = true; err.value = ''; noRecord.value = false
   try {
-    const r: any = await request('/api/vip/path', { method: 'POST', body: { force } })
+    const body: any = { force }
+    if (track) body.track = track
+    const r: any = await request('/api/vip/path', { method: 'POST', body })
     plan.value = r
+    selectedTrack.value = r.track
   } catch (e: any) {
     if (/至少一次模拟考试/.test(e.message)) noRecord.value = true
     else err.value = e.message
   } finally { loading.value = false }
 }
 
+function selectTrack(t: string) {
+  if (t === selectedTrack.value) return
+  selectedTrack.value = t
+  generate(t)
+}
+
 onMounted(async () => {
-  if (guard()) return
+  if (await guard()) return
   try {
     const s: any = await request('/api/vip/status')
     if (!s?.vip?.active) {
@@ -100,7 +143,7 @@ onMounted(async () => {
       return
     }
     vipOk.value = true
-    await generate(false)
+    await generate() // 不传方向 → 后端按作答推断主方向
   } catch {
     gate.value = { title: '请先登录', desc: '登录后即可使用 AI 学习路径功能。', to: '/login', btn: '登录 / 注册' }
     loading.value = false

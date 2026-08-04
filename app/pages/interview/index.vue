@@ -161,6 +161,11 @@ const pageList = computed(() => activeList.value.slice((page.value - 1) * PAGE_S
 
 const askText = ref('')
 const askTrack = ref('')
+// 支持从学习路径页带 ?askTrack= 跳入，自动选中对应方向的答疑与题库
+const route = useRoute()
+const VALID_TRACKS = ['frontend', 'backend', 'devops', 'ai']
+const qAsk = route.query.askTrack
+if (typeof qAsk === 'string' && VALID_TRACKS.includes(qAsk)) { activeTrack.value = qAsk; askTrack.value = qAsk }
 const answer = ref<any>(null)
 const asking = ref(false)
 const askErr = ref('')
@@ -180,7 +185,7 @@ function loadTrack(t: string) {
 watch([q, techFilter], () => { page.value = 1 })
 async function ask() {
   if (!askText.value) { askErr.value = '请先输入问题'; return }
-  if (guard()) return // 未登录 → 引导登录
+  if (await guard()) return // 未登录 → 引导登录
   asking.value = true; askErr.value = ''
   try {
     answer.value = await request('/api/interview/ask', { method: 'POST', body: { track: askTrack.value || undefined, question: askText.value } })

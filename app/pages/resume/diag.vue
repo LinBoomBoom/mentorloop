@@ -105,7 +105,7 @@ useSeoMeta({
 })
 
 onMounted(async () => {
-  if (guard()) return
+  if (await guard()) return
   try {
     const r: any = await request('/api/vip/status')
     if (!r?.vip?.active) {

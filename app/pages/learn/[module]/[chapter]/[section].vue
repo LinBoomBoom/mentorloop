@@ -187,7 +187,7 @@ function navTo(f: any) { router.push(`/learn/${route.params.module}/${f.cid}/${f
 
 async function toggleDone() {
   if (!module.value || !section.value) return
-  if (guard()) return // 未登录 → 引导登录
+  if (await guard()) return // 未登录 → 引导登录
   try {
     const r: any = await request('/api/progress/toggle', {
       method: 'POST',

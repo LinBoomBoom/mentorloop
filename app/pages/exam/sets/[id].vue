@@ -1,5 +1,20 @@
 <template>
   <div>
+    <!-- 交卷中全屏遮罩：避免「只有按钮在转圈」的无反馈感 -->
+    <ClientOnly>
+      <Teleport to="body">
+        <div v-if="submitting" class="fixed inset-0 z-[1200] flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+          <div class="card px-9 py-8 text-center max-w-[280px]">
+            <a-spin size="large" />
+            <div class="font-bold mt-5">正在判分并生成复盘…</div>
+            <p class="text-xs text-muted mt-1.5 leading-relaxed">
+              已提交 {{ answeredCount }} / {{ totalCount }} 题<br />请勿关闭页面
+            </p>
+          </div>
+        </div>
+      </Teleport>
+    </ClientOnly>
+
     <!-- 返回 -->
     <NuxtLink to="/exam" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-brand-coral transition mb-5">
       <Icon name="arrowLeft" :size="16" /> 返回试卷列表
@@ -241,6 +256,17 @@ const timeTight = computed(() => !!dur.value && timeLeft.value <= 60)
 
 const vipLocked = computed(() => !!set.value?.vipOnly && !auth.isVip)
 
+// 交卷遮罩里的进度提示：让用户清楚「提交了多少题」而不是盯着一个转圈的按钮
+const totalCount = computed(() => (set.value?.choices?.length || 0) + (set.value?.written?.length || 0))
+const answeredCount = computed(() => {
+  const c = (set.value?.choices || []).filter((x: any) => {
+    const v = choiceAnswers[x.id]
+    return Array.isArray(v) ? v.length > 0 : v != null
+  }).length
+  const w = (set.value?.written || []).filter((x: any) => String(writtenAnswers[x.id] || '').trim()).length
+  return c + w
+})
+
 const optLabel = (i: number) => String.fromCharCode(65 + i)
 const fmt = (s: number) => {
   s = Math.max(0, Math.floor(s))
@@ -285,28 +311,41 @@ function startTimer() {
 }
 function stopTimer() { if (timer) { clearInterval(timer); timer = null } }
 
+// 幂等票据：手动交卷与「时间到自动交卷」可能同时触发，
+// 带同一个 nonce 时服务端只落一条记录（B10），不会重复刷成绩。
+let submitNonce = ''
 async function submit() {
   if (submitting.value) return
-  if (guard()) return // 未登录 → 引导登录
+  if (await guard()) return // 未登录 → 引导登录
   if (set.value?.vipOnly && !auth.isVip) { err.value = '该试卷为 VIP 专属，请先开通会员'; return }
+  const used = dur.value ? dur.value * 60 - timeLeft.value : 0
+  stopTimer() // 先停表：避免请求途中倒计时归零又触发一次自动交卷
   submitting.value = true; err.value = ''
+  if (!submitNonce) submitNonce = 'n_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
   try {
     const res = await request('/api/exam/submit', {
       method: 'POST',
-      body: { setId: set.value.id, choiceAnswers, writtenAnswers, usedSeconds: (dur.value ? dur.value * 60 - timeLeft.value : 0) }
+      body: { setId: set.value.id, choiceAnswers, writtenAnswers, usedSeconds: used, nonce: submitNonce }
     })
     record.value = res.record
     phase.value = 'review'
-    stopTimer()
-  } catch (e: any) { err.value = e.message || '交卷失败' } finally { submitting.value = false }
+    // 交卷后整块视图被替换，若不回到顶部，用户仍停在页面中段会误以为「还在加载」
+    await nextTick()
+    if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (e: any) {
+    err.value = e.message || '交卷失败，请检查网络后重试'
+    submitNonce = '' // 失败后换新票据
+    if (dur.value && timeLeft.value > 0) startTimer() // 失败则恢复计时，不白扣时间
+  } finally { submitting.value = false }
 }
 
 function retake() {
   record.value = null
+  submitNonce = ''
   for (const k in choiceAnswers) delete choiceAnswers[k]
   for (const k in writtenAnswers) delete writtenAnswers[k]
   phase.value = 'take'
-  if (import.meta.client) startTimer()
+  if (import.meta.client) { startTimer(); window.scrollTo({ top: 0, behavior: 'smooth' }) }
 }
 
 // 公开试卷：SSR 加载（预览题目），无需登录即可浏览

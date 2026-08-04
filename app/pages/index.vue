@@ -33,7 +33,13 @@
             <div class="text-[12px] text-muted mt-1">距离学完还差 {{ stats.overall.total - stats.overall.done }} 节</div>
           </div>
         </div>
-        <StatCard title="连续学习" :value="stats.streak.current + ' 天'" :sub="`最长 ${stats.streak.longest} 天 · 累计 ${stats.streak.totalDays} 天`" icon="flame" color="#ea580c" />
+        <CheckinCard
+          :streak="stats.streak.current"
+          :longest="stats.streak.longest"
+          :total-days="stats.streak.totalDays"
+          :heatmap="stats.heatmap"
+          @refresh="loadStats"
+        />
         <StatCard title="答卷均分" :value="stats.exams.avg" :sub="stats.exams.count ? `共 ${stats.exams.count} 套 · 最高 ${stats.exams.best} 分` : '还没有答卷记录，去试试'" icon="chart" color="#14b8a6" />
         <StatCard title="能力雷达" :value="stats.radar.filter((r:any)=>r.value>=60).length + '/6'" :sub="'笔试能力 ' + stats.exams.avg + ' 分'" icon="target" color="#d97706" />
       </div>
@@ -55,7 +61,6 @@
             </template>
           </a-alert>
         </div>
-        <CheckinCard />
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 stagger mb-7">
         <div class="card p-6 lg:col-span-2">
@@ -214,11 +219,12 @@ const sets = computed(() => {
 const stats = ref<any>(null)
 const statsLoading = ref(false)
 const showDash = computed(() => auth.isLoggedIn && !!stats.value?.modules?.length)
-watch(() => auth.isLoggedIn, async (v) => {
-  if (!v) return
-  statsLoading.value = true
-  try { stats.value = await request('/api/stats') } catch (e) { stats.value = null } finally { statsLoading.value = false }
-}, { immediate: true })
+async function loadStats(showSkeleton = false) {
+  if (!auth.isLoggedIn) return
+  if (showSkeleton) statsLoading.value = true
+  try { stats.value = await request('/api/stats') } catch (e) { if (showSkeleton) stats.value = null } finally { statsLoading.value = false }
+}
+watch(() => auth.isLoggedIn, (v) => { if (v) loadStats(true) }, { immediate: true })
 
 const trackName = (t: string) => trackMeta[t]?.name || t
 </script>

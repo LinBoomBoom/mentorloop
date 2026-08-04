@@ -3,14 +3,6 @@
     <h1 class="text-2xl font-extrabold mb-1">隐私政策</h1>
     <p class="text-sm text-muted mb-6">最后更新日期：2026 年 8 月 3 日　生效日期：2026 年 8 月 3 日</p>
 
-    <!-- 目录（公文式锚点导航） -->
-    <nav class="card p-5 mb-5">
-      <div class="text-xs font-semibold text-muted mb-2">目录</div>
-      <ul class="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
-        <li v-for="s in sections" :key="s.id"><a :href="'#' + s.id" class="text-brand-coral hover:underline">{{ s.no }} {{ s.title }}</a></li>
-      </ul>
-    </nav>
-
     <article class="card p-7 sm:p-9 leading-relaxed">
       <p class="text-sub mb-7">
         MentorLoop（以下简称"我们"）深知个人信息对您的重要性，并会尽力保护您的个人信息安全。本政策适用于我们通过网站、小程序及关联服务（以下统称"本平台"）向您提供的全部功能。在您使用本平台前，请务必仔细阅读并理解本政策的全部内容。一旦您开始使用本平台，即表示您已同意我们按照本政策收集、使用、存储与保护您的相关信息。

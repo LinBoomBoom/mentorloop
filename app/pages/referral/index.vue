@@ -121,7 +121,7 @@ function levelName(l: string) { return LEVEL_NAMES[l] || l }
 function applied(id: string) { return mine.value.some((m) => m.referralId === id) }
 
 onMounted(async () => {
-  if (guard()) return
+  if (await guard()) return
   try {
     const r: any = await request('/api/vip/status')
     if (!r?.vip?.active) {

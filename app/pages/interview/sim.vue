@@ -105,12 +105,19 @@ const { request } = useApi()
 const { guard } = useLoginGate()
 const maxTurns = 6
 
+// 支持从学习路径页等带 ?track= 跳入，直接进入对应方向的模拟面试
+const route = useRoute()
+const VALID_TRACKS = ['frontend', 'backend', 'devops', 'ai']
+const qTrack = route.query.track
+
 const vipOk = ref<boolean | null>(null)
 const gate = ref<any>(null)
 const phase = ref<'setup' | 'running' | 'done'>('setup')
 const track = ref('frontend')
 const level = ref('mid')
 const goal = ref('')
+if (typeof qTrack === 'string' && VALID_TRACKS.includes(qTrack)) { track.value = qTrack }
+if (typeof route.query.goal === 'string') { goal.value = route.query.goal as string }
 const starting = ref(false)
 const evaluating = ref(false)
 const err = ref('')
@@ -140,7 +147,7 @@ function levelName(l: string) { return LEVEL_NAMES[l] || l }
 function scrollToEnd() { nextTick(() => { scrollEl.value?.scrollTo({ top: 1e9, behavior: 'smooth' }) }) }
 
 onMounted(async () => {
-  if (guard()) return
+  if (await guard()) return
   try {
     const r: any = await request('/api/vip/status')
     if (r?.vip?.active) { vipOk.value = true }
