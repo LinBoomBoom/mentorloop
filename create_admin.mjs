@@ -26,7 +26,7 @@ function hashPwd(pwd, salt) {
 const EMAIL = 'admin@mentorloop.com'
 const USERNAME = 'admin'
 const NICKNAME = '管理员'
-const PASSWORD = '123456' // 产品指定弱密码（开发/演示用）
+const PASSWORD = 'qwer1234' // 产品指定弱密码（开发/演示用，满足 A14 策略：≥8 位含字母+数字）
 const VIP = JSON.stringify({ level: 3, expireAt: null }) // 满级、永久
 
 // 确保目标管理员账号存在且凭据正确
