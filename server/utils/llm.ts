@@ -29,7 +29,7 @@ class DeepseekClient implements LlmClient {
     try {
       res = await (globalThis as any).fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
           model: this.model,
           messages,

@@ -10,6 +10,11 @@
         type="search"
         :placeholder="placeholder"
         aria-label="站内搜索"
+        autocomplete="off"
+        name="ml-search"
+        data-lpignore="true"
+        data-1p-ignore
+        data-form-type="other"
         class="input !pl-11 !pr-9"
         @focus="open = true"
         @keydown.down.prevent="move(1)"

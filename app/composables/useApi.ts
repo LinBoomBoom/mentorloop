@@ -6,7 +6,10 @@ export const useApi = () => {
       return await $fetch(url, { ...opts, headers })
     } catch (e: any) {
       const data = e?.data || e?.response?._data
-      const msg = data?.error || e?.statusMessage || '请求失败'
+      // Nitro 500 包装为 { error: true, message: '...' }；自有接口为 { error: '...' }
+      const msg = (data?.error === true && data?.message)
+        ? data.message
+        : (typeof data?.error === 'string' ? data.error : (data?.message || e?.statusMessage || '请求失败'))
       const err: any = new Error(msg)
       err.status = e?.status
       throw err

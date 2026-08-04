@@ -45,13 +45,17 @@ export default defineEventHandler(async (event) => {
   // B7 拆表：主表双写老列（回滚安全网）+ 子表结构化写入，同一事务保证一致
   const insRec = sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,used_seconds,choice_review,written_review,created_at,submit_nonce) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
   const insC = sqlite.prepare('INSERT INTO exam_choice_reviews (id,record_id,choice_id,q,options,user_answer,answer,right,explain,tag) VALUES (?,?,?,?,?,?,?,?,?,?)')
-  const insW = sqlite.prepare('INSERT INTO exam_written_reviews (id,record_id,written_id,q,user_answer,reference,points) VALUES (?,?,?,?,?,?,?,?)')
+  const insW = sqlite.prepare('INSERT INTO exam_written_reviews (id,record_id,written_id,q,user_answer,reference,points) VALUES (?,?,?,?,?,?,?)')
   const tx = sqlite.transaction(() => {
     insRec.run(id, user.id, set.id, set.name, set.track, choiceScore, correct, choiceRows.length, JSON.stringify(weakPoints), level, advice, usedSeconds, JSON.stringify(choiceReview), JSON.stringify(writtenReview), now, effNonce)
     for (const c of choiceReview) insC.run(uid('cr_'), id, c.id, c.q, JSON.stringify(c.options), JSON.stringify(c.userAnswer), JSON.stringify(c.answer), c.right ? 1 : 0, c.explain, c.tag)
     for (const w of writtenReview) insW.run(uid('wr_'), id, w.id, w.q, w.userAnswer, w.reference, JSON.stringify(w.points))
   })
-  tx()
+  try {
+    tx()
+  } catch (e: any) {
+    return json(event, 500, { error: '交卷写入失败，请稍后重试' })
+  }
   const record = {
     id, userId: user.id, setId: set.id, setName: set.name, track: set.track,
     score: choiceScore, correct, total: choiceRows.length, weakPoints, level, advice, usedSeconds,

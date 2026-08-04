@@ -107,7 +107,10 @@
         </div>
       </div>
 
-      <div class="flex justify-end">
+      <div class="flex flex-col items-end gap-2.5">
+        <p v-if="err" class="flex items-center gap-1.5 text-rose-500 text-sm font-medium">
+          <Icon name="alertTriangle" :size="15" class="shrink-0" /> {{ err }}
+        </p>
         <button class="btn btn-primary" @click="submit" :disabled="submitting || vipLocked">
           <Icon :name="submitting ? 'spinner' : 'check'" :size="16" :class="submitting ? 'animate-spin' : ''" /> 交卷并查看复盘
         </button>

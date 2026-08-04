@@ -449,6 +449,21 @@ function planDurationMs(planId: string): number {
   return (days[planId] || 31) * 86400000
 }
 
+// 待支付订单超时收敛：把超过 expire_at 仍未支付的订单落库为 expired。
+// 只处理 pending 且已设置 expire_at 的行，已支付/已退款订单不受影响。
+// userId 省略时对全表生效（供定时任务/维护脚本使用）。
+export function expirePendingOrders(userId?: string, now = Date.now()): number {
+  const sql = userId
+    ? `UPDATE orders SET status='expired' WHERE user_id=? AND status='pending' AND expire_at IS NOT NULL AND expire_at < ?`
+    : `UPDATE orders SET status='expired' WHERE status='pending' AND expire_at IS NOT NULL AND expire_at < ?`
+  const args = userId ? [userId, now] : [now]
+  try {
+    return sqlite.prepare(sql).run(...args).changes || 0
+  } catch {
+    return 0
+  }
+}
+
 export function getActiveSubscription(userId: string): any {
   return sqlite.prepare(
     `SELECT * FROM subscriptions WHERE user_id=? AND status='active' AND expire_at>? ORDER BY expire_at DESC LIMIT 1`

@@ -43,6 +43,17 @@
       <p v-if="err" class="text-center text-sm text-rose-500 mt-3">{{ err }}</p>
     </div>
 
+    <div v-else-if="phase === 'expired'" class="card p-8 text-center reveal">
+      <div class="mx-auto w-16 h-16 rounded-full bg-rose-500/15 flex items-center justify-center mb-4">
+        <Icon name="alertTriangle" :size="32" class="text-rose-500" />
+      </div>
+      <h1 class="text-xl font-extrabold">订单已过期</h1>
+      <p class="text-muted mt-2">该订单超过支付时限（15 分钟），已自动取消。如需开通会员，请重新下单。</p>
+      <div class="flex items-center justify-center gap-3 mt-5">
+        <NuxtLink to="/vip" class="btn btn-primary">重新开通</NuxtLink>
+      </div>
+    </div>
+
     <div v-else-if="phase === 'success'" class="card p-8 text-center reveal">
       <div class="mx-auto w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mb-4">
         <Icon name="check" :size="32" class="text-emerald-500" />
@@ -82,9 +93,9 @@ async function load() {
     provider.value = r.order.provider
     payUrl.value = r.payUrl || ''
     qrContent.value = r.qrContent || ''
-    phase.value = r.order.status === 'paid' ? 'success' : 'pay'
-    if (r.order.status === 'paid') onPaid()
-    else startPoll()
+    if (r.order.status === 'paid') { phase.value = 'success'; onPaid() }
+    else if (r.order.status === 'expired') { phase.value = 'expired'; stopPoll() }
+    else { phase.value = 'pay'; startPoll() }
   } catch (e: any) { err.value = e.message || '加载订单失败'; phase.value = 'error' }
 }
 
