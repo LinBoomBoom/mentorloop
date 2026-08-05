@@ -212,7 +212,9 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       if (!colExists(db, 'users', 'banned')) db.prepare('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0').run()
       if (!colExists(db, 'sessions', 'expires_at')) db.prepare('ALTER TABLE sessions ADD COLUMN expires_at INTEGER').run()
       if (!colExists(db, 'exam_records', 'submit_nonce')) db.prepare('ALTER TABLE exam_records ADD COLUMN submit_nonce TEXT').run()
-      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(submit_nonce) WHERE submit_nonce IS NOT NULL')
+      // B10 幂等索引：作用域必须包含 user_id，否则客户端 nonce 可跨用户碰撞导致 500
+      db.exec('DROP INDEX IF EXISTS idx_exam_records_nonce')
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(user_id, set_id, submit_nonce) WHERE submit_nonce IS NOT NULL')
     }
   },
   {
@@ -292,7 +294,9 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
         )`)
 
       // 2) 重建 recreate 随旧表一并移除的索引（幂等）
-      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(submit_nonce) WHERE submit_nonce IS NOT NULL')
+      // B10 幂等索引：作用域必须包含 user_id，否则客户端 nonce 可跨用户碰撞导致 500
+      db.exec('DROP INDEX IF EXISTS idx_exam_records_nonce')
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(user_id, set_id, submit_nonce) WHERE submit_nonce IS NOT NULL')
       db.exec('CREATE INDEX IF NOT EXISTS idx_interview_user ON interview_sessions(user_id)')
       db.exec('CREATE INDEX IF NOT EXISTS idx_studyplan_user ON study_plans(user_id)')
     }
@@ -467,6 +471,33 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       db.prepare("UPDATE interview_questions SET weight=3 WHERE type='hot' AND weight IS NULL").run()
       db.prepare("UPDATE interview_questions SET difficulty='normal' WHERE type='hot' AND (difficulty IS NULL OR difficulty='')").run()
     }
+  },
+  {
+    version: 10,
+    name: 'exam-nonce-scope',
+    up: (db) => {
+      // P0：旧全局唯一索引 idx_exam_records_nonce(submit_nonce) 允许不同用户/试卷使用相同 nonce 时 500。
+      // 改为 (user_id, set_id, submit_nonce) 作用域，既保证同用户同卷幂等，又避免跨用户碰撞。
+      db.exec('DROP INDEX IF EXISTS idx_exam_records_nonce')
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_records_nonce ON exam_records(user_id, set_id, submit_nonce) WHERE submit_nonce IS NOT NULL')
+    }
+  },
+  {
+    version: 11,
+    name: 'exam-attempts',
+    up: (db) => {
+      // P1-6：考试倒计时改为服务端控制。为每次答题生成独立 attempt，记录服务端开考时间。
+      db.exec(`CREATE TABLE IF NOT EXISTS exam_attempts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        set_id TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        status TEXT DEFAULT 'active',
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(set_id) REFERENCES exam_sets(id) ON DELETE CASCADE
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_exam_attempts_user_set ON exam_attempts(user_id, set_id, status, started_at)')
+    }
   }
 ]
 
@@ -609,12 +640,13 @@ export function fulfillOrder(orderId: string, transactionId?: string, paidAt?: n
     let newExpire: number
     if (existing) {
       newExpire = Math.max(existing.expire_at, now) + durationMs
-      sqlite.prepare(`UPDATE subscriptions SET expire_at=?, level=?, plan_id=?, auto_renew=1 WHERE id=?`)
+      // A4b：当前为一次性付费（无自动续费），强制写入 0；待真实支付通道与资质就绪后再按用户选择切换
+      sqlite.prepare(`UPDATE subscriptions SET expire_at=?, level=?, plan_id=?, auto_renew=0 WHERE id=?`)
         .run(newExpire, planLevel, order.plan_id, existing.id)
     } else {
       newExpire = now + durationMs
       sqlite.prepare(`INSERT INTO subscriptions (id,user_id,plan_id,level,status,auto_renew,start_at,expire_at,created_at)
-        VALUES (?,?,?,?,'active',1,?,?,?)`)
+        VALUES (?,?,?,?,'active',0,?,?,?)`)
         .run(uid('s_'), order.user_id, order.plan_id, planLevel, now, newExpire, now)
     }
     sqlite.prepare(`UPDATE users SET vip=? WHERE id=?`)
@@ -661,7 +693,13 @@ export function getUser(event: any): any {
     sqlite.prepare('DELETE FROM sessions WHERE token = ?').run(token)
     return null
   }
-  return sqlite.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id) || null
+  const u = sqlite.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id) as any
+  if (u && u.banned) {
+    // 被封禁用户：立即撤销其所有会话（改密/封禁后旧 token 不再有效）
+    try { sqlite.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id) } catch { /* ignore */ }
+    return null
+  }
+  return u || null
 }
 
 /* ---------------- 会话滑动续期 ----------------

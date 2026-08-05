@@ -3,6 +3,9 @@ export default defineEventHandler(async (event) => {
   // 内容可公开浏览，但「提问」属于交互动作，需登录（与前端 useLoginGate 一致）
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
+  const ip = getClientIp(event)
+  const rl = rateLimit('interview-ask', user ? user.id : ip, 30, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `请求过于频繁，请 ${rl.retryAfter} 秒后重试` })
   const { track, question } = await readBody(event)
   if (!question) return json(event, 400, { error: '请输入问题' })
   const tracks = track ? [track] : ['frontend', 'backend', 'devops']

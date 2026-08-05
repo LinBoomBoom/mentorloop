@@ -41,7 +41,8 @@
 /* ============ 基础 ============ */
 html { scroll-behavior: smooth; }
 body {
-  font-family: 'Sora', system-ui, sans-serif;
+  /* P1-7：放弃 Google Fonts 外链，改用系统字体栈；中文字体优先 PingFang SC / Microsoft YaHei */
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
   background: rgb(var(--canvas));
   color: rgb(var(--ink));
   -webkit-font-smoothing: antialiased;
@@ -206,6 +207,18 @@ body {
 /* 长 URL / 长 token 自动换行，防止移动端窄屏横向溢出（pre 代码块仍由自身 overflow-x 控制） */
 .prose-dm { overflow-wrap: break-word; }
 .prose-dm a { word-break: break-all; }
+
+/* BUG-5：antd-vue button 在 block/带图标时偶发文字不垂直居中；强制 inline-flex 确保图标与文字居中对齐 */
+.ant-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.ant-btn > span,
+.ant-btn-icon {
+  display: inline-flex;
+  align-items: center;
+}
 
 /* 自定义滚动条 */
 ::-webkit-scrollbar { width: 9px; height: 9px; }

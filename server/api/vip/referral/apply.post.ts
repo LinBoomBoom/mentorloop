@@ -1,6 +1,8 @@
 // H4 申请内推：VIP 专属，落库 referral_applications，供导师/HR 后续处理
 export default defineEventHandler(async (event) => {
   const user = requireVipUser(event)
+  const rl = rateLimit('referral-apply', user.id, 10, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `申请过于频繁，请 ${rl.retryAfter} 秒后重试` })
   const body = await readBody(event)
   try {
     const r = await applyReferral(user.id, body)

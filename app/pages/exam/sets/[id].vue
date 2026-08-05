@@ -236,6 +236,8 @@ const meta = computed(() => trackMeta[(record.value?.track) || (set.value?.track
 
 const phase = ref('loading')
 const set = ref<any>(null)
+const attemptId = ref('')
+const serverStartAt = ref<number | null>(null)
 
 useSeoMeta({
   title: computed(() => set.value ? set.value.name + ' · 模拟试卷' : '模拟试卷'),
@@ -312,6 +314,22 @@ function startTimer() {
     if (timeLeft.value <= 0) { stopTimer(); submit() }
   }, 1000)
 }
+// P1-6：按服务端开考时间初始化倒计时。刷新页面后可复用原 attempt，避免用户通过刷新重置计时。
+function initTimer() {
+  stopTimer()
+  const total = dur.value * 60
+  if (!total) { timeLeft.value = 0; return }
+  if (serverStartAt.value) {
+    const elapsed = Math.floor((Date.now() - serverStartAt.value) / 1000)
+    timeLeft.value = Math.max(0, total - elapsed)
+  } else {
+    timeLeft.value = total
+  }
+  timer = setInterval(() => {
+    timeLeft.value--
+    if (timeLeft.value <= 0) { stopTimer(); submit() }
+  }, 1000)
+}
 function stopTimer() { if (timer) { clearInterval(timer); timer = null } }
 
 // 幂等票据：手动交卷与「时间到自动交卷」可能同时触发，
@@ -321,14 +339,14 @@ async function submit() {
   if (submitting.value) return
   if (await guard()) return // 未登录 → 引导登录
   if (set.value?.vipOnly && !auth.isVip) { err.value = '该试卷为 VIP 专属，请先开通会员'; return }
-  const used = dur.value ? dur.value * 60 - timeLeft.value : 0
   stopTimer() // 先停表：避免请求途中倒计时归零又触发一次自动交卷
   submitting.value = true; err.value = ''
   if (!submitNonce) submitNonce = 'n_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
   try {
     const res = await request('/api/exam/submit', {
       method: 'POST',
-      body: { setId: set.value.id, choiceAnswers, writtenAnswers, usedSeconds: used, nonce: submitNonce }
+      // P1-6：将 attemptId 交给服务端，由服务端根据开考时间计算真实用时
+      body: { setId: set.value.id, choiceAnswers, writtenAnswers, usedSeconds: 0, nonce: submitNonce, attemptId: attemptId.value }
     })
     record.value = res.record
     phase.value = 'review'
@@ -343,12 +361,8 @@ async function submit() {
 }
 
 function retake() {
-  record.value = null
-  submitNonce = ''
-  for (const k in choiceAnswers) delete choiceAnswers[k]
-  for (const k in writtenAnswers) delete writtenAnswers[k]
-  phase.value = 'take'
-  if (import.meta.client) { startTimer(); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  // P1-6：重做需生成新的服务端 attempt，直接刷新页面以获取新 attemptId 并清空本地状态最稳妥
+  if (import.meta.client) window.location.reload()
 }
 
 // 公开试卷：SSR 加载（预览题目），无需登录即可浏览
@@ -358,14 +372,16 @@ watch(setRes, (v: any) => {
   if (v?.set) {
     set.value = v.set
     dur.value = v.set.duration || 0
+    attemptId.value = v.attemptId || ''
+    serverStartAt.value = v.serverStartAt || null
     // 关键：服务端与客户端首屏必须渲染同一个剩余时间（满时长），
     // 否则 SSR 会把 timeLeft=0 渲染成「时间紧张 00:00」红色告警态，
-    // 客户端 startTimer() 立刻重置为满时长 → hydration mismatch。
+    // 客户端 initTimer() 再按服务端开考时间修正 → hydration mismatch。
     // 计时器只在挂载后（客户端）启动，绝不在 SSR 可执行路径里改状态。
     timeLeft.value = dur.value * 60
     if (!route.query.record && phase.value === 'loading') {
       phase.value = 'take'
-      if (mounted.value) startTimer()
+      if (mounted.value) initTimer()
     }
   } else if (v?.error || fetchError.value) {
     err.value = v?.error || fetchError.value?.message || '试卷加载失败'
@@ -387,7 +403,7 @@ onMounted(async () => {
     return
   }
   // 首屏 hydration 完成后再启动倒计时，避免计时器读数进入 SSR 快照
-  if (phase.value === 'take' && dur.value) startTimer()
+  if (phase.value === 'take' && dur.value) initTimer()
 })
 onBeforeUnmount(stopTimer)
 </script>

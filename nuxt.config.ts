@@ -45,9 +45,7 @@ export default defineNuxtConfig({
         { name: 'twitter:card', content: 'summary_large_image' }
       ],
       link: [
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap' }
+        // P1-7：中国大陆访问 fonts.googleapis.com 不稳定，改用系统字体栈（见 main.css），避免 FOUC/字体加载失败
       ],
       // 首屏前确定主题，避免明暗闪烁（FOUC）
       script: [

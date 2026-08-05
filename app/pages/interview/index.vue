@@ -27,7 +27,7 @@
           <option value="ai">AI 工程</option>
         </select>
         <input v-model="askText" class="input flex-1" placeholder="问我点什么？比如：Vue3 响应式原理、Redis 缓存击穿…" @keyup.enter="ask" />
-        <a-button type="primary" class="shrink-0" @click="ask" :disabled="asking"><Icon name="sparkles" :size="16" /> 提问</a-button>
+        <a-button type="primary" class="shrink-0 !h-[42px]" @click="ask" :disabled="asking"><Icon name="sparkles" :size="16" /> 提问</a-button>
       </div>
       <div v-if="answer" class="rounded-xl p-4 mt-2" :class="answer.matched ? 'bg-brand-coral/5 border border-brand-coral/20' : 'bg-ink/5'">
         <div class="flex items-center gap-2 mb-2 text-xs font-semibold" :class="answer.matched ? 'text-brand-coral' : 'text-muted'">
@@ -40,7 +40,7 @@
     </a-card>
 
     <!-- 方向切换 -->
-    <div class="flex gap-2 mb-4 flex-wrap">
+    <div class="flex gap-2 mb-4 flex-wrap mt-3">
       <button v-for="t in tracks" :key="t.id" @click="loadTrack(t.id)"
               class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
               :class="activeTrack === t.id ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ t.name }}</button>
@@ -199,6 +199,10 @@ watch(q, (v) => {
   searchTimer = setTimeout(() => { page.value = 1; qDebounced.value = v.trim() }, 300)
 })
 onBeforeUnmount(() => { if (searchTimer) clearTimeout(searchTimer) })
+// BUG-3：用户手动清空提问输入框时，同步隐藏上次 AI/题库结果组件
+watch(askText, (v) => {
+  if (!v.trim()) { answer.value = null; askErr.value = '' }
+})
 async function ask() {
   if (!askText.value) { askErr.value = '请先输入问题'; return }
   if (await guard()) return // 未登录 → 引导登录

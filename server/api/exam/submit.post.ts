@@ -2,10 +2,28 @@
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '请先登录后再交卷' })
-  const { setId, choiceAnswers = {}, writtenAnswers = {}, usedSeconds = 0, nonce } = await readBody(event)
+  const rl = rateLimit('exam-submit', user.id, 10, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `交卷请求过于频繁，请 ${rl.retryAfter} 秒后重试` })
+  const { setId, choiceAnswers = {}, writtenAnswers = {}, usedSeconds = 0, nonce, attemptId } = await readBody(event)
   const set = sqlite.prepare('SELECT * FROM exam_sets WHERE id=?').get(setId)
   if (!set) return json(event, 404, { error: '试卷不存在' })
   if (!requireVip(user, set)) return json(event, 403, { error: '该试卷为 VIP 专属，请先开通会员' })
+
+  // P1-6：服务端控制考试用时。优先按 attempt 的起始时间计算；无有效 attempt 时回退并钳制客户端值
+  const now = Date.now()
+  const totalSec = (set.duration || 0) * 60
+  let finalUsedSeconds = Math.min(totalSec, Math.max(0, Number(usedSeconds) || 0))
+  let usedAttemptId: string | null = null
+  if (typeof attemptId === 'string' && attemptId) {
+    const attempt = sqlite.prepare(
+      "SELECT id, started_at FROM exam_attempts WHERE id=? AND user_id=? AND set_id=? AND status='active' AND started_at>?"
+    ).get(attemptId, user.id, set.id, now - 24 * 3600 * 1000) as any
+    if (attempt) {
+      const elapsed = Math.max(0, Math.floor((now - attempt.started_at) / 1000))
+      finalUsedSeconds = totalSec > 0 ? Math.min(totalSec, elapsed) : elapsed
+      usedAttemptId = attempt.id
+    }
+  }
 
   // B10 幂等：若携带 nonce，先查是否已存在该用户的同卷同 nonce 记录
   const effNonce = typeof nonce === 'string' && nonce ? nonce.slice(0, 64) : uid('n_')
@@ -41,15 +59,16 @@ export default defineEventHandler(async (event) => {
   else { level = '待加强'; advice = '当前阶段不建议直接面试。请从学习中心第一章开始系统学习，配合高频面试题理解概念，循序渐进。' }
 
   const id = uid('r_')
-  const now = Date.now()
   // B7 拆表：主表双写老列（回滚安全网）+ 子表结构化写入，同一事务保证一致
   const insRec = sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,used_seconds,choice_review,written_review,created_at,submit_nonce) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
   const insC = sqlite.prepare('INSERT INTO exam_choice_reviews (id,record_id,choice_id,q,options,user_answer,answer,right,explain,tag) VALUES (?,?,?,?,?,?,?,?,?,?)')
   const insW = sqlite.prepare('INSERT INTO exam_written_reviews (id,record_id,written_id,q,user_answer,reference,points) VALUES (?,?,?,?,?,?,?)')
+  const updAttempt = usedAttemptId ? sqlite.prepare("UPDATE exam_attempts SET status='submitted' WHERE id=?") : null
   const tx = sqlite.transaction(() => {
-    insRec.run(id, user.id, set.id, set.name, set.track, choiceScore, correct, choiceRows.length, JSON.stringify(weakPoints), level, advice, usedSeconds, JSON.stringify(choiceReview), JSON.stringify(writtenReview), now, effNonce)
+    insRec.run(id, user.id, set.id, set.name, set.track, choiceScore, correct, choiceRows.length, JSON.stringify(weakPoints), level, advice, finalUsedSeconds, JSON.stringify(choiceReview), JSON.stringify(writtenReview), now, effNonce)
     for (const c of choiceReview) insC.run(uid('cr_'), id, c.id, c.q, JSON.stringify(c.options), JSON.stringify(c.userAnswer), JSON.stringify(c.answer), c.right ? 1 : 0, c.explain, c.tag)
     for (const w of writtenReview) insW.run(uid('wr_'), id, w.id, w.q, w.userAnswer, w.reference, JSON.stringify(w.points))
+    if (updAttempt) updAttempt.run(usedAttemptId)
   })
   try {
     tx()
@@ -58,7 +77,7 @@ export default defineEventHandler(async (event) => {
   }
   const record = {
     id, userId: user.id, setId: set.id, setName: set.name, track: set.track,
-    score: choiceScore, correct, total: choiceRows.length, weakPoints, level, advice, usedSeconds,
+    score: choiceScore, correct, total: choiceRows.length, weakPoints, level, advice, usedSeconds: finalUsedSeconds,
     choiceReview, writtenReview, createdAt: now, nonce: effNonce
   }
   return json(event, 200, { record, idempotent: false })

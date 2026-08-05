@@ -118,13 +118,33 @@ ${goal ? '候选人目标岗位/方向：' + goal + '。' : ''}
 {"evaluation":{"score":<0-10整数>,"feedback":"<中文>"},"analysis":"<上一题答案解析，中文>","nextQuestion":"<下一题，非空；结束时为空串>","isLast":<true/false>,"overall":"<仅结束轮填写>","overallScore":<仅结束轮填写 0-100整数>}`
 }
 
+// BUG-6：原自由生成的首题在 Deepseek 下高度收敛到「自我介绍」，导致每天首次打开题目几乎相同。
+// 改为从真实题库按方向+难度随机抽取首题，保证具体技术问题、每天不同、且与后续 AI 追问自然衔接。
+function pickFirstQuestionFromBank(track: string, level: string): string | null {
+  // 难度映射：初级偏常规，中级覆盖常规/较难，高级偏较难/困难
+  const diffs: Record<string, string[]> = {
+    junior: ['normal'],
+    mid: ['normal', 'medium'],
+    senior: ['medium', 'hard']
+  }
+  const wanted = diffs[level] || diffs.mid
+  const inClause = wanted.map(() => '?').join(',')
+  const row = sqlite.prepare(
+    `SELECT q FROM interview_questions WHERE track=? AND type='hot' AND difficulty IN (${inClause}) ORDER BY RANDOM() LIMIT 1`
+  ).get(track, ...wanted) as any
+  return row?.q || null
+}
+
 async function generateFirstQuestion(track: string, level: string, goal: string): Promise<string> {
+  const bankQ = pickFirstQuestionFromBank(track, level)
+  if (bankQ) return bankQ
+  // 题库无匹配时降级为 LLM 生成（保留原能力）
   const sys = `你是一位资深${trackName(track)}${levelName(level)}技术面试官。请直接提出本次模拟面试的第一道题目。要求：题目具体、可考察基础与深度，只输出题目本身（1-3 句话），不要评分、不要额外说明、不要使用代码块标记。${goal ? '候选人目标岗位/方向：' + goal + '。' : ''}`
   const text = await getLlm().chat(
     [{ role: 'system', content: sys }, { role: 'user', content: '请开始。' }],
-    { temperature: 0.8, maxTokens: 400 }
+    { temperature: 0.9, maxTokens: 400 }
   )
-  return stripFences(text) || '请做一下自我介绍，并简述你最近做过的一个项目。'
+  return stripFences(text) || '请先做一下自我介绍，并简述你最近做过的一个项目。'
 }
 
 async function callEval(llmMessages: any[]): Promise<any> {

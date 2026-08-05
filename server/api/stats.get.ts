@@ -57,8 +57,12 @@ export default defineEventHandler((event) => {
     const key = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0')
     heatmap.push({ date: key, count: days[key] || 0 })
   }
+  // BUG-4：连续天数需与 checkin.ts 的 computeStreak 语义一致——今天没活跃则从昨天起算，
+  // 避免用户昨天、前天都打卡但 UI 仍显示「连续 0 天」。
   let streak = 0
-  for (let i = heatmap.length - 1; i >= 0; i--) { if (heatmap[i].count > 0) streak++; else break }
+  let idx = heatmap.length - 1
+  if (idx >= 0 && heatmap[idx].count === 0) idx-- // 今天未活跃，从昨天开始计数
+  while (idx >= 0 && heatmap[idx].count > 0) { streak++; idx-- }
   let longest = 0, run = 0
   heatmap.forEach((h: any) => { if (h.count > 0) { run++; longest = Math.max(longest, run) } else run = 0 })
   const totalDays = Object.keys(days).length

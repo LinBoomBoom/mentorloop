@@ -2,6 +2,8 @@
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
+  const rl = rateLimit('order-create', user ? user.id : getClientIp(event), 5, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `下单过于频繁，请 ${rl.retryAfter} 秒后重试` })
   if (!VIP_ENABLED) return json(event, 403, { error: '会员购买暂未开放' })
 
   const body = await readBody(event).catch(() => ({}))

@@ -1,6 +1,8 @@
 // H3 简历诊断：VIP 专属，接收简历文本返回 AI 结构化诊断
 export default defineEventHandler(async (event) => {
   const user = requireVipUser(event)
+  const rl = rateLimit('vip-resume', user.id, 10, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `请求过于频繁，请 ${rl.retryAfter} 秒后重试` })
   const body = await readBody(event)
   try {
     const result = await diagnoseResume(user.id, body?.resume)
