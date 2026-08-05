@@ -187,23 +187,9 @@ useSeoMeta({
 const { data: modRes } = await useFetch('/api/modules')
 const modules = computed(() => modRes.value?.modules || [])
 
-const { data: feRes } = await useFetch('/api/interview/frontend')
-const { data: beRes } = await useFetch('/api/interview/backend')
-const { data: deRes } = await useFetch('/api/interview/devops')
-const { data: aiRes } = await useFetch('/api/interview/ai')
-const featuredQuestions = computed(() => {
-  const merged: any[] = []
-  const pushBank = (bank: any, track: string) => {
-    if (!bank) return
-    ;[...(bank.hot || []).slice(0, 1), ...(bank.special || []).slice(0, 1)]
-      .forEach((q: any) => merged.push({ ...q, track }))
-  }
-  pushBank(feRes.value?.bank, 'frontend')
-  pushBank(beRes.value?.bank, 'backend')
-  pushBank(deRes.value?.bank, 'devops')
-  pushBank(aiRes.value?.bank, 'ai')
-  return merged.slice(0, 8)
-})
+// 精选面试题：单次轻量请求（每方向 1 高频 + 1 特殊，仅题干与关键词，不含答案正文）
+const { data: featRes } = await useFetch('/api/interview/featured')
+const featuredQuestions = computed(() => (featRes.value?.questions || []).slice(0, 8))
 
 const { data: setRes } = await useFetch('/api/exam/sets')
 // 首页试卷：每个方向各取一套代表卷，保证 AI 工程始终有曝光（避免 .slice(0,3) 只取到前三个非 AI 卷）

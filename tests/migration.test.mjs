@@ -21,9 +21,13 @@ describe('B8 版本化迁移机制', () => {
     }
   })
 
-  it('迁移已记录到 schema_migrations（v1 + v2 + v3 + v4 + v5）', () => {
-    const vers = sqlite.prepare('SELECT version FROM schema_migrations').all().map((r) => r.version).sort()
-    expect(vers).toEqual([1, 2, 3, 4, 5, 6])
+  it('全部迁移均已记录到 schema_migrations（连续无缺号）', () => {
+    // 不硬编码版本号：此前写死 [1..6]，新增 v7/v8 后测试静默过期。
+    // 改为校验「从 1 开始连续、无重复、无缺号」，加迁移不再需要改测试。
+    const vers = sqlite.prepare('SELECT version FROM schema_migrations').all()
+      .map((r) => r.version).sort((a, b) => a - b)
+    expect(vers.length).toBeGreaterThanOrEqual(8)
+    expect(vers).toEqual(Array.from({ length: vers.length }, (_, i) => i + 1))
   })
 
   it('关键列通过迁移补齐（role/banned/expires_at/submit_nonce）', () => {

@@ -10,16 +10,19 @@ export default defineEventHandler((event) => {
   const rl = rateLimit('search', getClientIp(event), 30, 60_000)
   if (!rl.ok) return json(event, 429, { error: '搜索过于频繁，请 ' + rl.retryAfter + ' 秒后重试' })
 
-  // A10 转义 LIKE 通配符，避免 %/_ 被当成通配导致越权/失控匹配
+  // A10 转义 LIKE 通配符，避免 %/_ 被当成通配导致越权/失控匹配。
+  // SQLite 默认不启用转义字符，必须逐条 LIKE 声明 ESCAPE '\'，
+  // 否则 likeWrap 产出的 \% 会被解析成「字面反斜杠 + 通配符」，搜索 % / _ 时静默返回空结果。
   const like = likeWrap(q)
   const LIMIT = 12
+  const E = String.raw` ESCAPE '\'`
 
   // 小节：标题或内容命中（内容命中取章节路径）
   const secRows = sqlite.prepare(`
     SELECT s.id, s.chapter_id, s.title, s.content, c.module_id, c.title AS chapter_title
     FROM sections s JOIN chapters c ON c.id = s.chapter_id
-    WHERE s.title LIKE ? OR s.content LIKE ?
-    ORDER BY (CASE WHEN s.title LIKE ? THEN 0 ELSE 1 END), s.id
+    WHERE s.title LIKE ?${E} OR s.content LIKE ?${E}
+    ORDER BY (CASE WHEN s.title LIKE ?${E} THEN 0 ELSE 1 END), s.id
     LIMIT ?
   `).all(like, like, like, LIMIT) as any[]
 
@@ -27,7 +30,7 @@ export default defineEventHandler((event) => {
   const chRows = sqlite.prepare(`
     SELECT c.id, c.module_id, c.title
     FROM chapters c
-    WHERE c.title LIKE ?
+    WHERE c.title LIKE ?${E}
     ORDER BY c.id LIMIT ?
   `).all(like, LIMIT) as any[]
 
@@ -35,8 +38,8 @@ export default defineEventHandler((event) => {
   const qRows = sqlite.prepare(`
     SELECT id, track, type, q
     FROM interview_questions
-    WHERE q LIKE ? OR keywords LIKE ?
-    ORDER BY (CASE WHEN q LIKE ? THEN 0 ELSE 1 END), id
+    WHERE q LIKE ?${E} OR keywords LIKE ?${E}
+    ORDER BY (CASE WHEN q LIKE ?${E} THEN 0 ELSE 1 END), id
     LIMIT ?
   `).all(like, like, like, LIMIT) as any[]
 
@@ -44,7 +47,7 @@ export default defineEventHandler((event) => {
   const exRows = sqlite.prepare(`
     SELECT id, name, track, level
     FROM exam_sets
-    WHERE name LIKE ? OR track LIKE ?
+    WHERE name LIKE ?${E} OR track LIKE ?${E}
     ORDER BY id LIMIT ?
   `).all(like, like, LIMIT) as any[]
 
@@ -70,7 +73,8 @@ export default defineEventHandler((event) => {
     track: r.track,
     type: r.type,
     q: r.q,
-    href: `/interview?track=${encodeURIComponent(r.track)}`
+    // 带上原搜索词：题库已扩至 2600+ 道并改为服务端搜索，落地页直接预填关键词才能定位到该题
+    href: `/interview?track=${encodeURIComponent(r.track)}&q=${encodeURIComponent(q)}`
   }))
 
   const exams = exRows.map((r) => ({
