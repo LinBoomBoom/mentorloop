@@ -4,11 +4,11 @@
       <Icon name="arrowLeft" :size="14" /> 返回 {{ module?.name }}
     </NuxtLink>
 
-    <div v-if="!chapter" class="card h-40 shimmer"></div>
+    <a-card v-if="!chapter"><a-skeleton active :paragraph="{ rows: 4 }" /></a-card>
     <template v-else>
       <h1 class="text-2xl font-extrabold">{{ chapter.title }}</h1>
       <p class="text-muted text-sm mt-1 mb-4">{{ chapter.goal }}</p>
-      <div class="card p-6">
+      <a-card :body-style="{ padding: '24px' }">
         <div class="space-y-3">
           <NuxtLink v-for="s in chapter.sections" :key="s.id" :to="`/learn/${mid}/${chapter.id}/${s.id}`"
                     class="flex items-center gap-3 p-4 rounded-xl border border-line hover:border-brand-coral/40 transition">
@@ -23,7 +23,7 @@
             <Icon name="chevronRight" :size="16" class="ml-auto text-muted shrink-0" />
           </NuxtLink>
         </div>
-      </div>
+      </a-card>
     </template>
   </div>
 </template>

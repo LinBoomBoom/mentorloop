@@ -13,32 +13,34 @@
       <div class="h-full bg-brand-coral transition-[width] duration-150" :style="{ width: readPct + '%' }"></div>
     </div>
 
-    <div v-if="!section" class="card h-72 shimmer"></div>
+    <a-card v-if="!section"><a-skeleton active :paragraph="{ rows: 8 }" /></a-card>
     <template v-else>
       <div class="lg:grid lg:grid-cols-[1fr_264px] lg:gap-6 items-start">
         <!-- 主内容 -->
         <div class="min-w-0">
           <!-- 移动端本章目录 -->
           <div class="lg:hidden mb-4">
-            <button class="btn btn-ghost w-full !justify-between" @click="tocOpen = !tocOpen" :aria-expanded="tocOpen">
+            <a-button type="text" block class="!flex !justify-between !items-center" @click="tocOpen = !tocOpen" :aria-expanded="tocOpen">
               <span class="flex items-center gap-1.5"><Icon name="list" :size="16" class="text-brand-coral" /> 本章目录（{{ chapter?.sections.length }}）</span>
               <Icon name="chevronRight" :size="16" class="transition-transform" :class="tocOpen ? 'rotate-90' : ''" />
-            </button>
-            <div v-if="tocOpen" class="card mt-2 p-3 space-y-0.5">
-              <NuxtLink v-for="s in (chapter?.sections || [])" :key="s.id" :to="`/learn/${route.params.module}/${chapter.id}/${s.id}`"
-                        class="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg transition min-w-0"
-                        :class="route.params.section === s.id ? 'bg-brand-coral/10 text-brand-coral font-semibold'
-                          : (isDone(progress, module.id, chapter.id, s.id) ? 'text-emerald-600' : 'text-muted')">
-                <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, chapter.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
-                <span class="break-words min-w-0">{{ s.title }}</span>
-              </NuxtLink>
-            </div>
+            </a-button>
+            <a-card v-if="tocOpen" class="mt-2" :body-style="{ padding: '12px' }">
+              <div class="space-y-0.5">
+                <NuxtLink v-for="s in (chapter?.sections || [])" :key="s.id" :to="`/learn/${route.params.module}/${chapter.id}/${s.id}`"
+                          class="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg transition min-w-0"
+                          :class="route.params.section === s.id ? 'bg-brand-coral/10 text-brand-coral font-semibold'
+                            : (isDone(progress, module.id, chapter.id, s.id) ? 'text-emerald-600' : 'text-muted')">
+                  <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, chapter.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
+                  <span class="break-words min-w-0">{{ s.title }}</span>
+                </NuxtLink>
+              </div>
+            </a-card>
           </div>
 
           <div class="text-xs text-muted mb-1">{{ chapter?.title }}</div>
           <h1 class="text-2xl font-extrabold">{{ section.title }}</h1>
 
-      <div class="card p-6 mt-5">
+      <a-card class="mt-5" :body-style="{ padding: '24px' }">
         <div class="flex items-start gap-3 mb-5 p-4 rounded-xl" style="background:linear-gradient(120deg,rgba(255,94,126,.1),rgba(255,194,75,.1))">
           <Icon name="compass" :size="20" class="text-brand-coral mt-0.5 shrink-0" />
           <div>
@@ -69,33 +71,37 @@
           </span>
         </div>
         <div class="prose-dm" v-html="contentHtml"></div>
-      </div>
+      </a-card>
 
-      <div v-if="browseMode" class="card !p-4 flex items-center gap-2 text-sm text-muted bg-brand-coral/5 border border-brand-coral/15">
-        <Icon name="eye" :size="16" class="text-brand-coral shrink-0" /> 浏览模式：登录后即可「打卡」记录已掌握，全部小节随时可自由阅读。
-      </div>
-
-      <div class="card p-5 mt-4 flex flex-wrap items-center justify-between gap-3">
-        <button type="button" role="checkbox" :aria-checked="done" :aria-label="done ? '取消标记已掌握本节' : '标记已掌握本节'"
-                class="flex items-center gap-3 cursor-pointer select-none text-left bg-transparent border-0 p-0" @click="toggleDone">
-          <div class="w-7 h-7 rounded-full flex items-center justify-center transition"
-               :class="done ? 'bg-emerald-500 text-white' : 'bg-ink/8 text-muted'">
-            <Icon v-if="done" name="check" :size="16" />
-          </div>
-          <span class="font-semibold" :class="done ? 'text-emerald-600' : 'text-sub'">{{ done ? '已掌握本节' : '我已完成学习并掌握本节' }}</span>
-        </button>
-        <div class="flex gap-2">
-          <button v-if="prev" @click="navTo(prev)" class="btn btn-ghost">上一节</button>
-          <button v-if="next" @click="navTo(next)" class="btn btn-primary">下一节 <Icon name="arrowRight" :size="15" /></button>
-          <span v-else class="tag tag-gold px-4 py-2.5">🎉 已是本模块最后一节</span>
+      <a-card v-if="browseMode" class="!bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
+        <div class="flex items-center gap-2 text-sm text-muted">
+          <Icon name="eye" :size="16" class="text-brand-coral shrink-0" /> 浏览模式：登录后即可「打卡」记录已掌握，全部小节随时可自由阅读。
         </div>
-      </div>
+      </a-card>
+
+      <a-card class="mt-4" :body-style="{ padding: '20px' }">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <button type="button" role="checkbox" :aria-checked="done" :aria-label="done ? '取消标记已掌握本节' : '标记已掌握本节'"
+                  class="flex items-center gap-3 cursor-pointer select-none text-left bg-transparent border-0 p-0" @click="toggleDone">
+            <div class="w-7 h-7 rounded-full flex items-center justify-center transition"
+                 :class="done ? 'bg-emerald-500 text-white' : 'bg-ink/8 text-muted'">
+              <Icon v-if="done" name="check" :size="16" />
+            </div>
+            <span class="font-semibold" :class="done ? 'text-emerald-600' : 'text-sub'">{{ done ? '已掌握本节' : '我已完成学习并掌握本节' }}</span>
+          </button>
+          <div class="flex gap-2">
+            <a-button v-if="prev" @click="navTo(prev)">上一节</a-button>
+            <a-button v-if="next" type="primary" @click="navTo(next)">下一节 <Icon name="arrowRight" :size="15" /></a-button>
+            <a-tag v-else color="gold" class="!px-4 !py-2.5 m-0">🎉 已是本模块最后一节</a-tag>
+          </div>
+        </div>
+      </a-card>
       <p v-if="auth.isLoggedIn && !done" class="text-xs text-muted mt-2 text-right">勾选即记录已掌握，进度自动保存</p>
         </div>
 
         <!-- 桌面端：本章目录（粘性侧栏） -->
         <aside class="hidden lg:block sticky top-6">
-          <div class="card p-5">
+          <a-card :body-style="{ padding: '20px' }">
             <div class="text-sm font-bold mb-3 flex items-center gap-1.5"><Icon name="list" :size="15" class="text-brand-coral" /> 本章目录</div>
             <div class="space-y-0.5 max-h-[72vh] overflow-auto scrollbar-thin pr-1">
               <NuxtLink v-for="s in (chapter?.sections || [])" :key="s.id" :to="`/learn/${route.params.module}/${chapter.id}/${s.id}`"
@@ -106,7 +112,7 @@
                 <span class="break-words min-w-0">{{ s.title }}</span>
               </NuxtLink>
             </div>
-          </div>
+          </a-card>
         </aside>
       </div>
     </template>
