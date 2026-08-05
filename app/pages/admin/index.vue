@@ -4,17 +4,17 @@
     <p class="text-muted mb-6">平台核心指标一览（实时读取生产库）。</p>
 
     <div v-if="loading" class="text-muted">加载中…</div>
-    <div v-else-if="err" class="card p-6 text-center text-muted">{{ err }}</div>
+    <a-card v-else-if="err" class="text-center" :body-style="{ padding: '24px' }"><span class="text-muted">{{ err }}</span></a-card>
     <template v-else>
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        <div class="card p-5" v-for="s in stats" :key="s.label">
+        <a-card v-for="s in stats" :key="s.label" :body-style="{ padding: '20px' }">
           <div class="text-3xl font-extrabold brand-gradient-text">{{ s.value }}</div>
           <div class="text-sm text-muted mt-1">{{ s.label }}</div>
-        </div>
+        </a-card>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-        <div class="card p-5">
+        <a-card :body-style="{ padding: '20px' }">
           <h3 class="font-bold mb-3">内容与题库</h3>
           <ul class="space-y-2 text-sm">
             <li class="flex justify-between"><span class="text-muted">模块 / 章节 / 小节</span><b>{{ d.modules }} / {{ d.chapters }} / {{ d.sections }}</b></li>
@@ -22,8 +22,8 @@
             <li class="flex justify-between"><span class="text-muted">面试题</span><b>{{ d.interview }}</b></li>
             <li class="flex justify-between"><span class="text-muted">考试记录</span><b>{{ d.examRecords }}</b></li>
           </ul>
-        </div>
-        <div class="card p-5">
+        </a-card>
+        <a-card :body-style="{ padding: '20px' }">
           <h3 class="font-bold mb-3">用户与付费</h3>
           <ul class="space-y-2 text-sm">
             <li class="flex justify-between"><span class="text-muted">注册用户（管理员）</span><b>{{ d.users }}（{{ d.admins }}）</b></li>
@@ -32,7 +32,7 @@
             <li class="flex justify-between"><span class="text-muted">订单 / 已支付</span><b>{{ d.orders }} / {{ d.paidOrders }}</b></li>
             <li class="flex justify-between"><span class="text-muted">累计实收</span><b class="text-emerald-600">¥{{ ((d.revenue || 0) / 100).toFixed(2) }}</b></li>
           </ul>
-        </div>
+        </a-card>
       </div>
     </template>
   </div>

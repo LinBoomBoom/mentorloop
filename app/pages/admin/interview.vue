@@ -2,20 +2,20 @@
   <div>
     <div class="flex items-center justify-between mb-1">
       <h1 class="text-2xl font-extrabold">面试题库</h1>
-      <button class="btn btn-primary" @click="openNew">+ 新建题目</button>
+      <a-button type="primary" @click="openNew">+ 新建题目</a-button>
     </div>
     <p class="text-muted mb-4">面试题增删改查。关键词以英文逗号分隔。</p>
 
-    <div class="flex gap-2 mb-4 items-center">
+    <div class="flex gap-2 mb-4 items-center flex-wrap">
       <select v-model="track" class="input w-44" @change="load">
         <option value="">全部方向</option>
         <option v-for="t in tracks" :key="t" :value="t">{{ t }}</option>
       </select>
       <input v-model="q" class="input flex-1" placeholder="搜索题干" @keyup.enter="load" />
-      <button class="btn btn-ghost" @click="load">搜索</button>
+      <a-button @click="load">搜索</a-button>
     </div>
 
-    <div class="card overflow-x-auto">
+    <a-card :body-style="{ padding: '0' }" class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead><tr class="text-left text-muted border-b border-line">
           <th class="p-3">ID</th><th class="p-3">方向</th><th class="p-3">类型</th><th class="p-3">题干</th><th class="p-3 text-right">操作</th>
@@ -24,19 +24,19 @@
           <tr v-for="item in items" :key="item.id" class="border-b border-line last:border-0">
             <td class="p-3 font-mono text-xs text-muted">{{ item.id }}</td>
             <td class="p-3">{{ item.track }}</td>
-            <td class="p-3"><span class="chip" :class="item.type==='special'?'tag-gold':'tag-green'">{{ item.type }}</span></td>
+            <td class="p-3"><a-tag :color="item.type==='special' ? 'gold' : 'green'">{{ item.type }}</a-tag></td>
             <td class="p-3 max-w-md truncate">{{ item.q }}</td>
             <td class="p-3 text-right whitespace-nowrap">
-              <button class="link-btn" @click="openEdit(item)">编辑</button>
-              <button class="link-btn text-rose-500" @click="remove(item)">删除</button>
+              <a-button type="link" size="small" @click="openEdit(item)">编辑</a-button>
+              <a-button type="link" size="small" danger @click="remove(item)">删除</a-button>
             </td>
           </tr>
           <tr v-if="!items.length"><td colspan="5" class="p-6 text-center text-muted">暂无题目</td></tr>
         </tbody>
       </table>
-    </div>
+    </a-card>
 
-    <div v-if="editor.open" class="card p-5 mt-5">
+    <a-card v-if="editor.open" :body-style="{ padding: '24px' }" class="mt-5">
       <h3 class="font-bold mb-3">{{ editor.isNew ? '新建' : '编辑' }}题目</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <label class="text-sm">ID<input v-model="ed.id" class="input" :disabled="!editor.isNew" /></label>
@@ -47,11 +47,11 @@
       <label class="text-sm block mt-3">答案<textarea v-model="ed.a" class="input" rows="4"></textarea></label>
       <label class="text-sm block mt-3">关键词（逗号分隔）<input v-model="ed.keywordsText" class="input" /></label>
       <div class="mt-3 flex gap-2 items-center">
-        <button class="btn btn-primary" :disabled="busy" @click="save">保存</button>
-        <button v-if="!editor.isNew" class="btn btn-ghost text-rose-500" @click="remove(ed)">删除</button>
+        <a-button type="primary" :disabled="busy" @click="save">保存</a-button>
+        <a-button v-if="!editor.isNew" danger @click="remove(ed)">删除</a-button>
         <span v-if="msg" class="text-sm" :class="msgOk ? 'text-emerald-600' : 'text-rose-500'">{{ msg }}</span>
       </div>
-    </div>
+    </a-card>
   </div>
 </template>
 
@@ -102,5 +102,4 @@ onMounted(load)
 
 <style scoped>
 .input { @apply w-full rounded-lg border border-line bg-white dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:border-brand-coral mt-1; }
-.link-btn { @apply text-sm font-semibold text-brand-coral px-1.5 hover:underline; }
 </style>

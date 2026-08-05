@@ -2,29 +2,29 @@
   <div>
     <div class="flex items-center justify-between mb-1">
       <h1 class="text-2xl font-extrabold">试卷题库</h1>
-      <button class="btn btn-primary" @click="openNew">+ 新建试卷</button>
+      <a-button type="primary" @click="openNew">+ 新建试卷</a-button>
     </div>
     <p class="text-muted mb-5">试卷与选择题 / 笔试题的增删改查。选择题选项与答案以英文逗号分隔。</p>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="card p-4 lg:col-span-1">
+      <a-card class="lg:col-span-1" :body-style="{ padding: '16px' }">
         <h3 class="font-bold mb-3">试卷列表</h3>
         <ul class="space-y-1">
           <li v-for="s in sets" :key="s.id" @click="openEdit(s)" class="px-3 py-2 rounded-lg cursor-pointer text-sm"
               :class="selId === s.id ? 'bg-brand-coral/10 text-brand-coral' : 'hover:bg-slate-100 dark:hover:bg-slate-800'">
             <div class="flex justify-between">
               <span class="font-semibold truncate">{{ s.name }}</span>
-              <span v-if="s.vip_only" class="tag tag-gold ml-2">VIP</span>
+              <a-tag v-if="s.vip_only" color="gold" class="ml-2">VIP</a-tag>
             </div>
             <div class="text-xs text-muted">{{ s.track }} · {{ s.level }} · {{ s.duration }}min</div>
           </li>
         </ul>
-      </div>
+      </a-card>
 
-      <div class="card p-5 lg:col-span-2" v-if="editor.open">
+      <a-card class="lg:col-span-2" :body-style="{ padding: '20px' }" v-if="editor.open">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold">{{ editor.isNew ? '新建' : '编辑' }}试卷</h3>
-          <button class="btn btn-ghost text-sm" @click="editor.open = false">关闭</button>
+          <a-button size="small" @click="editor.open = false">关闭</a-button>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -46,7 +46,7 @@
         <div v-for="(c, i) in ed.choices" :key="i" class="border border-line rounded-lg p-3 mb-2">
           <div class="flex gap-2 mb-2">
             <input v-model="c.id" class="input flex-1" placeholder="题ID" />
-            <button class="btn btn-ghost text-rose-500 text-sm" @click="ed.choices.splice(i, 1)">删</button>
+            <a-button size="small" danger @click="ed.choices.splice(i, 1)">删</a-button>
           </div>
           <input v-model="c.q" class="input mb-2" placeholder="题干" />
           <input v-model="c.optionsText" class="input mb-2" placeholder="选项,逗号分隔" />
@@ -56,26 +56,26 @@
           </div>
           <input v-model="c.explain" class="input mt-2" placeholder="解析" />
         </div>
-        <button class="btn btn-ghost text-sm" @click="addChoice">+ 添加选择题</button>
+        <a-button size="small" @click="addChoice">+ 添加选择题</a-button>
 
         <h4 class="font-bold mt-5 mb-2">笔试题</h4>
         <div v-for="(w, i) in ed.written" :key="i" class="border border-line rounded-lg p-3 mb-2">
           <div class="flex gap-2 mb-2">
             <input v-model="w.id" class="input flex-1" placeholder="题ID" />
-            <button class="btn btn-ghost text-rose-500 text-sm" @click="ed.written.splice(i, 1)">删</button>
+            <a-button size="small" danger @click="ed.written.splice(i, 1)">删</a-button>
           </div>
           <input v-model="w.q" class="input mb-2" placeholder="题目" />
           <input v-model="w.pointsText" class="input mb-2" placeholder="得分点,逗号分隔" />
           <input v-model="w.reference" class="input" placeholder="参考答案" />
         </div>
-        <button class="btn btn-ghost text-sm" @click="addWritten">+ 添加笔试题</button>
+        <a-button size="small" @click="addWritten">+ 添加笔试题</a-button>
 
         <div class="mt-4 flex gap-2 items-center">
-          <button class="btn btn-primary" :disabled="busy" @click="save">保存试卷</button>
-          <button v-if="!editor.isNew" class="btn btn-ghost text-rose-500" @click="remove">删除试卷</button>
+          <a-button type="primary" :disabled="busy" @click="save">保存试卷</a-button>
+          <a-button v-if="!editor.isNew" danger @click="remove">删除试卷</a-button>
           <span v-if="msg" class="text-sm" :class="msgOk ? 'text-emerald-600' : 'text-rose-500'">{{ msg }}</span>
         </div>
-      </div>
+      </a-card>
     </div>
   </div>
 </template>

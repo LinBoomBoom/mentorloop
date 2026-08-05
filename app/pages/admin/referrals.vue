@@ -4,16 +4,16 @@
     <p class="text-muted mb-5">维护内推岗位，并处理学员的内推申请（H4 管理端）。</p>
 
     <div class="flex gap-2 mb-5">
-      <button class="btn" :class="tab === 'jobs' ? 'btn-primary' : 'btn-ghost'" @click="tab = 'jobs'">内推岗位（{{ jobs.length }}）</button>
-      <button class="btn" :class="tab === 'apps' ? 'btn-primary' : 'btn-ghost'" @click="tab = 'apps'">申请处理（{{ apps.length }}）</button>
+      <a-button :type="tab === 'jobs' ? 'primary' : 'default'" @click="tab = 'jobs'">内推岗位（{{ jobs.length }}）</a-button>
+      <a-button :type="tab === 'apps' ? 'primary' : 'default'" @click="tab = 'apps'">申请处理（{{ apps.length }}）</a-button>
     </div>
 
     <!-- 岗位管理 -->
     <template v-if="tab === 'jobs'">
       <div class="flex justify-end mb-3">
-        <button class="btn btn-primary" @click="openNew">+ 新建岗位</button>
+        <a-button type="primary" @click="openNew">+ 新建岗位</a-button>
       </div>
-      <div class="card overflow-x-auto">
+      <a-card :body-style="{ padding: '0' }" class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead><tr class="text-left text-muted border-b border-line">
             <th class="p-3">公司 / 职位</th><th class="p-3">方向</th><th class="p-3">城市</th><th class="p-3">级别</th><th class="p-3 text-right">操作</th>
@@ -25,16 +25,16 @@
               <td class="p-3">{{ j.city || '—' }}</td>
               <td class="p-3">{{ j.level || '—' }}</td>
               <td class="p-3 text-right whitespace-nowrap">
-                <button class="link-btn" @click="openEdit(j)">编辑</button>
-                <button class="link-btn text-rose-500" @click="remove(j)">删除</button>
+                <a-button type="link" size="small" @click="openEdit(j)">编辑</a-button>
+                <a-button type="link" size="small" danger @click="remove(j)">删除</a-button>
               </td>
             </tr>
             <tr v-if="!jobs.length"><td colspan="5" class="p-6 text-center text-muted">暂无岗位</td></tr>
           </tbody>
         </table>
-      </div>
+      </a-card>
 
-      <div v-if="editor.open" class="card p-5 mt-5">
+      <a-card v-if="editor.open" :body-style="{ padding: '24px' }" class="mt-5">
         <h3 class="font-bold mb-3">{{ editor.isNew ? '新建' : '编辑' }}岗位</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label class="text-sm">ID（小写字母/数字/连字符）<input v-model="editor.data.id" class="input" :disabled="!editor.isNew" /></label>
@@ -54,16 +54,16 @@
           <label class="text-sm md:col-span-2">简介<textarea v-model="editor.data.intro" class="input" rows="2"></textarea></label>
         </div>
         <div class="mt-3 flex gap-2 items-center">
-          <button class="btn btn-primary" :disabled="busy" @click="save">保存</button>
-          <button class="btn btn-ghost" @click="editor.open = false">关闭</button>
+          <a-button type="primary" :disabled="busy" @click="save">保存</a-button>
+          <a-button @click="editor.open = false">关闭</a-button>
           <span v-if="msg" class="text-sm" :class="msgOk ? 'text-emerald-600' : 'text-rose-500'">{{ msg }}</span>
         </div>
-      </div>
+      </a-card>
     </template>
 
     <!-- 申请处理 -->
     <template v-else>
-      <div class="card overflow-x-auto">
+      <a-card :body-style="{ padding: '0' }" class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead><tr class="text-left text-muted border-b border-line">
             <th class="p-3">申请人</th><th class="p-3">岗位</th><th class="p-3">联系方式</th><th class="p-3">备注</th><th class="p-3">状态</th><th class="p-3 text-right">操作</th>
@@ -74,9 +74,9 @@
               <td class="p-3"><div>{{ a.title || '—' }}</div><div class="text-xs text-muted">{{ a.company }}</div></td>
               <td class="p-3 text-xs">{{ a.contact }}</td>
               <td class="p-3 text-xs text-muted max-w-[200px] truncate">{{ a.note || '—' }}</td>
-              <td class="p-3"><span class="chip" :class="statusClass(a.status)">{{ statusText(a.status) }}</span></td>
+              <td class="p-3"><a-tag :color="statusClass(a.status)">{{ statusText(a.status) }}</a-tag></td>
               <td class="p-3 text-right whitespace-nowrap">
-                <select class="input inline-block w-28 py-1" :value="a.status" @change="setStatus(a, $event.target.value)">
+                <select class="input inline-block w-28 py-1" :value="a.status" @change="setStatus(a, ($event.target as HTMLSelectElement).value)">
                   <option value="pending">待处理</option>
                   <option value="contacted">已联系</option>
                   <option value="done">已内推</option>
@@ -87,7 +87,7 @@
             <tr v-if="!apps.length"><td colspan="6" class="p-6 text-center text-muted">暂无申请</td></tr>
           </tbody>
         </table>
-      </div>
+      </a-card>
     </template>
   </div>
 </template>
@@ -143,7 +143,7 @@ async function setStatus(a: any, status: string) {
   } catch (e: any) { alert(e.message || '更新失败') }
 }
 function statusText(s: string) { return ({ pending: '待处理', contacted: '已联系', done: '已内推', rejected: '未通过' } as any)[s] || s }
-function statusClass(s: string) { return ({ pending: 'tag', contacted: 'tag tag-gold', done: 'tag tag-green', rejected: 'tag' } as any)[s] || 'tag' }
+function statusClass(s: string) { return ({ pending: 'default', contacted: 'gold', done: 'green', rejected: 'default' } as any)[s] || 'default' }
 
 watch(tab, (t) => { if (t === 'jobs') loadJobs(); else loadApps() })
 onMounted(loadJobs)
@@ -151,5 +151,4 @@ onMounted(loadJobs)
 
 <style scoped>
 .input { @apply w-full rounded-lg border border-line bg-white dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:border-brand-coral mt-1; }
-.link-btn { @apply text-sm font-semibold text-brand-coral px-1.5 hover:underline; }
 </style>

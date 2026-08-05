@@ -2,12 +2,12 @@
   <div>
     <div class="flex items-center justify-between mb-1">
       <h1 class="text-2xl font-extrabold">用户体系</h1>
-      <button class="btn btn-primary" @click="showCreate = !showCreate">+ 新建用户</button>
+      <a-button type="primary" @click="showCreate = !showCreate">+ 新建用户</a-button>
     </div>
     <p class="text-muted mb-5">用户列表、角色、VIP 与封禁管理。封禁后该账号将无法登录。</p>
 
     <!-- 新建 -->
-    <div v-if="showCreate" class="card p-5 mb-5">
+    <a-card v-if="showCreate" class="mb-5" :body-style="{ padding: '20px' }">
       <h3 class="font-bold mb-3">新建用户</h3>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
         <input v-model="form.username" class="input" placeholder="用户名" />
@@ -19,21 +19,21 @@
         </select>
       </div>
       <div class="mt-3 flex gap-2">
-        <button class="btn btn-primary" :disabled="busy" @click="createUser">创建</button>
-        <button class="btn btn-ghost" @click="showCreate = false">取消</button>
+        <a-button type="primary" :disabled="busy" @click="createUser">创建</a-button>
+        <a-button @click="showCreate = false">取消</a-button>
         <span v-if="msg" class="text-sm self-center" :class="msgOk ? 'text-emerald-600' : 'text-rose-500'">{{ msg }}</span>
       </div>
-    </div>
+    </a-card>
 
     <!-- 搜索 -->
     <div class="flex gap-2 mb-4">
       <input v-model="q" class="input flex-1" placeholder="搜索用户名 / 邮箱 / 昵称" @keyup.enter="load(1)" />
-      <button class="btn btn-ghost" @click="load(1)">搜索</button>
+      <a-button @click="load(1)">搜索</a-button>
     </div>
 
     <div v-if="loading" class="text-muted">加载中…</div>
-    <div v-else-if="!items.length" class="card p-8 text-center text-muted">暂无用户</div>
-    <div v-else class="card overflow-x-auto">
+    <a-card v-else-if="!items.length" class="text-center" :body-style="{ padding: '32px' }"><span class="text-muted">暂无用户</span></a-card>
+    <a-card v-else class="overflow-x-auto" :body-style="{ padding: '0' }">
       <table class="w-full text-sm">
         <thead>
           <tr class="text-left text-muted border-b border-line">
@@ -47,21 +47,21 @@
               <div class="text-xs text-muted">{{ u.email || u.username }}</div>
             </td>
             <td class="p-3">
-              <span class="chip" :class="u.role === 'admin' ? 'tag-vip !bg-none !text-brand-coral' : ''">{{ u.role }}</span>
+              <a-tag :color="u.role === 'admin' ? '#ff5e7e' : ''">{{ u.role }}</a-tag>
             </td>
             <td class="p-3">
-              <span v-if="u.vip?.active" class="tag tag-gold">Lv.{{ u.vip.level }}</span>
+              <a-tag v-if="u.vip?.active" color="gold">Lv.{{ u.vip.level }}</a-tag>
               <span v-else class="text-muted">—</span>
             </td>
             <td class="p-3">
-              <span v-if="u.banned" class="tag" style="background:rgba(244,63,94,.15);color:#f43f5e">已封禁</span>
-              <span v-else class="tag tag-green">正常</span>
+              <a-tag v-if="u.banned" :bordered="false" style="background:rgba(244,63,94,.15);color:#f43f5e">已封禁</a-tag>
+              <a-tag v-else color="green">正常</a-tag>
             </td>
             <td class="p-3 text-muted">{{ fmt(u.createdAt) }}</td>
             <td class="p-3 text-right whitespace-nowrap">
-              <button class="link-btn" @click="toggleRole(u)">{{ u.role === 'admin' ? '降为普通' : '设管理员' }}</button>
-              <button class="link-btn" @click="toggleBan(u)">{{ u.banned ? '解封' : '封禁' }}</button>
-              <button class="link-btn text-rose-500" @click="remove(u)">删除</button>
+              <a-button type="link" size="small" @click="toggleRole(u)">{{ u.role === 'admin' ? '降为普通' : '设管理员' }}</a-button>
+              <a-button type="link" size="small" @click="toggleBan(u)">{{ u.banned ? '解封' : '封禁' }}</a-button>
+              <a-button type="link" size="small" danger @click="remove(u)">删除</a-button>
             </td>
           </tr>
         </tbody>
@@ -69,12 +69,12 @@
       <div class="flex items-center justify-between p-3 text-sm text-muted">
         <span>共 {{ total }} 条</span>
         <div class="flex gap-2">
-          <button class="btn btn-ghost" :disabled="page <= 1" @click="load(page - 1)">上一页</button>
+          <a-button size="small" :disabled="page <= 1" @click="load(page - 1)">上一页</a-button>
           <span>第 {{ page }} 页</span>
-          <button class="btn btn-ghost" :disabled="items.length < pageSize" @click="load(page + 1)">下一页</button>
+          <a-button size="small" :disabled="items.length < pageSize" @click="load(page + 1)">下一页</a-button>
         </div>
       </div>
-    </div>
+    </a-card>
   </div>
 </template>
 
@@ -142,5 +142,4 @@ onMounted(() => load(1))
 
 <style scoped>
 .input { @apply w-full rounded-lg border border-line bg-white dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:border-brand-coral; }
-.link-btn { @apply text-sm font-semibold text-brand-coral px-1.5 hover:underline; }
 </style>

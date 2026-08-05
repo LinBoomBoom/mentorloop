@@ -5,10 +5,10 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <!-- 模块 -->
-      <div class="card p-4">
+      <a-card :body-style="{ padding: '16px' }">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold">模块</h3>
-          <button class="btn btn-ghost text-sm" @click="openNew('module')">+ 新建</button>
+          <a-button size="small" @click="openNew('module')">+ 新建</a-button>
         </div>
         <ul class="space-y-1">
           <li v-for="m in modules" :key="m.id" @click="selectModule(m)" class="px-3 py-2 rounded-lg cursor-pointer text-sm font-semibold"
@@ -16,13 +16,13 @@
             {{ m.icon }} {{ m.name }}
           </li>
         </ul>
-      </div>
+      </a-card>
 
       <!-- 章节 -->
-      <div class="card p-4">
+      <a-card :body-style="{ padding: '16px' }">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold">章节</h3>
-          <button class="btn btn-ghost text-sm" :disabled="!selModule" @click="openNew('chapter')">+ 新建</button>
+          <a-button size="small" :disabled="!selModule" @click="openNew('chapter')">+ 新建</a-button>
         </div>
         <p v-if="!selModule" class="text-sm text-muted">请先选择左侧模块</p>
         <ul v-else class="space-y-1">
@@ -32,13 +32,13 @@
           </li>
           <li v-if="!chapters.length" class="text-sm text-muted px-3">暂无章节</li>
         </ul>
-      </div>
+      </a-card>
 
       <!-- 小节 -->
-      <div class="card p-4">
+      <a-card :body-style="{ padding: '16px' }">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold">小节</h3>
-          <button class="btn btn-ghost text-sm" :disabled="!selChapter" @click="openNew('section')">+ 新建</button>
+          <a-button size="small" :disabled="!selChapter" @click="openNew('section')">+ 新建</a-button>
         </div>
         <p v-if="!selChapter" class="text-sm text-muted">请先选择章节</p>
         <ul v-else class="space-y-1 max-h-80 overflow-auto">
@@ -48,14 +48,14 @@
           </li>
           <li v-if="!sections.length" class="text-sm text-muted px-3">暂无小节</li>
         </ul>
-      </div>
+      </a-card>
     </div>
 
     <!-- 编辑器 -->
-    <div v-if="editor.open" class="card p-5 mt-5">
+    <a-card v-if="editor.open" class="mt-5" :body-style="{ padding: '20px' }">
       <div class="flex items-center justify-between mb-3">
         <h3 class="font-bold">{{ editor.isNew ? '新建' : '编辑' }} · {{ kindLabel }}</h3>
-        <button class="btn btn-ghost text-sm" @click="editor.open = false">关闭</button>
+        <a-button size="small" @click="editor.open = false">关闭</a-button>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -74,11 +74,11 @@
       </div>
 
       <div class="mt-3 flex gap-2 items-center">
-        <button class="btn btn-primary" :disabled="busy" @click="save">保存</button>
-        <button v-if="!editor.isNew" class="btn btn-ghost text-rose-500" @click="remove">删除</button>
+        <a-button type="primary" :disabled="busy" @click="save">保存</a-button>
+        <a-button v-if="!editor.isNew" danger @click="remove">删除</a-button>
         <span v-if="msg" class="text-sm" :class="msgOk ? 'text-emerald-600' : 'text-rose-500'">{{ msg }}</span>
       </div>
-    </div>
+    </a-card>
   </div>
 </template>
 
