@@ -2,14 +2,14 @@
   <div class="max-w-2xl mx-auto">
     <h1 class="text-2xl font-extrabold mb-6">个人中心</h1>
 
-    <div v-if="!isAuthed" class="card p-8 text-center">
+    <a-card v-if="!isAuthed" class="text-center py-8">
       <p class="text-muted">请先登录后查看个人中心</p>
-      <NuxtLink to="/login" class="btn btn-primary mt-4">登录 / 注册</NuxtLink>
-    </div>
+      <NuxtLink to="/login" class="inline-block mt-4"><a-button type="primary">登录 / 注册</a-button></NuxtLink>
+    </a-card>
 
     <template v-else>
       <!-- 资料 -->
-      <div class="card p-6 mb-5">
+      <a-card class="mb-5">
         <div class="flex items-center gap-4">
           <div class="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold" :style="{ background: avatarBg }">
             {{ avatarText }}
@@ -18,89 +18,67 @@
             <div class="text-lg font-bold truncate">{{ currentUser?.nickname || '学员' }}</div>
             <div class="text-sm text-muted truncate">{{ currentUser?.email || currentUser?.phone || '—' }}</div>
           </div>
-          <span v-if="isVip" class="ml-auto tag tag-vip !px-3">👑 VIP</span>
-          <span v-else class="ml-auto chip">免费用户</span>
+          <a-tag v-if="isVip" color="#ff5e7e" class="ml-auto !px-3 !text-sm">👑 VIP</a-tag>
+          <a-tag v-else class="ml-auto" color="default">免费用户</a-tag>
         </div>
-      </div>
+      </a-card>
 
       <!-- 会员 -->
-      <div class="card p-6 mb-5">
-        <div class="flex items-center justify-between">
-          <h3 class="font-bold">会员状态</h3>
-          <NuxtLink to="/vip" class="text-sm text-brand-coral font-semibold">管理 / 开通 →</NuxtLink>
-        </div>
-        <!-- 有订阅记录：完整展示；仅有 vip 等级（如后台直接授予）：降级展示；auth store 已知的 VIP 兜底展示，
-             避免 status API 尚未返回时截屏/首屏出现「免费用户」闪烁。 -->
-        <div v-if="status?.subscription" class="mt-3 space-y-2 text-sm">
+      <a-card class="mb-5" title="会员状态">
+        <template #extra><NuxtLink to="/vip" class="text-sm text-brand-coral font-semibold">管理 / 开通 →</NuxtLink></template>
+        <div v-if="status?.subscription" class="space-y-2 text-sm">
           <div class="flex justify-between"><span class="text-muted">套餐</span><b>{{ planName(status.subscription.planId) }}</b></div>
           <div class="flex justify-between"><span class="text-muted">等级</span><b>VIP Lv.{{ status.subscription.level }}</b></div>
           <div class="flex justify-between"><span class="text-muted">有效期至</span><b>{{ fmtExpire(status.subscription.expireAt) }}</b></div>
           <div class="flex justify-between"><span class="text-muted">自动续费</span><b :class="status.subscription.autoRenew ? 'text-emerald-600' : 'text-muted'">{{ status.subscription.autoRenew ? '开启' : '关闭' }}</b></div>
         </div>
-        <div v-else-if="status?.vip?.active || isVip" class="mt-3 space-y-2 text-sm">
+        <div v-else-if="status?.vip?.active || isVip" class="space-y-2 text-sm">
           <div class="flex justify-between"><span class="text-muted">等级</span><b>VIP Lv.{{ status?.vip?.level ?? currentUser?.vip?.level ?? '—' }}</b></div>
           <div class="flex justify-between"><span class="text-muted">有效期至</span><b>{{ fmtExpire(status?.vip?.expireAt ?? currentUser?.vip?.expireAt) }}</b></div>
           <div class="flex justify-between"><span class="text-muted">开通方式</span><b class="text-muted">{{ status?.vip ? '平台授予' : '已开通会员' }}</b></div>
         </div>
-        <p v-else class="mt-3 text-sm text-muted">你当前为免费用户，开通会员解锁全部专属内容。</p>
-      </div>
+        <p v-else class="text-sm text-muted">你当前为免费用户，开通会员解锁全部专属内容。</p>
+      </a-card>
 
       <!-- VIP 专属功能 -->
       <div v-if="isVip" class="grid sm:grid-cols-2 gap-4 mb-5">
-        <NuxtLink to="/learn/path" class="card p-5 hover:-translate-y-0.5 transition group">
-          <div class="flex items-center gap-2 mb-1.5"><Icon name="compass" :size="18" class="text-brand-coral" /><span class="font-bold">我的学习路径</span></div>
-          <p class="text-xs text-muted">基于薄弱点的 AI 定制进阶路线</p>
-        </NuxtLink>
-        <NuxtLink to="/interview/sim" class="card p-5 hover:-translate-y-0.5 transition group">
-          <div class="flex items-center gap-2 mb-1.5"><Icon name="sparkles" :size="18" class="text-brand-coral" /><span class="font-bold">AI 模拟面试</span></div>
-          <p class="text-xs text-muted">多轮实战 + 逐题评分反馈</p>
-        </NuxtLink>
-        <NuxtLink to="/resume/diag" class="card p-5 hover:-translate-y-0.5 transition group">
-          <div class="flex items-center gap-2 mb-1.5"><Icon name="document" :size="18" class="text-brand-coral" /><span class="font-bold">AI 简历诊断</span></div>
-          <p class="text-xs text-muted">AI 把脉简历亮点与短板</p>
-        </NuxtLink>
-        <NuxtLink to="/referral" class="card p-5 hover:-translate-y-0.5 transition group">
-          <div class="flex items-center gap-2 mb-1.5"><Icon name="briefcase" :size="18" class="text-brand-coral" /><span class="font-bold">内推资源库</span></div>
-          <p class="text-xs text-muted">VIP 专属内推岗位 + 申请</p>
-        </NuxtLink>
+        <NuxtLink to="/learn/path"><a-card hoverable><div class="flex items-center gap-2 mb-1.5"><Icon name="compass" :size="18" class="text-brand-coral" /><span class="font-bold">我的学习路径</span></div><p class="text-xs text-muted">基于薄弱点的 AI 定制进阶路线</p></a-card></NuxtLink>
+        <NuxtLink to="/interview/sim"><a-card hoverable><div class="flex items-center gap-2 mb-1.5"><Icon name="sparkles" :size="18" class="text-brand-coral" /><span class="font-bold">AI 模拟面试</span></div><p class="text-xs text-muted">多轮实战 + 逐题评分反馈</p></a-card></NuxtLink>
+        <NuxtLink to="/resume/diag"><a-card hoverable><div class="flex items-center gap-2 mb-1.5"><Icon name="document" :size="18" class="text-brand-coral" /><span class="font-bold">AI 简历诊断</span></div><p class="text-xs text-muted">AI 把脉简历亮点与短板</p></a-card></NuxtLink>
+        <NuxtLink to="/referral"><a-card hoverable><div class="flex items-center gap-2 mb-1.5"><Icon name="briefcase" :size="18" class="text-brand-coral" /><span class="font-bold">内推资源库</span></div><p class="text-xs text-muted">VIP 专属内推岗位 + 申请</p></a-card></NuxtLink>
       </div>
 
       <!-- 订单 -->
-      <div class="card p-6 mb-5">
-        <h3 class="font-bold mb-3">订单记录</h3>
+      <a-card class="mb-5" title="订单记录">
         <div v-if="status?.orders?.length" class="space-y-2">
           <div v-for="o in status.orders" :key="o.id" class="flex flex-wrap items-center justify-between gap-2 text-sm py-2 border-b border-line last:border-0">
             <span class="font-mono text-xs text-muted">{{ o.id }}</span>
             <span class="text-sub">{{ planName(o.planId) }} · ¥{{ (o.amount/100).toFixed(2) }}</span>
             <span :class="orderColor(o.status)">{{ statusText(o.status) }}</span>
-            <NuxtLink v-if="o.status === 'pending'" :to="'/vip/pay/' + o.id" class="btn btn-primary !py-1 !px-3 !text-xs">继续支付</NuxtLink>
+            <NuxtLink v-if="o.status === 'pending'" :to="'/vip/pay/' + o.id"><a-button type="primary" size="small">继续支付</a-button></NuxtLink>
           </div>
         </div>
         <p v-else class="text-sm text-muted">暂无订单记录。</p>
-      </div>
+      </a-card>
 
       <!-- 账号安全 -->
-      <div class="card p-6 border border-red-200/60 mb-5">
-        <h3 class="font-bold mb-2">账号安全</h3>
+      <a-card class="mb-5" title="账号安全" :body-style="{ borderColor: 'rgb(254 202 202)' }">
         <p class="text-sm text-muted mb-3">注销后将永久删除你的账号、学习进度与答卷记录，且不可恢复。</p>
-        <button class="btn border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" @click="showDelete = true">注销账号</button>
+        <a-button danger @click="showDelete = true">注销账号</a-button>
 
         <!-- 用 form 包裹并显式提供隐藏的 username 诱饵字段：
              否则浏览器密码管理器会在整个文档范围内寻找「用户名」输入框，
              把当前账号自动填进侧边导航的搜索框（type=search 被误判为账号字段）。 -->
-        <form v-if="showDelete" class="mt-4 space-y-3" autocomplete="off" @submit.prevent="doDelete">
+        <a-modal v-model:open="showDelete" title="注销账号" ok-text="确认注销" cancel-text="取消"
+                 :ok-button-props="{ danger: true }" :confirm-loading="deleteLoading" @ok="doDelete" @cancel="cancelDelete">
+          <p class="text-sm text-muted mb-3">此操作不可恢复，请输入登录密码确认。</p>
           <input type="text" :value="currentUser?.email || currentUser?.phone || ''" autocomplete="username"
                  tabindex="-1" aria-hidden="true" readonly
                  style="position:absolute;opacity:0;height:0;width:0;pointer-events:none" />
-          <input class="input" :type="showDelPwd?'text':'password'" v-model="deletePwd"
-                 placeholder="请输入登录密码以确认" autocomplete="current-password" name="ml-delete-pwd" />
-          <div class="flex items-center gap-3">
-            <button type="submit" class="btn border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" :disabled="deleteLoading">{{ deleteLoading ? '处理中…' : '确认注销' }}</button>
-            <button type="button" class="btn" @click="cancelDelete">取消</button>
-          </div>
-          <p v-if="deleteError" class="text-sm text-red-500">{{ deleteError }}</p>
-        </form>
-      </div>
+          <a-input-password v-model:value="deletePwd" placeholder="请输入登录密码以确认" autocomplete="current-password" />
+          <a-alert v-if="deleteError" type="error" :message="deleteError" class="mt-3" />
+        </a-modal>
+      </a-card>
     </template>
   </div>
 </template>
@@ -136,7 +114,6 @@ function fmtExpire(ts?: number | null) { return ts ? new Date(ts).toLocaleDateSt
 
 const showDelete = ref(false)
 const deletePwd = ref('')
-const showDelPwd = ref(false)
 const deleteLoading = ref(false)
 const deleteError = ref('')
 function cancelDelete() { showDelete.value = false; deletePwd.value = ''; deleteError.value = '' }
@@ -150,5 +127,4 @@ async function doDelete() {
     await navigateTo('/')
   } catch (e: any) { deleteError.value = e.message } finally { deleteLoading.value = false }
 }
-
 </script>

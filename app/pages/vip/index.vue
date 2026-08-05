@@ -11,19 +11,19 @@
     </div>
 
     <!-- 已开通：会员管理 -->
-    <div v-if="auth.isLoggedIn && status" class="card p-6 mb-7 reveal">
+    <a-card v-if="auth.isLoggedIn && status" title="VIP 会员" class="mb-7 reveal">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2">
           <Icon name="crown" :size="20" class="text-brand-coral" />
           <span class="text-lg font-extrabold">VIP 会员</span>
-          <span v-if="status.subscription" class="chip bg-brand-coral/10 text-brand-coral">{{ planName(status.subscription.planId) }}</span>
-          <span v-else class="chip bg-brand-coral/10 text-brand-coral">VIP Lv.{{ status.vip?.level || '—' }}</span>
+          <a-tag v-if="status.subscription" color="#ff5e7e">{{ planName(status.subscription.planId) }}</a-tag>
+          <a-tag v-else color="#ff5e7e">VIP Lv.{{ status.vip?.level || '—' }}</a-tag>
         </div>
         <div class="text-sm text-muted">有效期至 <b class="text-ink">{{ fmtExpire(status.subscription?.expireAt ?? status.vip?.expireAt) }}</b></div>
       </div>
       <div class="mt-4 flex flex-wrap items-center gap-3">
-        <span class="chip bg-ink/5 text-muted">自动续费：关闭（一次性付费，到期不扣款）</span>
-        <NuxtLink to="/account" class="btn btn-ghost !py-2">个人中心</NuxtLink>
+        <a-tag color="default">自动续费：关闭（一次性付费，到期不扣款）</a-tag>
+        <NuxtLink to="/account"><a-button>个人中心</a-button></NuxtLink>
       </div>
       <div v-if="status.orders?.length" class="mt-5 pt-4 border-t border-line">
         <h4 class="text-sm font-semibold mb-2 text-sub">订单记录</h4>
@@ -32,17 +32,19 @@
             <span class="font-mono">{{ o.id }}</span>
             <span class="text-sub">{{ planName(o.planId) }} · ¥{{ (o.amount/100).toFixed(2) }}</span>
             <span :class="orderColor(o.status)">{{ statusText(o.status) }}</span>
-            <NuxtLink v-if="o.status === 'pending'" :to="'/vip/pay/' + o.id" class="btn btn-primary !py-1 !px-3 !text-xs">继续支付</NuxtLink>
+            <NuxtLink v-if="o.status === 'pending'" :to="'/vip/pay/' + o.id"><a-button type="primary" size="small">继续支付</a-button></NuxtLink>
           </div>
         </div>
       </div>
-    </div>
+    </a-card>
 
     <!-- 套餐 -->
     <div v-if="!plans" class="grid md:grid-cols-3 gap-5"><div v-for="i in 3" :key="i" class="card h-64 shimmer"></div></div>
     <div v-else class="grid md:grid-cols-3 gap-5 stagger">
-      <div v-for="p in plans" :key="p.id" class="card p-7 relative flex flex-col" :class="p.popular ? 'ring-2 ring-brand-coral/40' : ''">
-        <span v-if="p.popular" class="absolute -top-3 left-7 tag tag-vip !px-3">最受欢迎</span>
+      <a-card v-for="p in plans" :key="p.id" hoverable class="flex flex-col"
+              :class="p.popular ? '!border-brand-coral/40 ring-2 ring-brand-coral/40' : ''"
+              :body-style="{ flex:'1 1 auto', display:'flex', flexDirection:'column', padding:'28px' }">
+        <a-tag v-if="p.popular" color="#ff5e7e" class="absolute -top-3 left-7 !px-3 z-10">最受欢迎</a-tag>
         <h3 class="text-xl font-extrabold">{{ p.name }}</h3>
         <div class="mt-3 flex items-end gap-1">
           <span class="text-4xl font-extrabold gradient-text">¥{{ p.price }}</span>
@@ -54,15 +56,15 @@
             <Icon name="checkCircle" :size="17" class="text-emerald-500 shrink-0 mt-0.5" /> <span>{{ b }}</span>
           </li>
         </ul>
-        <button class="btn btn-primary btn-block mt-6" :disabled="!enabled || buying === p.id" @click="buy(p)">
-          <Icon v-if="buying === p.id" name="spinner" :size="16" class="animate-spin" />
+        <a-button type="primary" block class="mt-6" :disabled="!enabled || buying === p.id" @click="buy(p)">
+          <template v-if="buying === p.id" #icon><Icon name="spinner" :size="16" class="animate-spin" /></template>
           {{ buyLabel(p) }}
-        </button>
-      </div>
+        </a-button>
+      </a-card>
     </div>
 
     <p v-if="plans && !enabled" class="text-center text-xs text-muted mt-5">支付能力正在接入中，当前为演示版本。</p>
-    <p v-if="err" class="text-center text-sm text-rose-500 mt-4">{{ err }}</p>
+    <a-alert v-if="err" type="error" :message="err" show-icon class="mt-4 max-w-xl mx-auto" />
   </div>
 </template>
 

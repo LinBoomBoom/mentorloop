@@ -39,53 +39,49 @@
           <p class="text-muted text-sm mb-6">选择你喜欢的方式登录 / 注册</p>
 
           <!-- 账号类型 & 方式切换 -->
-          <div class="flex gap-2 mb-4">
-            <button v-for="t in idTypes" :key="t.v" @click="idType = t.v"
-                    class="flex-1 py-2 rounded-xl text-sm font-semibold transition border"
-                    :class="idType===t.v ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ t.label }}</button>
-          </div>
-          <div class="flex p-1 rounded-xl bg-ink/5 mb-4">
-            <button class="flex-1 py-2 rounded-lg text-sm font-semibold transition"
-                    :class="mode==='password' ? 'bg-surface shadow-sm text-ink' : 'text-muted'" @click="mode='password'">密码登录</button>
-            <button class="flex-1 py-2 rounded-lg text-sm font-semibold transition"
-                    :class="mode==='code' ? 'bg-surface shadow-sm text-ink' : 'text-muted'" @click="mode='code'">验证码登录</button>
-          </div>
+          <a-segmented v-model:value="idType" :options="idTypes" class="!w-full mb-3" />
+          <a-segmented v-model:value="mode" :options="modeOptions" class="!w-full mb-4" />
 
-          <div v-if="mode==='password'" class="space-y-3">
-            <div class="relative">
-              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-muted"><Icon :name="idType==='phone'?'phone':'mail'" :size="17"/></span>
-              <input class="input !pl-11" :type="idType==='phone'?'tel':'email'" v-model="identifier" :placeholder="idType==='phone'?'手机号':'邮箱'" />
-            </div>
-            <div class="relative">
-              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-muted"><Icon name="lock" :size="17"/></span>
-              <input class="input !pl-11 !pr-11" :type="showPwd?'text':'password'" v-model="password" placeholder="密码（至少8位，含字母与数字）" />
-              <button class="absolute right-3 top-1/2 -translate-y-1/2 text-muted" @click="showPwd=!showPwd"><Icon :name="showPwd?'eyeOff':'eye'" :size="17"/></button>
-            </div>
-            <button class="btn btn-primary btn-block" @click="submitAccount" :disabled="loading">
-              {{ loading ? '处理中…' : (isReg ? '注册并登录' : '登 录') }}
-            </button>
+          <a-form v-if="mode==='password'" layout="vertical" class="space-y-3">
+            <a-form-item>
+              <a-input v-model:value="identifier" :type="idType==='phone'?'tel':'email'"
+                       :placeholder="idType==='phone'?'手机号':'邮箱'" size="large" allow-clear>
+                <template #prefix><Icon :name="idType==='phone'?'phone':'mail'" :size="17" class="text-muted" /></template>
+              </a-input>
+            </a-form-item>
+            <a-form-item>
+              <a-input-password v-model:value="password" size="large"
+                                placeholder="密码（至少8位，含字母与数字）" />
+            </a-form-item>
+            <a-button type="primary" block size="large" :loading="loading" @click="submitAccount">
+              {{ isReg ? '注册并登录' : '登 录' }}
+            </a-button>
             <p class="text-center text-sm text-muted">还没有账号？
-              <button class="text-brand-coral font-semibold" @click="isReg=!isReg">{{ isReg ? '去登录' : '去注册' }}</button>
+              <a class="text-brand-coral font-semibold" @click="isReg=!isReg">{{ isReg ? '去登录' : '去注册' }}</a>
             </p>
-          </div>
+          </a-form>
 
-          <div v-else class="space-y-3">
-            <div class="relative">
-              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-muted"><Icon :name="idType==='phone'?'phone':'mail'" :size="17"/></span>
-              <input class="input !pl-11" :type="idType==='phone'?'tel':'email'" v-model="identifier" :placeholder="idType==='phone'?'手机号':'邮箱'" />
-            </div>
-            <div class="relative">
-              <input class="input !pr-28" v-model="code" placeholder="6 位验证码" />
-              <button class="absolute right-2 top-1/2 -translate-y-1/2 text-brand-coral disabled:opacity-50 text-sm font-semibold px-2 py-1.5"
-                      @click="sendCode" :disabled="codeCountdown>0">
-                {{ codeCountdown>0 ? codeCountdown+'s' : '获取验证码' }}
-              </button>
-            </div>
-            <button class="btn btn-primary btn-block" @click="submitAccount" :disabled="loading">{{ loading ? '处理中…' : '登 录' }}</button>
+          <a-form v-else layout="vertical" class="space-y-3">
+            <a-form-item>
+              <a-input v-model:value="identifier" :type="idType==='phone'?'tel':'email'"
+                       :placeholder="idType==='phone'?'手机号':'邮箱'" size="large" allow-clear>
+                <template #prefix><Icon :name="idType==='phone'?'phone':'mail'" :size="17" class="text-muted" /></template>
+              </a-input>
+            </a-form-item>
+            <a-form-item>
+              <a-input v-model:value="code" placeholder="6 位验证码" size="large" :maxlength="6">
+                <template #suffix>
+                  <a-button type="link" size="small" :disabled="codeCountdown>0" @click="sendCode" class="!px-0">
+                    {{ codeCountdown>0 ? codeCountdown+'s' : '获取验证码' }}
+                  </a-button>
+                </template>
+              </a-input>
+            </a-form-item>
+            <a-button type="primary" block size="large" :loading="loading" @click="submitAccount">登 录</a-button>
             <p v-if="devCode" class="text-center text-xs text-muted">演示验证码：<b class="text-brand-coral font-mono">{{ devCode }}</b></p>
-          </div>
+          </a-form>
 
-          <p v-if="error" class="mt-4 text-center text-sm text-red-500">{{ error }}</p>
+          <a-alert v-if="error" type="error" :message="error" show-icon class="mt-4" />
         </div>
       </div>
     </div>
@@ -108,11 +104,11 @@ const totalSections = computed(() => (mData.value?.modules || []).reduce((a: num
 
 const mode = ref('password')
 const idType = ref('phone')
-const idTypes = [{ v: 'phone', label: '手机号' }, { v: 'email', label: '邮箱' }]
+const idTypes = [{ label: '手机号', value: 'phone' }, { label: '邮箱', value: 'email' }]
+const modeOptions = [{ label: '密码登录', value: 'password' }, { label: '验证码登录', value: 'code' }]
 const identifier = ref('')
 const password = ref('')
 const code = ref('')
-const showPwd = ref(false)
 const isReg = ref(false)
 const loading = ref(false)
 const error = ref('')
