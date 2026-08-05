@@ -52,59 +52,65 @@
 
     <a-card v-if="!bank"><a-skeleton active :paragraph="{ rows: 4 }" /></a-card>
     <template v-else>
-      <!-- 技术二级筛选：从当前方向题库自动归纳子类 -->
+      <!-- 技术二级筛选：由服务端按当前方向 + 搜索词归纳，带命中数 -->
       <div v-if="techOptions.length" class="flex gap-2 mb-4 flex-wrap items-center">
         <span class="text-xs text-muted mr-1">技术：</span>
-        <button @click="techFilter = ''" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
+        <button @click="setTech('')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
                 :class="!techFilter ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">全部</button>
-        <button v-for="t in techOptions" :key="t" @click="techFilter = (techFilter === t ? '' : t)"
+        <button v-for="t in techOptions" :key="t.tech" @click="setTech(techFilter === t.tech ? '' : t.tech)"
                 class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
-                :class="techFilter === t ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ t }}</button>
+                :class="techFilter === t.tech ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ t.tech }} <span class="opacity-60">{{ t.count }}</span></button>
       </div>
 
       <!-- 题型切换 -->
       <div class="flex gap-2 mb-4 flex-wrap">
-        <button @click="qTab = 'hot'; page = 1" class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
+        <button @click="setTab('hot')" class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
                 :class="qTab === 'hot' ? 'border-brand-gold/50 text-brand-gold bg-brand-gold/5' : 'border-line text-sub'">
-          <Icon name="star" :size="15" class="inline -mt-0.5" /> 高频必刷题（{{ filteredHot.length }}）
+          <Icon name="star" :size="15" class="inline -mt-0.5" /> 高频必刷题（{{ counts.hot }}）
         </button>
-        <button @click="qTab = 'special'; page = 1" class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
+        <button @click="setTab('special')" class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
                 :class="qTab === 'special' ? 'border-brand-pink/50 text-brand-pink bg-brand-pink/5' : 'border-line text-sub'">
-          <Icon name="bolt" :size="15" class="inline -mt-0.5" /> 特殊场景题（{{ filteredSpecial.length }}）
+          <Icon name="bolt" :size="15" class="inline -mt-0.5" /> 特殊场景题（{{ counts.special }}）
         </button>
       </div>
 
-      <a-card v-if="activeList.length === 0" class="text-center" :body-style="{ padding: '32px' }">
-        <span class="text-muted text-sm">没有匹配「{{ q }}」的题目</span>
+      <a-card v-if="total === 0" class="text-center" :body-style="{ padding: '32px' }">
+        <span class="text-muted text-sm">没有匹配{{ q ? '「' + q + '」' : '' }}的题目</span>
+        <!-- 命中落在另一题型时给出入口，避免用户误判「搜不到」 -->
+        <div v-if="otherCount > 0" class="mt-3">
+          <a-button type="link" size="small" @click="setTab(qTab === 'hot' ? 'special' : 'hot')">
+            {{ qTab === 'hot' ? '特殊场景题' : '高频必刷题' }}中有 {{ otherCount }} 道匹配，去看看 →
+          </a-button>
+        </div>
       </a-card>
-      <div v-else>
+      <div v-else :class="pending ? 'opacity-60 transition-opacity' : 'transition-opacity'">
         <div class="space-y-2">
-          <a-card v-for="q in pageList" :key="q.id" class="overflow-hidden" :body-style="{ padding: '0' }">
-            <button class="w-full text-left p-4 flex items-center gap-3 hover:bg-ink/[.03] transition" @click="toggle(q.id)" :aria-expanded="openSet.has(q.id)">
+          <a-card v-for="item in items" :key="item.id" class="overflow-hidden" :body-style="{ padding: '0' }">
+            <button class="w-full text-left p-4 flex items-center gap-3 hover:bg-ink/[.03] transition" @click="toggle(item.id)" :aria-expanded="openSet.has(item.id)">
               <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0" :class="qTab === 'hot' ? 'bg-brand-gold/10 text-brand-gold' : 'bg-brand-pink/10 text-brand-pink'">{{ qTab === 'hot' ? 'Q' : 'S' }}</span>
-              <span class="font-medium text-sm flex-1 pr-2 leading-snug">{{ q.q }}</span>
-              <a-tag class="hidden sm:inline-block shrink-0 !text-[10px] !bg-ink/5 !text-sub" :bordered="false">{{ q.tech }}</a-tag>
-              <a-tag shrink-0 !text-[10px] :class="q.difficulty === 'hard' ? '!bg-red-500/10 !text-red-500' : '!bg-brand-coral/10 !text-brand-coral'" :bordered="false">{{ q.difficulty === 'hard' ? '较难' : '常规' }}</a-tag>
-              <Icon name="chevronRight" :size="16" class="text-muted transition-transform shrink-0" :class="openSet.has(q.id) ? 'rotate-90' : ''" />
+              <span class="font-medium text-sm flex-1 pr-2 leading-snug">{{ item.q }}</span>
+              <a-tag class="hidden sm:inline-block shrink-0 !text-[10px] !bg-ink/5 !text-sub" :bordered="false">{{ item.tech }}</a-tag>
+              <a-tag class="shrink-0 !text-[10px]" :class="diffMeta(item.difficulty).cls" :bordered="false">{{ diffMeta(item.difficulty).label }}</a-tag>
+              <Icon name="chevronRight" :size="16" class="text-muted transition-transform shrink-0" :class="openSet.has(item.id) ? 'rotate-90' : ''" />
             </button>
-            <div v-if="openSet.has(q.id)" class="px-4 pb-4 pl-4 sm:pl-14">
+            <div v-if="openSet.has(item.id)" class="px-4 pb-4 pl-4 sm:pl-14">
               <!-- #151 答案清晰度：明确「参考答案」标签 + 区分度卡片 -->
               <div class="flex items-center gap-1.5 text-[11px] font-semibold text-brand-coral mb-1.5 mt-1">
                 <Icon name="checkCircle" :size="13" /> 参考答案
               </div>
-              <div class="rounded-r-lg border-l-2 border-brand-coral/60 bg-brand-coral/[.04] p-3.5 prose-dm" v-html="md(q.a)"></div>
-              <div v-if="q.keywords && q.keywords.length" class="flex flex-wrap gap-1.5 mt-3">
-                <a-tag v-for="k in q.keywords.slice(0, 8)" :key="k" class="!text-[10px] !bg-ink/5 !text-muted" :bordered="false">{{ k }}</a-tag>
+              <div class="rounded-r-lg border-l-2 border-brand-coral/60 bg-brand-coral/[.04] p-3.5 prose-dm" v-html="md(item.a)"></div>
+              <div v-if="item.keywords && item.keywords.length" class="flex flex-wrap gap-1.5 mt-3">
+                <a-tag v-for="k in item.keywords.slice(0, 8)" :key="k" class="!text-[10px] !bg-ink/5 !text-muted" :bordered="false">{{ k }}</a-tag>
               </div>
             </div>
           </a-card>
         </div>
 
-        <!-- 分页：长列表分段，避免一次性铺满 -->
-        <div v-if="activeList.length > PAGE_SIZE" class="mt-5 flex justify-center">
-          <a-pagination :current="page" :page-size="PAGE_SIZE" :total="activeList.length"
+        <!-- 分页：服务端分页，仅传输当前页题目 -->
+        <div v-if="total > PAGE_SIZE" class="mt-5 flex justify-center">
+          <a-pagination :current="page" :page-size="PAGE_SIZE" :total="total"
                         :show-size-changer="false" :hide-on-single-page="true"
-                        @change="(p:number)=>page=p" />
+                        @change="goPage" />
         </div>
       </div>
     </template>
@@ -116,9 +122,34 @@ const { request } = useApi()
 const { md } = useMarkdown()
 const { guard } = useLoginGate()
 const tracks = [{ id: 'frontend', name: '前端' }, { id: 'backend', name: '后端' }, { id: 'devops', name: '运维' }, { id: 'ai', name: 'AI 工程' }]
-const activeTrack = ref('frontend')
-const { data: bankRes } = await useFetch(() => '/api/interview/' + activeTrack.value, { watch: [activeTrack] })
+const VALID_TRACKS = ['frontend', 'backend', 'devops', 'ai']
+const route = useRoute()
+// 支持带查询参数跳入：?askTrack=（学习路径页答疑）/ ?track= + ?q=（站内搜索结果）
+// 注意：必须在 useFetch 之前解析，否则 SSR 首次会先拉一遍 frontend 再重拉，白白多一次查询
+const qAsk = route.query.askTrack
+const pickTrack = (v: any) => (typeof v === 'string' && VALID_TRACKS.includes(v) ? v : '')
+const initTrack = pickTrack(qAsk) || pickTrack(route.query.track) || 'frontend'
+const initKw = typeof route.query.q === 'string' ? route.query.q.slice(0, 60) : ''
+const activeTrack = ref(initTrack)
+
+const PAGE_SIZE = 10
+const qTab = ref<'hot' | 'special'>('hot')
+const techFilter = ref('')
+const page = ref(1)
+const q = ref(initKw)
+const qDebounced = ref(initKw) // 搜索防抖，避免每次按键都打服务端
+
+// 服务端分页：题库扩到 2600+ 道后不能再整库下发，只取当前页
+const { data: bankRes, pending } = await useFetch(() => '/api/interview/' + activeTrack.value, {
+  query: { type: qTab, tech: techFilter, q: qDebounced, page, pageSize: PAGE_SIZE },
+  watch: [activeTrack]
+})
 const bank = computed(() => bankRes.value?.bank || null)
+const items = computed<any[]>(() => bank.value?.items || [])
+const counts = computed(() => bank.value?.counts || { hot: 0, special: 0 })
+const total = computed(() => bank.value?.total || 0)
+const techOptions = computed<any[]>(() => bank.value?.techOptions || [])
+const otherCount = computed(() => (qTab.value === 'hot' ? counts.value.special : counts.value.hot) || 0)
 
 useSeoMeta({
   title: '面试题库 & AI 陪练',
@@ -129,52 +160,20 @@ useSeoMeta({
   ogUrl: safeOgUrl()
 })
 const openSet = ref(new Set<string>())
-const qTab = ref<'hot' | 'special'>('hot')
-const techFilter = ref('')
-const page = ref(1)
-const PAGE_SIZE = 10
-const q = ref('')
-
-// 当前方向题库归纳出的技术子类（去重排序），用于二级筛选 chips
-const techOptions = computed(() => {
-  const set = new Set<string>()
-  const list = [...(bank.value?.hot || []), ...(bank.value?.special || [])]
-  list.forEach((x: any) => x.tech && set.add(x.tech))
-  return Array.from(set).sort()
-})
-
-const filteredHot = computed(() => {
-  const list = bank.value?.hot || []
-  const kw = q.value.trim().toLowerCase()
-  const tf = techFilter.value
-  return list.filter((x: any) =>
-    (!tf || x.tech === tf) &&
-    (!kw || (x.q || '').toLowerCase().includes(kw) || (x.a || '').toLowerCase().includes(kw) || (x.keywords || []).some((k: string) => k.toLowerCase().includes(kw)))
-  )
-})
-const filteredSpecial = computed(() => {
-  const list = bank.value?.special || []
-  const kw = q.value.trim().toLowerCase()
-  const tf = techFilter.value
-  return list.filter((x: any) =>
-    (!tf || x.tech === tf) &&
-    (!kw || (x.q || '').toLowerCase().includes(kw) || (x.a || '').toLowerCase().includes(kw) || (x.keywords || []).some((k: string) => k.toLowerCase().includes(kw)))
-  )
-})
-const activeList = computed(() => (qTab.value === 'hot' ? filteredHot.value : filteredSpecial.value))
-const pageList = computed(() => activeList.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
 
 const askText = ref('')
-const askTrack = ref('')
-// 支持从学习路径页带 ?askTrack= 跳入，自动选中对应方向的答疑与题库
-const route = useRoute()
-const VALID_TRACKS = ['frontend', 'backend', 'devops', 'ai']
-const qAsk = route.query.askTrack
-if (typeof qAsk === 'string' && VALID_TRACKS.includes(qAsk)) { activeTrack.value = qAsk; askTrack.value = qAsk }
+const askTrack = ref(typeof qAsk === 'string' && VALID_TRACKS.includes(qAsk) ? qAsk : '')
 const answer = ref<any>(null)
 const asking = ref(false)
 const askErr = ref('')
 
+// 难度三档展示：常规/较难/困难（medium 为原被塌缩掉的「较难」中间档）
+const DIFF_META: Record<string, { label: string; cls: string }> = {
+  hard: { label: '困难', cls: '!bg-red-500/10 !text-red-500' },
+  medium: { label: '较难', cls: '!bg-brand-gold/10 !text-brand-gold' },
+  normal: { label: '常规', cls: '!bg-brand-coral/10 !text-brand-coral' }
+}
+function diffMeta(d: string) { return DIFF_META[d] || DIFF_META.normal }
 function trackName(t: string) { return (tracks.find(x => x.id === t) || {}).name || t }
 function toggle(id: string) {
   const s = new Set(openSet.value)
@@ -182,12 +181,24 @@ function toggle(id: string) {
   openSet.value = s
 }
 function loadTrack(t: string) {
-  activeTrack.value = t
+  if (activeTrack.value === t) return
   page.value = 1
   techFilter.value = ''
+  activeTrack.value = t
 }
-// 搜索 / 技术筛选变化时回到第一页，避免停留在越界页
-watch([q, techFilter], () => { page.value = 1 })
+function setTech(t: string) { page.value = 1; techFilter.value = t }
+function setTab(t: 'hot' | 'special') { if (qTab.value === t) return; page.value = 1; qTab.value = t }
+function goPage(p: number) {
+  page.value = p
+  if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+// 搜索防抖 300ms：输入即请求会在 2600 道题的库上打出大量无效查询
+let searchTimer: any = null
+watch(q, (v) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { page.value = 1; qDebounced.value = v.trim() }, 300)
+})
+onBeforeUnmount(() => { if (searchTimer) clearTimeout(searchTimer) })
 async function ask() {
   if (!askText.value) { askErr.value = '请先输入问题'; return }
   if (await guard()) return // 未登录 → 引导登录

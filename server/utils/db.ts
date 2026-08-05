@@ -68,10 +68,11 @@ const TECH_MAP: Record<string, TechRule[]> = {
   ]
 }
 
-function classifyTech(track: string, q: string, keywordsJson?: string): string {
+function classifyTech(track: string, q: string, keywordsJson?: string, a?: string): string {
   const rules = TECH_MAP[track]
   if (!rules) return '综合'
-  const text = ((q || '') + ' ' + (keywordsJson || '')).toLowerCase()
+  // 兜底增强：除题干+关键词外，也对参考答案正文做关键词命中，降低落入「综合」兜底的比例
+  const text = ((q || '') + ' ' + (keywordsJson || '') + ' ' + (a || '')).toLowerCase()
   let best = '综合'
   let bestScore = 0
   for (const r of rules) {
@@ -413,6 +414,59 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 9,
+    name: 'interview-type-weight-heal',
+    up: (db) => {
+      // 题库由 300 扩到 2600+ 后暴露的两处存量漂移，此迁移一次性自愈（新库为空表时自动空跑）：
+      //
+      // ① 题型误判：seedIfEmpty 曾用 id[1]==='s' 推导题型，只对 fq/fs 两字母前缀成立。
+      //    iq-m5-* / xq-* 等新前缀会被一律判成 hot。以种子文件为准回正（种子是内容唯一真源）。
+      // ② 权重/难度未回填：v6 的回填跑在 runMigrations 阶段，早于 seedIfEmpty，空表上等于没跑，
+      //    列 DEFAULT 让 special 题停留在 weight=3 / difficulty='normal'，UI 的「较难」标签从不出现。
+      const has = (c: string) => colExists(db, 'interview_questions', c)
+      if (!has('weight') || !has('difficulty')) return
+      // 新库此时表还是空的（迁移早于 seed），直接跳过：修正逻辑已内置在 seedIfEmpty 的插入里
+      if ((db.prepare('SELECT COUNT(*) c FROM interview_questions').get() as any).c === 0) return
+
+      // ① 以种子为准回正 type / difficulty / weight（种子是内容唯一真源）。
+      //    只改与种子不一致的行；三者必须一起对齐，否则会留下 hot 题却带 hard 难度这类残缺状态。
+      try {
+        const file = path.join(process.cwd(), 'data', 'seed-content.json')
+        if (fs.existsSync(file)) {
+          const seed = JSON.parse(fs.readFileSync(file, 'utf-8'))
+          const wanted = new Map<string, { type: string; difficulty: string; weight: number }>()
+          const collect = (list: any[], type: string) => {
+            for (const q of list || []) {
+              const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'normal')
+              const weight = typeof q.weight === 'number' ? q.weight : (difficulty === 'hard' ? 5 : 3)
+              wanted.set(q.id, { type, difficulty, weight })
+            }
+          }
+          for (const bank of Object.values(seed.interview || {}) as any[]) {
+            collect(bank.hot, 'hot')
+            collect(bank.special, 'special')
+          }
+          const upd = db.prepare(
+            `UPDATE interview_questions SET type=?, difficulty=?, weight=?
+             WHERE id=? AND (type<>? OR difficulty IS NOT ? OR weight IS NOT ?)`
+          )
+          const tx = db.transaction(() => {
+            for (const [id, v] of wanted) {
+              upd.run(v.type, v.difficulty, v.weight, id, v.type, v.difficulty, v.weight)
+            }
+          })
+          tx()
+        }
+      } catch { /* 种子缺失或损坏时跳过，不阻塞启动 */ }
+
+      // ② 兜底：种子里没有的行（例如后台手工新增的题）按题型补齐空值，不覆盖已有设定
+      db.prepare("UPDATE interview_questions SET weight=5 WHERE type='special' AND weight IS NULL").run()
+      db.prepare("UPDATE interview_questions SET difficulty='hard' WHERE type='special' AND (difficulty IS NULL OR difficulty='')").run()
+      db.prepare("UPDATE interview_questions SET weight=3 WHERE type='hot' AND weight IS NULL").run()
+      db.prepare("UPDATE interview_questions SET difficulty='normal' WHERE type='hot' AND (difficulty IS NULL OR difficulty='')").run()
+    }
   }
 ]
 
@@ -450,7 +504,10 @@ function seedIfEmpty(db: any) {
   const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
   const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position) VALUES (?,?,?,?,?)')
   const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
-  const insQ = db.prepare('INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords) VALUES (?,?,?,?,?,?)')
+  // 题型 / 权重 / 难度必须在插入时写死，原因见下方 insQ.run 处注释
+  const insQ = db.prepare(
+    'INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,weight,difficulty,tech) VALUES (?,?,?,?,?,?,?,?,?)'
+  )
   const insSet = db.prepare('INSERT OR IGNORE INTO exam_sets (id,name,track,level,duration,vip_only) VALUES (?,?,?,?,?,?)')
   const insC = db.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,explain,multi) VALUES (?,?,?,?,?,?,?,?)')
   const insW = db.prepare('INSERT OR IGNORE INTO exam_written (id,set_id,q,points,reference) VALUES (?,?,?,?,?)')
@@ -464,10 +521,22 @@ function seedIfEmpty(db: any) {
         })
       })
     })
+    // ① 题型按所属数组判定，不再用 id[1]==='s' 推导。
+    //    旧写法只对 fq/fs 这类两字母前缀成立，iq-m5-*、xq-* 等新前缀会被一律判成 hot（实测误判 128 道 special）。
+    // ② 权重/难度在此显式写入：迁移 v6 的回填跑在 runMigrations 阶段，早于 seedIfEmpty，
+    //    空表上执行等于没跑；列上的 DEFAULT 3 / 'normal' 会让 special 题永远拿不到 weight=5 / difficulty='hard'，
+    //    前端「较难」标签因此从不出现。种子若自带 difficulty 则以种子为准。
     Object.entries(content.interview).forEach(([track, bank]: any) => {
-      ;[...bank.hot, ...bank.special].forEach((q: any) => {
-        insQ.run(q.id, track, q.id[1] === 's' ? 'special' : 'hot', q.q, q.a, JSON.stringify(q.keywords || []))
-      })
+      const rows = [
+        ...(bank.hot || []).map((q: any) => [q, 'hot'] as const),
+        ...(bank.special || []).map((q: any) => [q, 'special'] as const)
+      ]
+      for (const [q, type] of rows) {
+        const kw = JSON.stringify(q.keywords || [])
+        const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'normal')
+        const weight = typeof q.weight === 'number' ? q.weight : (type === 'special' ? 5 : 3)
+        insQ.run(q.id, track, type, q.q, q.a, kw, weight, difficulty, q.tech || classifyTech(track, q.q, kw))
+      }
     })
     content.examSets.forEach((set: any) => {
       insSet.run(set.id, set.name, set.track, set.level, set.duration, set.vipOnly ? 1 : 0)

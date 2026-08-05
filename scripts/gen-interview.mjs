@@ -152,19 +152,34 @@ const PROGRESS = path.join(ROOT, '.workbuddy', 'gen-interview-done.json')
 const doneSet = new Set(fs.existsSync(PROGRESS) ? JSON.parse(fs.readFileSync(PROGRESS, 'utf8')) : [])
 if (doneSet.size) console.log(`已完成小节（将跳过）：${doneSet.size}`)
 
-// ---- id 计数器（避免与现有 fq/fs/bq/bs/oq/os/aq/as/iq-m5 冲突，用 xq- 前缀）----
-function nextCounter(track) {
-  const short = TRACK_SHORT[track]
-  let max = 0
-  const rows = db.prepare(`SELECT id FROM interview_questions WHERE id LIKE ?`).all(`xq-${short}-%`)
-  for (const r of rows) {
-    const n = parseInt(String(r.id).replace(`xq-${short}-`, ''), 10)
-    if (!isNaN(n) && n > max) max = n
+// ---- id 分配：由小节 id 派生的确定性 id ----
+// 历史教训：早先用「启动时读一次 DB 最大编号 + 内存自增」，多进程并发或中断重启会读到相同基数，
+// 分配出重复 id；DB 侧 INSERT OR IGNORE 保留先到者、种子侧 push 保留另一条，导致同一 id
+// 在两边指向不同题目（曾造成 1406 处错位）。改为 xq-{小节id}-{序号}：小节 id 全局唯一，
+// 因此天然免疫并发冲突，且同一节重跑时 id 稳定，不会产生孤儿题。
+const qid = (sectionId, i) => `xq-${sectionId}-${i}`
+
+// ---- 内容查重：避免不同小节生成出字面相同的题 ----
+const normQ = (s) => String(s || '').replace(/\s+/g, '').trim()
+const seenQ = new Set()
+for (const r of db.prepare('SELECT track,q FROM interview_questions').all()) seenQ.add(r.track + '||' + normQ(r.q))
+
+// ---- 单实例锁：并发跑同一脚本会互相覆盖种子文件 ----
+const LOCK = path.join(ROOT, '.workbuddy', 'gen-interview.lock')
+if (!DRY) {
+  if (fs.existsSync(LOCK)) {
+    const pid = fs.readFileSync(LOCK, 'utf8').trim()
+    let alive = false
+    try { process.kill(Number(pid), 0); alive = true } catch { alive = false }
+    if (alive) { console.error(`已有实例在运行（pid ${pid}）。并发运行会互相覆盖种子文件，已退出。`); process.exit(1) }
+    console.warn(`发现残留锁（pid ${pid} 已退出），继续。`)
   }
-  return { short, n: max }
+  fs.writeFileSync(LOCK, String(process.pid))
+  const clean = () => { try { fs.unlinkSync(LOCK) } catch { /* 已删除 */ } }
+  process.on('exit', clean)
+  process.on('SIGINT', () => { clean(); process.exit(130) })
+  process.on('SIGTERM', () => { clean(); process.exit(143) })
 }
-const counters = {}
-for (const t of Object.keys(TRACK_SHORT)) counters[t] = nextCounter(t)
 
 // ---- 网络真实题参考 ----
 let webRef = null
@@ -216,13 +231,15 @@ ${sec.content || sec.sectionTitle}
 1. 数量随主题深度浮动：重要/深入的主题出 5-8 道，普通主题出 3-4 道；不要固定数量，覆盖越全面越好。
 2. 题型要多样，至少涵盖：概念理解题、原理/机制深挖题、常见坑/易错点题、对比辨析题、场景/编码实战题（按主题必要性取舍）。
 3. 每道题给出结构化参考答案（markdown）：先一句话核心结论，再分点展开（含代码示例/命令/配置片段），补充「常见坑」，结尾「面试小结」。每答案 300-600 字，精炼不注水。
-4. 关键词 3-6 个；难度标注 常规/较难/困难。
+4. 关键词 3-6 个；难度标注 常规/较难/困难；技术子类从下列列表选最贴合的一个：
+${TECH_MAP[sec.track].map(r => r.tech).join('、')}
 5. 严格按以下格式输出，题与题之间用单独一行的 ===Q=== 分隔，不要输出任何额外说明文字：
 ===Q===
 问：<问题>
 答：<参考答案 markdown>
 关键词：<k1, k2, k3>
 难度：<常规|较难|困难>
+技术：<从上述列表选一个>
 ===Q===${web}`
   return { messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] }
 }
@@ -234,13 +251,15 @@ function parseDelimited(text) {
     const qm = b.match(/问[：:]\s*([\s\S]*?)(?=\n\s*答[：:])/)
     const am = b.match(/答[：:]\s*([\s\S]*?)(?=\n\s*关键词[：:])/)
     const km = b.match(/关键词[：:]\s*([\s\S]*?)(?=\n\s*难度[：:])/)
-    const dm = b.match(/难度[：:]\s*([\s\S]*?)(?=\n|$)/)
+    const dm = b.match(/难度[：:]\s*([\s\S]*?)(?=\n\s*技术[：:]|$)/)
+    const tm = b.match(/技术[：:]\s*([\s\S]*?)(?=\n|$)/)
     if (!qm || !am) continue
     const q = qm[1].trim()
     const a = am[1].trim()
     const keywords = (km ? km[1].trim() : '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean).slice(0, 6)
     const difficultyRaw = (dm ? dm[1].trim() : '常规')
-    if (q && a) out.push({ q, a, keywords, difficultyRaw })
+    const techRaw = tm ? tm[1].trim() : ''
+    if (q && a) out.push({ q, a, keywords, difficultyRaw, techRaw })
   }
   return out
 }
@@ -273,22 +292,29 @@ async function worker(queue) {
           console.log('   答:', x.a.slice(0, 160) + '...')
         })
       } else {
-        const c = counters[sec.track]
-        for (const x of qs) {
-          c.n += 1
-          const id = `xq-${c.short}-${c.n}`
+        let written = 0, dup = 0
+        qs.forEach((x, i) => {
+          // 内容查重：同方向下题干去空白后相同即视为重复，跳过
+          const key = sec.track + '||' + normQ(x.q)
+          if (seenQ.has(key)) { dup++; return }
+          seenQ.add(key)
+          const id = qid(sec.id, i + 1)
           const isHard = x.difficultyRaw === '困难'
           const type = isHard ? 'special' : 'hot'
-          const difficulty = isHard ? 'hard' : 'normal'
-          const tech = classifyTech(sec.track, x.q, JSON.stringify(x.keywords))
+          // 三档难度：困难→hard/special，较难→medium/hot，常规→normal/hot（修复原 2 档塌缩）
+          const difficulty = x.difficultyRaw === '困难' ? 'hard' : (x.difficultyRaw === '较难' ? 'medium' : 'normal')
+          // 优先采用 LLM 直接归类的技术子类（更准），非法时回退关键词 classifyTech
+          const validTechs = TECH_MAP[sec.track].map((r) => r.tech)
+          const tech = validTechs.includes(x.techRaw) ? x.techRaw : classifyTech(sec.track, x.q, JSON.stringify(x.keywords))
           const weight = isHard ? 5 : 3
           insertStmt.run(id, sec.track, type, x.q, x.a, JSON.stringify(x.keywords), difficulty, tech, weight)
           applyToSeed(sec.track, { id, q: x.q, a: x.a, keywords: x.keywords, type, tech, difficulty })
-        }
+          written++
+        })
         // 每处理完一节即写回种子（保证断电/中断也不丢）
         fs.writeFileSync(path.join(ROOT, 'data', 'seed-content.json'), JSON.stringify(seed, null, 1))
-        genTotal += qs.length
-        console.log(`✓ ${sec.track}/${sec.id} ${sec.sectionTitle} -> ${qs.length} 题（累计新增 ${genTotal}）`)
+        genTotal += written
+        console.log(`✓ ${sec.track}/${sec.id} ${sec.sectionTitle} -> ${written} 题${dup ? `（跳过重复 ${dup}）` : ''}（累计新增 ${genTotal}）`)
       }
       doneSet.add(sec.id)
       fs.writeFileSync(PROGRESS, JSON.stringify([...doneSet]))
