@@ -4,64 +4,68 @@
     <p class="text-muted text-sm mb-5">VIP 专属内推岗位，覆盖四大方向。看中即申请，导师/HR 会与你联系对接。</p>
 
     <!-- 未登录 / 非 VIP 门禁 -->
-    <div v-if="gate" class="card p-8 text-center reveal">
+    <a-card v-if="gate" class="text-center" :body-style="{ padding: '32px' }">
       <div class="w-14 h-14 rounded-2xl bg-brand-coral/15 text-brand-coral flex items-center justify-center mx-auto mb-4"><Icon name="briefcase" :size="26" /></div>
       <h3 class="font-bold text-lg mb-2">{{ gate.title }}</h3>
       <p class="text-sm text-muted mb-5">{{ gate.desc }}</p>
-      <NuxtLink :to="gate.to" class="btn btn-primary">{{ gate.btn }}</NuxtLink>
-    </div>
+      <NuxtLink :to="gate.to"><a-button type="primary">{{ gate.btn }}</a-button></NuxtLink>
+    </a-card>
 
     <div v-else>
       <!-- 筛选 -->
-      <div class="card p-4 mb-5 flex flex-wrap gap-3 items-center reveal">
-        <select v-model="track" class="input !py-2 w-auto" @change="load">
-          <option value="">全部方向</option>
-          <option value="frontend">前端</option>
-          <option value="backend">后端</option>
-          <option value="devops">运维 / DevOps</option>
-          <option value="ai">AI 工程</option>
-        </select>
-        <select v-model="city" class="input !py-2 w-auto" @change="load">
-          <option value="">全部城市</option>
-          <option v-for="c in cities" :key="c" :value="c">{{ c }}</option>
-        </select>
-        <select v-model="level" class="input !py-2 w-auto" @change="load">
-          <option value="">全部级别</option>
-          <option value="junior">初级</option>
-          <option value="mid">中级</option>
-          <option value="senior">高级</option>
-        </select>
-        <span class="ml-auto text-sm text-muted">共 {{ list.length }} 个岗位</span>
-      </div>
+      <a-card class="mb-5" :body-style="{ padding: '16px' }">
+        <div class="flex flex-wrap gap-3 items-center">
+          <select v-model="track" class="input !py-2 w-auto" @change="load">
+            <option value="">全部方向</option>
+            <option value="frontend">前端</option>
+            <option value="backend">后端</option>
+            <option value="devops">运维 / DevOps</option>
+            <option value="ai">AI 工程</option>
+          </select>
+          <select v-model="city" class="input !py-2 w-auto" @change="load">
+            <option value="">全部城市</option>
+            <option v-for="c in cities" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <select v-model="level" class="input !py-2 w-auto" @change="load">
+            <option value="">全部级别</option>
+            <option value="junior">初级</option>
+            <option value="mid">中级</option>
+            <option value="senior">高级</option>
+          </select>
+          <span class="ml-auto text-sm text-muted">共 {{ list.length }} 个岗位</span>
+        </div>
+      </a-card>
 
       <!-- 列表 -->
       <div v-if="loading" class="grid sm:grid-cols-2 gap-4">
-        <div v-for="i in 4" :key="i" class="card h-44 shimmer"></div>
+        <a-card v-for="i in 4" :key="i"><a-skeleton active :paragraph="{ rows: 4 }" /></a-card>
       </div>
-      <div v-else-if="!list.length" class="card p-8 text-center text-muted">暂无匹配岗位</div>
+      <a-card v-else-if="!list.length" class="text-center" :body-style="{ padding: '32px' }">
+        <span class="text-muted">暂无匹配岗位</span>
+      </a-card>
       <div v-else class="grid sm:grid-cols-2 gap-4">
-        <div v-for="r in list" :key="r.id" class="card p-5 reveal">
+        <a-card v-for="r in list" :key="r.id" :body-style="{ padding: '20px' }">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="font-bold truncate">{{ r.title }}</div>
               <div class="text-sm text-muted">{{ r.company }} · {{ r.city }}</div>
             </div>
-            <span class="chip bg-brand-coral/10 text-brand-coral shrink-0">{{ r.trackName }}</span>
+            <a-tag class="shrink-0 !bg-brand-coral/10 !text-brand-coral" :bordered="false">{{ r.trackName }}</a-tag>
           </div>
           <div class="flex flex-wrap gap-1.5 mt-3">
-            <span class="chip bg-ink/5 text-sub">{{ levelName(r.level) }}</span>
-            <span class="chip bg-ink/5 text-sub">{{ r.type }}</span>
+            <a-tag class="!bg-ink/5 !text-sub" :bordered="false">{{ levelName(r.level) }}</a-tag>
+            <a-tag class="!bg-ink/5 !text-sub" :bordered="false">{{ r.type }}</a-tag>
           </div>
           <p class="text-sm text-muted mt-3 whitespace-pre-line">{{ r.intro }}</p>
           <p class="text-xs text-muted mt-2"><b>要求：</b>{{ r.requirement }}</p>
-          <button class="btn btn-primary w-full mt-4" :disabled="applied(r.id)" @click="openApply(r)">
+          <a-button class="w-full mt-4" type="primary" :disabled="applied(r.id)" @click="openApply(r)">
             {{ applied(r.id) ? '已申请' : '申请内推' }}
-          </button>
-        </div>
+          </a-button>
+        </a-card>
       </div>
 
       <!-- 我的申请 -->
-      <div v-if="mine.length" class="card p-6 mt-6">
+      <a-card v-if="mine.length" class="mt-6" :body-style="{ padding: '24px' }">
         <h3 class="font-bold mb-3">我的申请</h3>
         <div v-for="m in mine" :key="m.id" class="flex items-center justify-between text-sm py-2 border-b border-line last:border-0">
           <div class="min-w-0">
@@ -70,12 +74,12 @@
           </div>
           <span :class="m.status === 'pending' ? 'text-amber-500' : 'text-emerald-600'">{{ m.status === 'pending' ? '审核中' : m.status }}</span>
         </div>
-      </div>
+      </a-card>
     </div>
 
     <!-- 申请弹窗 -->
     <div v-if="applyTarget" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" @click.self="applyTarget = null">
-      <div class="card p-6 w-full max-w-md">
+      <a-card class="w-full max-w-md" :body-style="{ padding: '24px' }">
         <h3 class="font-bold mb-1">申请内推：{{ applyTarget.title }}</h3>
         <p class="text-sm text-muted mb-4">{{ applyTarget.company }} · {{ applyTarget.city }}</p>
         <input v-model="form.name" class="input mb-3" placeholder="你的称呼" />
@@ -83,10 +87,10 @@
         <textarea v-model="form.note" rows="3" class="input mb-3 resize-none" placeholder="补充信息（选填）：意向城市、到岗时间等"></textarea>
         <p v-if="applyErr" class="text-red-500 text-sm mb-3">{{ applyErr }}</p>
         <div class="flex gap-3">
-          <button class="btn btn-primary flex-1" :disabled="applying" @click="submitApply">{{ applying ? '提交中…' : '提交申请' }}</button>
-          <button class="btn" @click="applyTarget = null">取消</button>
+          <a-button type="primary" class="flex-1" :disabled="applying" :loading="applying" @click="submitApply">提交申请</a-button>
+          <a-button @click="applyTarget = null">取消</a-button>
         </div>
-      </div>
+      </a-card>
     </div>
   </div>
 </template>

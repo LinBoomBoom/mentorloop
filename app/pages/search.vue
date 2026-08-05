@@ -5,80 +5,85 @@
       <SearchBar placeholder="搜索：事件循环、RAG、DORA、面试题…" />
     </div>
 
-    <div v-if="!q" class="card p-8 text-center text-muted">
+    <a-card v-if="!q" class="text-center" :body-style="{ padding: '32px' }">
       <Icon name="search" :size="32" class="mx-auto mb-3 opacity-60" />
-      <p>输入关键词，跨「学习小节 / 章节 / 面试题 / 模拟答卷」全文检索。</p>
+      <p class="text-muted">输入关键词，跨「学习小节 / 章节 / 面试题 / 模拟答卷」全文检索。</p>
       <div class="flex flex-wrap gap-2 justify-center mt-4">
-        <button v-for="k in hot" :key="k" class="tag cursor-pointer hover:bg-brand-coral/10 hover:text-brand-coral"
-                @click="run(k)">{{ k }}</button>
+        <a-tag v-for="k in hot" :key="k" class="cursor-pointer hover:!bg-brand-coral/10 hover:!text-brand-coral" :bordered="false" @click="run(k)">{{ k }}</a-tag>
       </div>
-    </div>
+    </a-card>
 
-    <div v-else-if="loading" class="card p-8 text-center text-muted">搜索中…</div>
+    <a-card v-else-if="loading" class="text-center" :body-style="{ padding: '32px' }">
+      <span class="text-muted">搜索中…</span>
+    </a-card>
 
-    <div v-else-if="res && res.total === 0" class="card p-8 text-center text-muted">
-      未找到与「{{ q }}」相关的内容，换个关键词试试。
-    </div>
+    <a-card v-else-if="res && res.total === 0" class="text-center" :body-style="{ padding: '32px' }">
+      <span class="text-muted">未找到与「{{ q }}」相关的内容，换个关键词试试。</span>
+    </a-card>
 
     <div v-else-if="res" class="space-y-6">
       <p class="text-sm text-muted">「{{ q }}」共找到 <b class="text-ink">{{ res.total }}</b> 条结果</p>
 
       <section v-if="res.sections.length">
         <h2 class="section-title"><Icon name="book" :size="16" /> 学习小节 <span class="count">{{ res.sections.length }}</span></h2>
-        <NuxtLink v-for="s in shown('sections')" :key="s.id" :to="s.href"
-                  class="card block p-4 mb-2 hover:border-brand-coral/50 transition">
-          <div class="font-semibold">{{ s.title }}</div>
-          <div class="text-xs text-muted mt-0.5">{{ s.chapterTitle }} · {{ s.snippet }}</div>
+        <NuxtLink v-for="s in shown('sections')" :key="s.id" :to="s.href">
+          <a-card class="block mb-2 hover:!border-brand-coral/50 transition" :body-style="{ padding: '16px' }">
+            <div class="font-semibold">{{ s.title }}</div>
+            <div class="text-xs text-muted mt-0.5">{{ s.chapterTitle }} · {{ s.snippet }}</div>
+          </a-card>
         </NuxtLink>
         <div v-if="hasMore('sections')" class="mt-1">
-          <button class="btn btn-ghost !py-2 !text-xs" @click="loadMore('sections')">加载更多（剩 {{ res.sections.length - pages.sections * PAGE }} 条）</button>
+          <a-button type="link" size="small" class="!py-2" @click="loadMore('sections')">加载更多（剩 {{ res.sections.length - pages.sections * PAGE }} 条）</a-button>
         </div>
         <div v-else-if="res.sections.length > PAGE" class="mt-1">
-          <button class="btn btn-ghost !py-2 !text-xs" @click="collapse('sections')">收起</button>
+          <a-button type="link" size="small" class="!py-2" @click="collapse('sections')">收起</a-button>
         </div>
       </section>
 
       <section v-if="res.chapters.length">
         <h2 class="section-title"><Icon name="layers" :size="16" /> 章节 <span class="count">{{ res.chapters.length }}</span></h2>
-        <NuxtLink v-for="c in shown('chapters')" :key="c.id" :to="c.href"
-                  class="card block p-4 mb-2 hover:border-brand-coral/50 transition">
-          <div class="font-semibold">{{ c.title }}</div>
+        <NuxtLink v-for="c in shown('chapters')" :key="c.id" :to="c.href">
+          <a-card class="block mb-2 hover:!border-brand-coral/50 transition" :body-style="{ padding: '16px' }">
+            <div class="font-semibold">{{ c.title }}</div>
+          </a-card>
         </NuxtLink>
         <div v-if="hasMore('chapters')" class="mt-1">
-          <button class="btn btn-ghost !py-2 !text-xs" @click="loadMore('chapters')">加载更多（剩 {{ res.chapters.length - pages.chapters * PAGE }} 条）</button>
+          <a-button type="link" size="small" class="!py-2" @click="loadMore('chapters')">加载更多（剩 {{ res.chapters.length - pages.chapters * PAGE }} 条）</a-button>
         </div>
         <div v-else-if="res.chapters.length > PAGE" class="mt-1">
-          <button class="btn btn-ghost !py-2 !text-xs" @click="collapse('chapters')">收起</button>
+          <a-button type="link" size="small" class="!py-2" @click="collapse('chapters')">收起</a-button>
         </div>
       </section>
 
       <section v-if="res.questions.length">
         <h2 class="section-title"><Icon name="chat" :size="16" /> 面试题 <span class="count">{{ res.questions.length }}</span></h2>
-        <NuxtLink v-for="qq in shown('questions')" :key="qq.id" :to="qq.href"
-                  class="card block p-4 mb-2 hover:border-brand-coral/50 transition">
-          <div class="font-semibold">{{ qq.q }}</div>
-          <div class="text-xs text-muted mt-0.5 uppercase">{{ qq.track }} · {{ qq.type }}</div>
+        <NuxtLink v-for="qq in shown('questions')" :key="qq.id" :to="qq.href">
+          <a-card class="block mb-2 hover:!border-brand-coral/50 transition" :body-style="{ padding: '16px' }">
+            <div class="font-semibold">{{ qq.q }}</div>
+            <div class="text-xs text-muted mt-0.5 uppercase">{{ qq.track }} · {{ qq.type }}</div>
+          </a-card>
         </NuxtLink>
         <div v-if="hasMore('questions')" class="mt-1">
-          <button class="btn btn-ghost !py-2 !text-xs" @click="loadMore('questions')">加载更多（剩 {{ res.questions.length - pages.questions * PAGE }} 条）</button>
+          <a-button type="link" size="small" class="!py-2" @click="loadMore('questions')">加载更多（剩 {{ res.questions.length - pages.questions * PAGE }} 条）</a-button>
         </div>
         <div v-else-if="res.questions.length > PAGE" class="mt-1">
-          <button class="btn btn-ghost !py-2 !text-xs" @click="collapse('questions')">收起</button>
+          <a-button type="link" size="small" class="!py-2" @click="collapse('questions')">收起</a-button>
         </div>
       </section>
 
       <section v-if="res.exams.length">
         <h2 class="section-title"><Icon name="clipboard" :size="16" /> 模拟答卷 <span class="count">{{ res.exams.length }}</span></h2>
-        <NuxtLink v-for="e in shown('exams')" :key="e.id" :to="e.href"
-                  class="card block p-4 mb-2 hover:border-brand-coral/50 transition">
-          <div class="font-semibold">{{ e.name }}</div>
-          <div class="text-xs text-muted mt-0.5 uppercase">{{ e.track }} · {{ e.level }}</div>
+        <NuxtLink v-for="e in shown('exams')" :key="e.id" :to="e.href">
+          <a-card class="block mb-2 hover:!border-brand-coral/50 transition" :body-style="{ padding: '16px' }">
+            <div class="font-semibold">{{ e.name }}</div>
+            <div class="text-xs text-muted mt-0.5 uppercase">{{ e.track }} · {{ e.level }}</div>
+          </a-card>
         </NuxtLink>
         <div v-if="hasMore('exams')" class="mt-1">
-          <button class="btn btn-ghost !py-2 !text-xs" @click="loadMore('exams')">加载更多（剩 {{ res.exams.length - pages.exams * PAGE }} 条）</button>
+          <a-button type="link" size="small" class="!py-2" @click="loadMore('exams')">加载更多（剩 {{ res.exams.length - pages.exams * PAGE }} 条）</a-button>
         </div>
         <div v-else-if="res.exams.length > PAGE" class="mt-1">
-          <button class="btn btn-ghost !py-2 !text-xs" @click="collapse('exams')">收起</button>
+          <a-button type="link" size="small" class="!py-2" @click="collapse('exams')">收起</a-button>
         </div>
       </section>
     </div>

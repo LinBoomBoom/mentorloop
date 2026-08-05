@@ -6,13 +6,13 @@
         <h1 class="text-[26px] font-extrabold leading-tight">模拟答卷</h1>
         <p class="text-muted text-sm mt-1">限时实战，交卷即出判分、薄弱点诊断与复盘建议。</p>
       </div>
-      <NuxtLink to="/learn" class="btn btn-ghost"><Icon name="book" :size="17" /> 回到学习</NuxtLink>
+      <NuxtLink to="/learn"><a-button><Icon name="book" :size="17" /> 回到学习</a-button></NuxtLink>
     </div>
 
     <!-- 试卷列表 -->
     <h3 class="section-title mb-3">精选试卷</h3>
     <div v-if="!sets" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
-      <div v-for="i in 3" :key="i" class="card h-44 shimmer"></div>
+      <a-card v-for="i in 3" :key="i"><a-skeleton active :paragraph="{ rows: 4 }" /></a-card>
     </div>
     <div v-else>
       <!-- 筛选：按方向 + 难度，避免 23 套试卷混排难找 -->
@@ -27,52 +27,58 @@
                 :class="filterLevel === l.id ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ l.name }}</button>
       </div>
 
-      <div v-if="shownSets.length === 0" class="card p-8 text-center text-muted text-sm mb-9">没有符合条件的试卷，换个筛选试试～</div>
+      <a-card v-if="shownSets.length === 0" class="text-center mb-9" :body-style="{ padding: '32px' }">
+        <span class="text-muted text-sm">没有符合条件的试卷，换个筛选试试～</span>
+      </a-card>
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger mb-9">
-        <div v-for="s in shownSets" :key="s.id" class="card p-5 flex flex-col reveal hover:border-brand-coral/30 transition-colors">
+        <a-card v-for="s in shownSets" :key="s.id" class="reveal hover:border-brand-coral/30 transition-colors" :body-style="{ padding: '20px' }">
           <div class="flex items-start justify-between gap-3 mb-2">
             <h4 class="font-extrabold text-[17px] leading-snug">{{ s.name }}</h4>
             <Icon v-if="s.vipOnly" name="crown" :size="16" class="text-amber-500 shrink-0 mt-0.5" title="VIP 专属" />
           </div>
           <div class="flex flex-wrap items-center gap-2 mb-3">
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-ink/5 text-sub">{{ trackMeta[s.track]?.name || s.track }}</span>
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-ink/5 text-sub">{{ s.level }}</span>
+            <a-tag class="!bg-ink/5 !text-sub" :bordered="false">{{ trackMeta[s.track]?.name || s.track }}</a-tag>
+            <a-tag class="!bg-ink/5 !text-sub" :bordered="false">{{ s.level }}</a-tag>
           </div>
           <p class="text-xs text-muted mb-4 flex-1">
             共 {{ s.choiceCount + s.writtenCount }} 题 · 约 {{ s.duration || '不限' }} 分钟
           </p>
-          <NuxtLink :to="s.vipOnly && !auth.isVip ? '/vip' : `/exam/sets/${s.id}`"
-                    class="btn btn-block"
-                    :class="s.vipOnly && !auth.isVip ? 'btn-ghost' : 'btn-primary'">
-            <Icon :name="s.vipOnly && !auth.isVip ? 'crown' : 'arrowRight'" :size="16" />
-            {{ s.vipOnly && !auth.isVip ? '开通 VIP 查看' : '开始答卷' }}
+          <NuxtLink :to="s.vipOnly && !auth.isVip ? '/vip' : `/exam/sets/${s.id}`">
+            <a-button block :type="s.vipOnly && !auth.isVip ? 'default' : 'primary'">
+              <Icon :name="s.vipOnly && !auth.isVip ? 'crown' : 'arrowRight'" :size="16" />
+              {{ s.vipOnly && !auth.isVip ? '开通 VIP 查看' : '开始答卷' }}
+            </a-button>
           </NuxtLink>
-        </div>
+        </a-card>
       </div>
     </div>
 
     <!-- 答卷历史 -->
     <h3 class="section-title mb-3">我的答卷</h3>
-    <div v-if="!auth.isLoggedIn" class="card p-8 text-center">
+    <a-card v-if="!auth.isLoggedIn" class="text-center" :body-style="{ padding: '32px' }">
       <div class="text-sm text-muted mb-4">登录后查看你的模拟答卷与逐题复盘</div>
-      <NuxtLink to="/login" class="btn btn-primary"><Icon name="user" :size="16" /> 登录查看</NuxtLink>
-    </div>
+      <NuxtLink to="/login"><a-button type="primary"><Icon name="user" :size="16" /> 登录查看</a-button></NuxtLink>
+    </a-card>
     <template v-else>
-      <div v-if="history === null" class="card h-28 shimmer"></div>
-      <div v-else-if="!history.length" class="card p-8 text-center text-muted text-sm">还没有答卷记录，挑一套试试手感 👆</div>
-      <div v-else class="card p-2 divide-y divide-line">
-        <NuxtLink v-for="r in history" :key="r.id" :to="`/exam/sets/${r.setId}?record=${r.id}`"
-                  class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-ink/5 transition">
-          <div class="w-12 h-12 rounded-xl flex items-center justify-center font-extrabold text-lg shrink-0"
-               :class="scoreClass(r.score)">{{ r.score }}</div>
-          <div class="min-w-0 flex-1">
-            <div class="text-sm font-semibold truncate">{{ r.set_name }}</div>
-            <div class="text-[11px] text-muted">{{ trackMeta[r.track]?.name || r.track }} · {{ r.level }} · {{ new Date(r.created_at).toLocaleString() }}</div>
-          </div>
-          <div class="text-xs font-bold shrink-0" :class="scoreText(r.score)">对 {{ r.correct }}/{{ r.total }}</div>
-          <Icon name="chevronRight" :size="16" class="text-muted shrink-0" />
-        </NuxtLink>
-      </div>
+      <a-card v-if="history === null"><a-skeleton active :paragraph="{ rows: 2 }" /></a-card>
+      <a-card v-else-if="!history.length" class="text-center" :body-style="{ padding: '32px' }">
+        <span class="text-muted text-sm">还没有答卷记录，挑一套试试手感 👆</span>
+      </a-card>
+      <a-card v-else class="p-2" :body-style="{ padding: '8px' }">
+        <div class="divide-y divide-line">
+          <NuxtLink v-for="r in history" :key="r.id" :to="`/exam/sets/${r.setId}?record=${r.id}`"
+                    class="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-ink/5 transition">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center font-extrabold text-lg shrink-0"
+                 :class="scoreClass(r.score)">{{ r.score }}</div>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-semibold truncate">{{ r.set_name }}</div>
+              <div class="text-[11px] text-muted">{{ trackMeta[r.track]?.name || r.track }} · {{ r.level }} · {{ new Date(r.created_at).toLocaleString() }}</div>
+            </div>
+            <div class="text-xs font-bold shrink-0" :class="scoreText(r.score)">对 {{ r.correct }}/{{ r.total }}</div>
+            <Icon name="chevronRight" :size="16" class="text-muted shrink-0" />
+          </NuxtLink>
+        </div>
+      </a-card>
     </template>
   </div>
 </template>

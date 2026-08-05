@@ -4,13 +4,13 @@
     <ClientOnly>
       <Teleport to="body">
         <div v-if="submitting" class="fixed inset-0 z-[1200] flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-          <div class="card px-9 py-8 text-center max-w-[280px]">
+          <a-card class="text-center max-w-[280px]" :body-style="{ padding: '32px 36px' }">
             <a-spin size="large" />
             <div class="font-bold mt-5">正在判分并生成复盘…</div>
             <p class="text-xs text-muted mt-1.5 leading-relaxed">
               已提交 {{ answeredCount }} / {{ totalCount }} 题<br />请勿关闭页面
             </p>
-          </div>
+          </a-card>
         </div>
       </Teleport>
     </ClientOnly>
@@ -21,79 +21,85 @@
     </NuxtLink>
 
     <!-- 加载 -->
-    <div v-if="phase === 'loading'" class="card h-64 shimmer"></div>
+    <a-card v-if="phase === 'loading'"><a-skeleton active :paragraph="{ rows: 6 }" /></a-card>
 
     <!-- 错误/不存在 -->
-    <div v-else-if="phase === 'error'" class="card p-10 text-center">
+    <a-card v-else-if="phase === 'error'" class="text-center" :body-style="{ padding: '40px' }">
       <Icon name="alertTriangle" :size="48" class="text-muted mx-auto mb-4" />
       <h2 class="text-lg font-extrabold mb-2">试卷不存在或加载失败</h2>
       <p class="text-sm text-muted mb-6">{{ err || '该试卷链接无效，可能已被移除或 ID 错误。' }}</p>
       <div class="flex items-center justify-center gap-3">
-        <NuxtLink to="/exam" class="btn btn-primary"><Icon name="arrowLeft" :size="16" /> 返回试卷列表</NuxtLink>
-        <button class="btn btn-ghost" @click="phase = 'loading'; refresh()">重新加载</button>
+        <NuxtLink to="/exam"><a-button type="primary"><Icon name="arrowLeft" :size="16" /> 返回试卷列表</a-button></NuxtLink>
+        <a-button @click="phase = 'loading'; refresh()">重新加载</a-button>
       </div>
-    </div>
+    </a-card>
 
     <!-- 答题中 -->
     <div v-else-if="phase === 'take' && set" class="reveal">
       <!-- VIP 提示条 -->
-      <div v-if="vipLocked" class="card p-4 mb-5 flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 reveal">
-        <Icon name="crown" :size="20" class="text-amber-500 shrink-0" />
-        <div class="flex-1 text-sm">
-          <span class="font-semibold text-amber-600">VIP 专属试卷</span> · {{ auth.isLoggedIn ? '开通会员即可交卷并查看复盘' : '登录并开通会员后开启' }}
+      <a-card v-if="vipLocked" class="mb-5 !bg-amber-500/10 !border-amber-500/20" :body-style="{ padding: '16px' }">
+        <div class="flex items-center gap-3">
+          <Icon name="crown" :size="20" class="text-amber-500 shrink-0" />
+          <div class="flex-1 text-sm">
+            <span class="font-semibold text-amber-600">VIP 专属试卷</span> · {{ auth.isLoggedIn ? '开通会员即可交卷并查看复盘' : '登录并开通会员后开启' }}
+          </div>
+          <NuxtLink :to="auth.isLoggedIn ? '/vip' : ('/login?redirect=' + route.fullPath)">
+            <a-button type="primary" class="shrink-0 !py-2">
+              <Icon name="crown" :size="15" /> {{ auth.isLoggedIn ? '去开通' : '去登录' }}
+            </a-button>
+          </NuxtLink>
         </div>
-        <NuxtLink :to="auth.isLoggedIn ? '/vip' : ('/login?redirect=' + route.fullPath)" class="btn btn-primary !py-2 shrink-0">
-          <Icon name="crown" :size="15" /> {{ auth.isLoggedIn ? '去开通' : '去登录' }}
-        </NuxtLink>
-      </div>
+      </a-card>
 
       <!-- 时间紧张提示 -->
-      <div v-if="timeTight" class="card p-3 mb-5 flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 reveal">
-        <Icon name="alertTriangle" :size="18" class="text-rose-500 shrink-0 animate-pulse" />
-        <div class="text-sm font-semibold text-rose-600">时间紧张，还剩 {{ fmt(timeLeft) }}，系统将自动交卷</div>
-      </div>
+      <a-card v-if="timeTight" class="mb-5 !bg-rose-500/10 !border-rose-500/20" :body-style="{ padding: '12px' }">
+        <div class="flex items-center gap-2">
+          <Icon name="alertTriangle" :size="18" class="text-rose-500 shrink-0 animate-pulse" />
+          <div class="text-sm font-semibold text-rose-600">时间紧张，还剩 {{ fmt(timeLeft) }}，系统将自动交卷</div>
+        </div>
+      </a-card>
 
       <!-- 试卷信息条 -->
-      <div class="card p-5 mb-5 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 class="text-xl font-extrabold">{{ set.name }}</h1>
-          <p class="text-xs text-muted mt-1 flex items-center gap-3">
-            <span class="chip" :style="{ color: meta.color, background: meta.bg }">{{ meta.name }}</span>
-            <span>{{ set.level }}</span>
-            <span class="flex items-center gap-1"><Icon name="layers" :size="13" /> 选择 {{ set.choices.length }}</span>
-            <span class="flex items-center gap-1"><Icon name="pencil" :size="13" /> 笔试 {{ set.written.length }}</span>
-          </p>
-        </div>
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2 px-4 py-2 rounded-xl font-mono font-bold text-lg"
-               :class="timeLeft <= 30 && dur ? 'text-rose-500 bg-rose-500/10 animate-pulse' : 'bg-ink/5'">
-            <Icon name="clock" :size="17" /> {{ fmt(timeLeft) }}
+      <a-card class="mb-5" :body-style="{ padding: '20px' }">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-extrabold">{{ set.name }}</h1>
+            <p class="text-xs text-muted mt-1 flex items-center gap-3">
+              <a-tag :style="{ color: meta.color, background: meta.bg, borderColor: 'transparent' }">{{ meta.name }}</a-tag>
+              <span>{{ set.level }}</span>
+              <span class="flex items-center gap-1"><Icon name="layers" :size="13" /> 选择 {{ set.choices.length }}</span>
+              <span class="flex items-center gap-1"><Icon name="pencil" :size="13" /> 笔试 {{ set.written.length }}</span>
+            </p>
           </div>
-          <button class="btn btn-primary" @click="submit" :disabled="submitting || vipLocked">
-            <Icon :name="submitting ? 'spinner' : 'check'" :size="16" :class="submitting ? 'animate-spin' : ''" /> 交卷
-          </button>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 px-4 py-2 rounded-xl font-mono font-bold text-lg"
+                 :class="timeLeft <= 30 && dur ? 'text-rose-500 bg-rose-500/10 animate-pulse' : 'bg-ink/5'">
+              <Icon name="clock" :size="17" /> {{ fmt(timeLeft) }}
+            </div>
+            <a-button type="primary" :loading="submitting" :disabled="vipLocked" @click="submit">交卷</a-button>
+          </div>
+          <div v-if="dur" class="w-full mt-1 h-1.5 rounded-full bg-ink/8 overflow-hidden">
+            <div class="h-full transition-[width] duration-1000 ease-linear"
+                 :class="timeLeft <= 30 ? 'bg-rose-500' : 'bg-brand-coral'"
+                 :style="{ width: usedPct + '%' }"></div>
+          </div>
         </div>
-        <div v-if="dur" class="w-full mt-1 h-1.5 rounded-full bg-ink/8 overflow-hidden">
-          <div class="h-full transition-[width] duration-1000 ease-linear"
-               :class="timeLeft <= 30 ? 'bg-rose-500' : 'bg-brand-coral'"
-               :style="{ width: usedPct + '%' }"></div>
-        </div>
-      </div>
+      </a-card>
 
-      <p v-if="err" class="text-rose-500 text-sm mb-4">{{ err }}</p>
+      <a-alert v-if="err" type="error" :message="err" show-icon class="mb-4" />
 
       <!-- 选择题 -->
       <h3 class="section-title mb-3">一、选择题（{{ set.choices.length }}）</h3>
       <div class="space-y-3 mb-8">
-        <div v-for="(c, idx) in set.choices" :key="c.id" class="card p-5">
+        <a-card v-for="(c, idx) in set.choices" :key="c.id" :body-style="{ padding: '20px' }">
           <div class="flex items-start gap-3 mb-3">
-            <span class="chip shrink-0" :class="c.multi ? 'bg-brand-pink/10 text-brand-pink' : 'bg-brand-coral/10 text-brand-coral'">
+            <a-tag shrink-0 :class="c.multi ? '!bg-brand-pink/10 !text-brand-pink' : '!bg-brand-coral/10 !text-brand-coral'" :bordered="false">
               {{ c.multi ? '多选' : '单选' }}
-            </span>
+            </a-tag>
             <p class="text-sm font-semibold leading-relaxed flex-1">
               <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ c.q }}
             </p>
-            <span class="chip shrink-0 !py-0.5 text-[10px]">{{ c.tag }}</span>
+            <a-tag shrink-0 class="!py-0.5 !text-[10px]" :bordered="false">{{ c.tag }}</a-tag>
           </div>
           <div class="grid sm:grid-cols-2 gap-2">
             <button v-for="(opt, i) in c.options" :key="i"
@@ -107,67 +113,64 @@
               <span class="flex-1 min-w-0 break-words">{{ opt }}</span>
             </button>
           </div>
-        </div>
+        </a-card>
       </div>
 
       <!-- 笔试题 -->
       <h3 class="section-title mb-3">二、笔试题（{{ set.written.length }}）</h3>
       <div class="space-y-3 mb-8">
-        <div v-for="(w, idx) in set.written" :key="w.id" class="card p-5">
+        <a-card v-for="(w, idx) in set.written" :key="w.id" :body-style="{ padding: '20px' }">
           <p class="text-sm font-semibold leading-relaxed mb-3">
             <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ w.q }}
           </p>
-          <textarea v-model="writtenAnswers[w.id]" rows="4" class="input w-full resize-y"
-                    placeholder="在此写下你的思路与作答…"></textarea>
-        </div>
+          <a-textarea v-model:value="writtenAnswers[w.id]" :rows="4" placeholder="在此写下你的思路与作答…" class="resize-y" />
+        </a-card>
       </div>
 
       <div class="flex flex-col items-end gap-2.5">
-        <p v-if="err" class="flex items-center gap-1.5 text-rose-500 text-sm font-medium">
-          <Icon name="alertTriangle" :size="15" class="shrink-0" /> {{ err }}
-        </p>
-        <button class="btn btn-primary" @click="submit" :disabled="submitting || vipLocked">
-          <Icon :name="submitting ? 'spinner' : 'check'" :size="16" :class="submitting ? 'animate-spin' : ''" /> 交卷并查看复盘
-        </button>
+        <a-button type="primary" :loading="submitting" :disabled="vipLocked" @click="submit">交卷并查看复盘</a-button>
       </div>
     </div>
 
     <!-- 复盘 -->
     <div v-else-if="phase === 'review' && record" class="reveal">
       <!-- 成绩卡 -->
-      <div class="card p-7 mb-5 flex flex-col sm:flex-row items-center gap-7">
-        <ProgressRing :value="record.score" :size="132" :stroke="13" :color="ringColor" label="得分" />
-        <div class="flex-1 text-center sm:text-left">
-          <div class="flex items-center justify-center sm:justify-start gap-2 mb-1">
-            <span class="text-2xl font-extrabold gradient-text">{{ record.level }}</span>
-            <span class="chip" :style="{ color: meta.color, background: meta.bg }">{{ meta.name }}</span>
-            <span class="chip">{{ record.setName }}</span>
+      <a-card class="mb-5" :body-style="{ padding: '28px' }">
+        <div class="flex flex-col sm:flex-row items-center gap-7">
+          <ProgressRing :value="record.score" :size="132" :stroke="13" :color="ringColor" label="得分" />
+          <div class="flex-1 text-center sm:text-left">
+            <div class="flex items-center justify-center sm:justify-start gap-2 mb-1">
+              <span class="text-2xl font-extrabold gradient-text">{{ record.level }}</span>
+              <a-tag :style="{ color: meta.color, background: meta.bg, borderColor: 'transparent' }">{{ meta.name }}</a-tag>
+              <a-tag>{{ record.setName }}</a-tag>
+            </div>
+            <p class="text-sm text-sub leading-relaxed max-w-xl">{{ record.advice }}</p>
+            <div class="flex items-center justify-center sm:justify-start gap-2 mt-3 flex-wrap">
+              <span class="text-xs text-muted">正确率</span>
+              <span class="font-bold">{{ record.correct }}/{{ record.total }}</span>
+              <span class="text-xs text-muted ml-2">用时</span>
+              <span class="font-bold">{{ fmt(record.usedSeconds) }}</span>
+            </div>
           </div>
-          <p class="text-sm text-sub leading-relaxed max-w-xl">{{ record.advice }}</p>
-          <div class="flex items-center justify-center sm:justify-start gap-2 mt-3 flex-wrap">
-            <span class="text-xs text-muted">正确率</span>
-            <span class="font-bold">{{ record.correct }}/{{ record.total }}</span>
-            <span class="text-xs text-muted ml-2">用时</span>
-            <span class="font-bold">{{ fmt(record.usedSeconds) }}</span>
-          </div>
+          <a-button class="shrink-0" @click="retake"><Icon name="refresh" :size="16" /> 重做</a-button>
         </div>
-        <button class="btn btn-ghost shrink-0" @click="retake"><Icon name="refresh" :size="16" /> 重做</button>
-      </div>
+      </a-card>
 
       <!-- 薄弱点 -->
-      <div v-if="record.weakPoints.length" class="card p-5 mb-5">
+      <a-card v-if="record.weakPoints.length" class="mb-5" :body-style="{ padding: '20px' }">
         <h3 class="section-title mb-3 flex items-center gap-2"><Icon name="target" :size="17" class="text-brand-gold" /> 薄弱知识点</h3>
         <div class="flex flex-wrap gap-2">
-          <span v-for="w in record.weakPoints" :key="w.tag" class="chip bg-rose-500/10 text-rose-500">
+          <a-tag v-for="w in record.weakPoints" :key="w.tag" class="!bg-rose-500/10 !text-rose-500" :bordered="false">
             {{ w.tag }} · 错 {{ w.count }}
-          </span>
+          </a-tag>
         </div>
-      </div>
+      </a-card>
 
       <!-- 选择题复盘 -->
       <h3 class="section-title mb-3">选择题复盘</h3>
       <div class="space-y-3 mb-8">
-        <div v-for="(c, idx) in record.choiceReview" :key="c.id" class="card p-5" :class="c.right ? 'border-emerald-500/25' : 'border-rose-500/25'">
+        <a-card v-for="(c, idx) in record.choiceReview" :key="c.id" :body-style="{ padding: '20px' }"
+                :class="c.right ? '!border-emerald-500/25' : '!border-rose-500/25'">
           <div class="flex items-start gap-3 mb-3">
             <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
                   :class="c.right ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'">
@@ -176,7 +179,7 @@
             <p class="text-sm font-semibold leading-relaxed flex-1">
               <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ c.q }}
             </p>
-            <span class="chip shrink-0 !py-0.5 text-[10px]">{{ c.tag }}</span>
+            <a-tag shrink-0 class="!py-0.5 !text-[10px]" :bordered="false">{{ c.tag }}</a-tag>
           </div>
           <div class="grid sm:grid-cols-2 gap-2">
             <div v-for="(opt, i) in c.options" :key="i"
@@ -191,13 +194,13 @@
           <div v-if="c.explain" class="mt-3 text-xs text-sub bg-ink/5 rounded-xl p-3 leading-relaxed">
             <span class="font-semibold text-brand-coral">解析：</span>{{ c.explain }}
           </div>
-        </div>
+        </a-card>
       </div>
 
       <!-- 笔试题复盘 -->
       <h3 class="section-title mb-3">笔试题复盘</h3>
       <div class="space-y-3">
-        <div v-for="(w, idx) in record.writtenReview" :key="w.id" class="card p-5">
+        <a-card v-for="(w, idx) in record.writtenReview" :key="w.id" :body-style="{ padding: '20px' }">
           <p class="text-sm font-semibold leading-relaxed mb-3">
             <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ w.q }}
           </p>
@@ -216,7 +219,7 @@
               </ul>
             </div>
           </div>
-        </div>
+        </a-card>
       </div>
     </div>
   </div>

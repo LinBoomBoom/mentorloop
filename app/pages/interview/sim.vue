@@ -4,15 +4,15 @@
     <p class="text-muted text-sm mb-5">多轮实战问答 + 逐题评分反馈，还原真实面试节奏。共 {{ maxTurns }} 题，结束后给出综合评估。</p>
 
     <!-- 未登录 / 非 VIP 门禁 -->
-    <div v-if="gate" class="card p-8 text-center reveal">
+    <a-card v-if="gate" class="text-center" :body-style="{ padding: '32px' }">
       <div class="w-14 h-14 rounded-2xl bg-brand-coral/15 text-brand-coral flex items-center justify-center mx-auto mb-4"><Icon name="sparkles" :size="26" /></div>
       <h3 class="font-bold text-lg mb-2">{{ gate.title }}</h3>
       <p class="text-sm text-muted mb-5">{{ gate.desc }}</p>
-      <NuxtLink :to="gate.to" class="btn btn-primary">{{ gate.btn }}</NuxtLink>
-    </div>
+      <NuxtLink :to="gate.to"><a-button type="primary">{{ gate.btn }}</a-button></NuxtLink>
+    </a-card>
 
     <!-- 设置面试参数 -->
-    <div v-else-if="phase === 'setup'" class="card p-6 reveal">
+    <a-card v-else-if="phase === 'setup'" :body-style="{ padding: '24px' }">
       <div class="grid sm:grid-cols-2 gap-4 mb-4">
         <label class="block">
           <span class="text-sm font-semibold mb-1.5 block">方向</span>
@@ -36,20 +36,20 @@
         <span class="text-sm font-semibold mb-1.5 block">目标岗位 / 方向（选填）</span>
         <input v-model="goal" class="input" placeholder="如：高级前端 / 全栈工程师" />
       </label>
-      <button class="btn btn-primary w-full" :disabled="starting" @click="start">
-        <Icon name="sparkles" :size="16" /> {{ starting ? '正在连接面试官…' : '开始面试' }}
-      </button>
+      <a-button type="primary" block :loading="starting" @click="start">
+        开始面试
+      </a-button>
       <p v-if="err" class="text-red-500 text-sm mt-3">{{ err }}</p>
-    </div>
+    </a-card>
 
     <!-- 面试进行中 -->
-    <div v-else class="card p-0 overflow-hidden reveal">
+    <a-card v-else class="overflow-hidden" :body-style="{ padding: '0' }">
       <div class="flex items-center justify-between px-5 py-3 border-b border-line">
         <div class="flex items-center gap-2 text-sm font-semibold">
           <Icon name="chat" :size="16" class="text-brand-coral" />
           {{ trackName(track) }} · {{ levelName(level) }}
         </div>
-        <span class="chip bg-ink/5 text-sub">第 {{ Math.min(turns + (phase==='done'?0:1), maxTurns) }} / {{ maxTurns }} 题</span>
+        <a-tag class="!bg-ink/5 !text-sub" :bordered="false">第 {{ Math.min(turns + (phase==='done'?0:1), maxTurns) }} / {{ maxTurns }} 题</a-tag>
       </div>
 
       <!-- 对话流 -->
@@ -85,18 +85,18 @@
       <div v-if="phase === 'done'" class="px-5 py-4 border-t border-line bg-emerald-500/[.04]">
         <div class="flex items-center gap-2 font-bold mb-2"><Icon name="trophy" :size="18" class="text-brand-gold" /> 面试完成 · 综合评分 {{ finalScore }}/100</div>
         <p class="text-sm whitespace-pre-line">{{ summary }}</p>
-        <button class="btn btn-ghost mt-4" @click="reset">再来一场</button>
+        <a-button class="mt-4" @click="reset">再来一场</a-button>
       </div>
 
       <!-- 作答输入 -->
       <div v-else class="p-5 border-t border-line flex gap-3 items-end">
-        <textarea v-model="userAnswer" rows="3" class="input flex-1 resize-none" placeholder="输入你的回答…（不会也可直接写「不会」继续）" :disabled="evaluating" @keydown.ctrl.enter="submitAnswer"></textarea>
-        <button class="btn btn-primary shrink-0" :disabled="evaluating || !userAnswer.trim()" @click="submitAnswer">
-          <Icon name="send" :size="16" /> {{ evaluating ? '评分中' : '提交' }}
-        </button>
+        <a-textarea v-model:value="userAnswer" :rows="3" class="flex-1 resize-none" placeholder="输入你的回答…（不会也可直接写「不会」继续）" :disabled="evaluating" @keydown.ctrl.enter="submitAnswer" />
+        <a-button type="primary" class="shrink-0" :disabled="evaluating || !userAnswer.trim()" :loading="evaluating" @click="submitAnswer">
+          提交
+        </a-button>
       </div>
       <p v-if="err" class="px-5 pb-4 text-red-500 text-sm">{{ err }}</p>
-    </div>
+    </a-card>
   </div>
 </template>
 

@@ -4,36 +4,36 @@
     <p class="text-muted text-sm mb-5">粘贴你的简历，AI 从结构、亮点、短板、改进方向给出专业诊断。支持中文简历。</p>
 
     <!-- 未登录 / 非 VIP 门禁 -->
-    <div v-if="gate" class="card p-8 text-center reveal">
+    <a-card v-if="gate" class="text-center" :body-style="{ padding: '32px' }">
       <div class="w-14 h-14 rounded-2xl bg-brand-coral/15 text-brand-coral flex items-center justify-center mx-auto mb-4"><Icon name="document" :size="26" /></div>
       <h3 class="font-bold text-lg mb-2">{{ gate.title }}</h3>
       <p class="text-sm text-muted mb-5">{{ gate.desc }}</p>
-      <NuxtLink :to="gate.to" class="btn btn-primary">{{ gate.btn }}</NuxtLink>
-    </div>
+      <NuxtLink :to="gate.to"><a-button type="primary">{{ gate.btn }}</a-button></NuxtLink>
+    </a-card>
 
     <div v-else>
       <!-- 输入 -->
-      <div v-if="!result" class="card p-6 reveal">
+      <a-card v-if="!result" :body-style="{ padding: '24px' }">
         <div class="flex items-start gap-2 mb-3 text-xs text-amber-600 bg-amber-500/10 rounded-lg px-3 py-2">
           <Icon name="shield" :size="15" class="mt-0.5 shrink-0" />
           <span>请勿粘贴真实手机号、身份证号、家庭住址等敏感信息；诊断内容会经大模型云端处理，请使用脱敏版本。</span>
         </div>
-        <textarea v-model="resume" rows="14" maxlength="8000" class="input w-full resize-y font-mono text-sm" placeholder="在此粘贴简历全文（建议 50–8000 字）…"></textarea>
+        <a-textarea v-model:value="resume" :rows="14" :maxlength="8000" class="font-mono text-sm resize-y" placeholder="在此粘贴简历全文（建议 50–8000 字）…" />
         <div class="flex items-center justify-between mt-3">
           <span class="text-xs text-muted">{{ resume.length }} / 8000</span>
-          <button class="btn btn-primary" :disabled="diagnosing || resume.length < 50" @click="run">
-            <Icon name="sparkles" :size="16" /> {{ diagnosing ? '诊断中…' : '开始诊断' }}
-          </button>
+          <a-button type="primary" :disabled="diagnosing || resume.length < 50" :loading="diagnosing" @click="run">
+            开始诊断
+          </a-button>
         </div>
         <p v-if="err" class="text-red-500 text-sm mt-3">{{ err }}</p>
-      </div>
+      </a-card>
 
       <!-- 结果 -->
-      <div v-else class="space-y-4 reveal">
-        <div class="card p-6">
+      <div v-else class="space-y-4">
+        <a-card :body-style="{ padding: '24px' }">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-bold">综合评分</h3>
-            <button class="text-sm text-brand-coral font-semibold" @click="reset">重新诊断</button>
+            <a-button type="link" size="small" @click="reset">重新诊断</a-button>
           </div>
           <div class="flex items-center gap-4">
             <div class="text-4xl font-extrabold" :class="scoreColor">{{ result.score }}</div>
@@ -42,39 +42,39 @@
             </div>
           </div>
           <p v-if="result.summary" class="text-sm text-muted mt-3 whitespace-pre-line">{{ result.summary }}</p>
-        </div>
+        </a-card>
 
-        <div class="card p-6">
+        <a-card :body-style="{ padding: '24px' }">
           <h3 class="font-bold mb-2">结构评价</h3>
           <p class="text-sm text-muted whitespace-pre-line">{{ result.structure }}</p>
-        </div>
+        </a-card>
 
         <div class="grid sm:grid-cols-2 gap-4">
-          <div class="card p-6">
+          <a-card :body-style="{ padding: '24px' }">
             <h3 class="font-bold mb-2 text-emerald-600">亮点</h3>
             <ul class="space-y-1.5 text-sm list-disc pl-5">
               <li v-for="(s, i) in result.strengths" :key="i">{{ s }}</li>
             </ul>
-          </div>
-          <div class="card p-6">
+          </a-card>
+          <a-card :body-style="{ padding: '24px' }">
             <h3 class="font-bold mb-2 text-rose-500">短板</h3>
             <ul class="space-y-1.5 text-sm list-disc pl-5">
               <li v-for="(s, i) in result.weaknesses" :key="i">{{ s }}</li>
             </ul>
-          </div>
+          </a-card>
         </div>
 
-        <div class="card p-6">
+        <a-card :body-style="{ padding: '24px' }">
           <h3 class="font-bold mb-2">改进建议</h3>
           <ol class="space-y-1.5 text-sm list-decimal pl-5">
             <li v-for="(s, i) in result.improvements" :key="i">{{ s }}</li>
           </ol>
-        </div>
+        </a-card>
 
-        <div class="card p-6">
+        <a-card :body-style="{ padding: '24px' }">
           <h3 class="font-bold mb-2">建议主攻方向</h3>
           <p class="text-sm text-brand-coral font-semibold">{{ result.matchDirection }}</p>
-        </div>
+        </a-card>
 
         <p v-if="cached" class="text-xs text-muted text-center">（本次为缓存结果，7 天内相同简历不再消耗额度）</p>
       </div>
