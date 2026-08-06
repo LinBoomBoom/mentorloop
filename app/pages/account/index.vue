@@ -1,6 +1,8 @@
 <template>
-  <div class="max-w-2xl mx-auto">
-    <h1 class="text-2xl font-extrabold mb-6">个人中心</h1>
+  <!-- 用 flex 列容器 + gap 统一控距：antd 的 .ant-card 运行时会重置 margin，
+       写在卡片上的 mb-5 会被覆盖导致贴死；容器 gap 是布局属性，不受子元素 margin 影响 -->
+  <div class="max-w-2xl mx-auto flex flex-col gap-5">
+    <h1 class="text-2xl font-extrabold">个人中心</h1>
 
     <a-card v-if="!isAuthed" class="text-center py-8">
       <p class="text-muted">请先登录后查看个人中心</p>
@@ -9,7 +11,7 @@
 
     <template v-else>
       <!-- 资料 -->
-      <a-card class="mb-5">
+      <a-card>
         <div class="flex items-center gap-4">
           <div class="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold" :style="{ background: avatarBg }">
             {{ avatarText }}
@@ -24,7 +26,7 @@
       </a-card>
 
       <!-- 会员 -->
-      <a-card class="mb-5" title="会员状态">
+      <a-card title="会员状态">
         <template #extra><NuxtLink to="/vip" class="text-sm text-brand-coral font-semibold">管理 / 开通 →</NuxtLink></template>
         <div v-if="status?.subscription" class="space-y-2 text-sm">
           <div class="flex justify-between"><span class="text-muted">套餐</span><b>{{ planName(status.subscription.planId) }}</b></div>
@@ -41,7 +43,7 @@
       </a-card>
 
       <!-- VIP 专属功能 -->
-      <div v-if="isVip" class="grid sm:grid-cols-2 gap-4 mb-5">
+      <div v-if="isVip" class="grid sm:grid-cols-2 gap-4">
         <NuxtLink to="/learn/path"><a-card hoverable><div class="flex items-center gap-2 mb-1.5"><Icon name="compass" :size="18" class="text-brand-coral" /><span class="font-bold">我的学习路径</span></div><p class="text-xs text-muted">基于薄弱点的 AI 定制进阶路线</p></a-card></NuxtLink>
         <NuxtLink to="/interview/sim"><a-card hoverable><div class="flex items-center gap-2 mb-1.5"><Icon name="sparkles" :size="18" class="text-brand-coral" /><span class="font-bold">AI 模拟面试</span></div><p class="text-xs text-muted">多轮实战 + 逐题评分反馈</p></a-card></NuxtLink>
         <NuxtLink to="/resume/diag"><a-card hoverable><div class="flex items-center gap-2 mb-1.5"><Icon name="document" :size="18" class="text-brand-coral" /><span class="font-bold">AI 简历诊断</span></div><p class="text-xs text-muted">AI 把脉简历亮点与短板</p></a-card></NuxtLink>
@@ -49,7 +51,7 @@
       </div>
 
       <!-- 订单 -->
-      <a-card class="mb-5" title="订单记录">
+      <a-card title="订单记录">
         <div v-if="status?.orders?.length" class="space-y-2">
           <div v-for="o in status.orders" :key="o.id" class="flex flex-wrap items-center justify-between gap-2 text-sm py-2 border-b border-line last:border-0">
             <span class="font-mono text-xs text-muted">{{ o.id }}</span>
@@ -62,7 +64,7 @@
       </a-card>
 
       <!-- 账号安全 -->
-      <a-card class="mb-5" title="账号安全" :body-style="{ borderColor: 'rgb(254 202 202)' }">
+      <a-card title="账号安全" :body-style="{ borderColor: 'rgb(254 202 202)' }">
         <p class="text-sm text-muted mb-3">注销后将永久删除你的账号、学习进度与答卷记录，且不可恢复。</p>
         <a-button danger @click="showDelete = true">注销账号</a-button>
 

@@ -73,21 +73,37 @@
         <div class="prose-dm" v-html="contentHtml"></div>
       </a-card>
 
-      <a-card v-if="browseMode" class="!bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
+      <a-card v-if="browseMode" class="mt-4 !bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
         <div class="flex items-center gap-2 text-sm text-muted">
           <Icon name="eye" :size="16" class="text-brand-coral shrink-0" /> 浏览模式：登录后即可「打卡」记录已掌握，全部小节随时可自由阅读。
         </div>
       </a-card>
 
       <a-card class="mt-4" :body-style="{ padding: '20px' }">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <button type="button" role="checkbox" :aria-checked="done" :aria-label="done ? '取消标记已掌握本节' : '标记已掌握本节'"
-                  class="flex items-center gap-3 cursor-pointer select-none text-left bg-transparent border-0 p-0" @click="toggleDone">
-            <div class="w-7 h-7 rounded-full flex items-center justify-center transition"
-                 :class="done ? 'bg-emerald-500 text-white' : 'bg-ink/8 text-muted'">
-              <Icon v-if="done" name="check" :size="16" />
-            </div>
-            <span class="font-semibold" :class="done ? 'text-emerald-600' : 'text-sub'">{{ done ? '已掌握本节' : '我已完成学习并掌握本节' }}</span>
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <!-- 「已掌握」是本页最重要的动作，必须一眼看出可点：
+               实心按钮外观 + 复选框图标 + 内嵌说明文案，而不是一个和正文同色的小圆点 -->
+          <button type="button" role="checkbox" :aria-checked="done"
+                  :aria-label="done ? '取消标记已掌握本节' : '标记已掌握本节'"
+                  class="mark-done group flex items-center gap-3 select-none text-left rounded-xl border-2 px-4 py-2.5 transition-all duration-200"
+                  :class="done
+                    ? 'border-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/15'
+                    : 'border-brand-coral bg-brand-coral/[0.07] hover:bg-brand-coral/15 hover:-translate-y-0.5 shadow-[0_6px_18px_-10px_rgba(255,94,126,.9)]'"
+                  @click="toggleDone">
+            <span class="w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition"
+                  :class="done
+                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                    : 'border-brand-coral/70 bg-surface text-transparent group-hover:text-brand-coral/40'">
+              <Icon name="check" :size="15" />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-bold leading-snug" :class="done ? 'text-emerald-600' : 'text-brand-coral'">
+                {{ done ? '已掌握本节 · 点击可取消' : '点击标记「我已掌握本节」' }}
+              </span>
+              <span class="block text-[11px] text-muted mt-0.5">
+                {{ done ? '进度已保存，可在首页看板查看' : '勾选即记录进度，自动保存' }}
+              </span>
+            </span>
           </button>
           <div class="flex gap-2">
             <a-button v-if="prev" @click="navTo(prev)">上一节</a-button>
@@ -96,7 +112,6 @@
           </div>
         </div>
       </a-card>
-      <p v-if="auth.isLoggedIn && !done" class="text-xs text-muted mt-2 text-right">勾选即记录已掌握，进度自动保存</p>
 
       <!-- 本节相关面试题（学→问闭环：已被采纳并关联到本小节的面试题直接挂在此处） -->
       <a-card v-if="section && (relatedQ.length || relatedLoading)" class="mt-4" :body-style="{ padding: '20px' }">

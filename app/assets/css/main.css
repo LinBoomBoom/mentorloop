@@ -208,6 +208,24 @@ body {
 .prose-dm { overflow-wrap: break-word; }
 .prose-dm a { word-break: break-all; }
 
+/* ============ 区块节奏兜底 ============
+   页面里相邻的两个卡片/区块，若两侧都忘了写上下外边距，会直接贴死（边框相接）。
+   这里给「普通块级容器内」的相邻块补一个统一呼吸间距。
+   全部规则都写成 0 特异性（:where），因此任何显式的 margin 工具类都能覆盖它；
+   而普通文档流里相邻兄弟的上下外边距本身会合并，所以这条兜底等价于「最小间距 16px」，
+   不会给已经写了下外边距的地方额外叠加。 */
+main :where(.card, .ant-card, .ant-alert) + :where(.card, .ant-card, .ant-alert),
+main :where(.card, .ant-card, .ant-alert) + :where([class*="grid"], [class*="space-y-"]),
+main :where([class*="grid"], [class*="space-y-"]) + :where(.card, .ant-card, .ant-alert) { margin-top: 1rem; }
+/* gap / space-y 容器内部由容器统一控距，兜底不生效，避免与 gap 叠加 */
+main :where([class*="gap-"], [class*="space-y-"]) > :where(*) + :where(*) { margin-top: 0; }
+
+/* 「标记已掌握」按钮的键盘焦点环（它现在是页面主行动按钮，必须可见） */
+.mark-done:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgba(255, 94, 126, .55);
+}
+
 /* BUG-5：antd-vue button 在 block/带图标时偶发文字不垂直居中；强制 inline-flex 确保图标与文字居中对齐 */
 .ant-btn {
   display: inline-flex !important;

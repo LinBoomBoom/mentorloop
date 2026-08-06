@@ -46,14 +46,21 @@
           <Icon :name="answer.matched ? 'checkCircle' : 'sparkles'" :size="15" />
           {{ answer.matched ? ('匹配自题库' + (answer.track ? ' · ' + trackName(answer.track) : '')) : 'AI 提示' }}
         </div>
-        <div class="prose-dm" v-html="md(answer.answer)"></div>
-        <div v-if="!answer.matched" class="mt-3 pt-3 border-t border-dashed border-ink/10 text-xs text-muted">
-          <div class="flex items-center gap-1.5 font-medium text-sub">
-            <Icon name="database" :size="13" /> 这道题不在当前面试题库中。
+        <!-- 「题库未命中」是影响用户预期的重要信息（答案来自模型推理而非人工审校题库），
+             必须放在答案正文之前——放在最底部用户往往滚不到就走了 -->
+        <div v-if="!answer.matched"
+             class="mb-3 rounded-xl border border-amber-400/40 bg-amber-400/[0.12] px-3.5 py-3">
+          <div class="flex items-start gap-2">
+            <Icon name="database" :size="15" class="text-amber-600 mt-0.5 shrink-0" />
+            <div class="min-w-0 text-xs leading-relaxed">
+              <div class="font-bold text-amber-700 dark:text-amber-400">这道题目前不在面试题库中</div>
+              <p class="text-sub mt-1">
+                下方答案由 AI 现场推理生成，尚未经过人工审校。<template v-if="answer.collected">我们已把它收录到「待补充题库」，后续会经 AI 语义化增强、由管理员审核后回流进正式题库。</template><template v-else>我们会结合 AI 增强后收录到「待补充题库」，供管理员审核补充。</template>
+              </p>
+            </div>
           </div>
-          <p v-if="answer.collected" class="mt-1.5 leading-relaxed">我们已把它收录到「待补充题库」，后续会经 AI 语义化增强、由管理员审核后回流进正式题库。</p>
-          <p v-else class="mt-1.5 leading-relaxed">我们会结合 AI 增强后收录到「待补充题库」，供管理员审核补充。</p>
         </div>
+        <div class="prose-dm" v-html="md(answer.answer)"></div>
       </div>
       <p v-if="askErr" class="text-red-500 text-sm mt-2">{{ askErr }}</p>
     </a-card>

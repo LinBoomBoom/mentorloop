@@ -25,14 +25,49 @@
     </div>
     <template v-else-if="showDash">
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4 stagger">
-        <div class="card p-6 flex items-center gap-5 col-span-1 lg:col-span-1">
-          <ProgressRing :value="stats.overall.percent" :size="108" :stroke="11" color="#e11d48" label="总进度" />
-          <div>
-            <div class="text-sm text-muted">已掌握</div>
-            <div class="text-xl font-extrabold">{{ stats.overall.done }}<span class="text-muted text-sm font-normal"> / {{ stats.overall.total }} 节</span></div>
-            <div class="text-[12px] text-muted mt-1">距离学完还差 {{ stats.overall.total - stats.overall.done }} 节</div>
+        <!-- 总进度：各方向明细收进悬停/点击浮层，避免首页再铺一整块「方向进度」 -->
+        <a-popover placement="bottomLeft" :trigger="['hover', 'click']" :mouse-enter-delay="0.05" overlay-class-name="dash-breakdown">
+          <template #content>
+            <div class="w-[292px]">
+              <div class="text-[12px] font-bold mb-3">各方向进度明细</div>
+              <div class="space-y-3">
+                <div v-for="m in stats.modules" :key="m.id">
+                  <div class="flex items-center justify-between text-[12px] mb-1">
+                    <span class="font-semibold flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: m.color }"></span>{{ m.name }}
+                    </span>
+                    <span class="text-muted">{{ m.done }}/{{ m.total }} · {{ m.percent }}%</span>
+                  </div>
+                  <div class="h-2 rounded-full bg-ink/10 overflow-hidden">
+                    <!-- 用直角小段而非 rounded-full：百分比很低时不会缩成一个圆点 -->
+                    <div class="h-full rounded-[2px] transition-all duration-700"
+                         :style="{ width: m.percent + '%', minWidth: m.percent > 0 ? '6px' : '0', background: m.color }"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3 pt-2.5 border-t border-line text-[11px] text-muted">
+                点击方向名可直接进入对应学习路径
+              </div>
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <NuxtLink v-for="m in stats.modules" :key="'l' + m.id" :to="`/learn/${m.id}`"
+                          class="text-[11px] px-2 py-1 rounded-lg border border-line hover:border-brand-coral/50 hover:text-brand-coral transition">
+                  {{ m.name }}
+                </NuxtLink>
+              </div>
+            </div>
+          </template>
+          <div class="card p-6 flex items-center gap-5 cursor-pointer hover:border-brand-coral/40 transition h-full">
+            <ProgressRing :value="stats.overall.percent" :size="108" :stroke="11" color="#e11d48" label="总进度" />
+            <div class="min-w-0">
+              <div class="text-sm text-muted">已掌握</div>
+              <div class="text-xl font-extrabold">{{ stats.overall.done }}<span class="text-muted text-sm font-normal"> / {{ stats.overall.total }} 节</span></div>
+              <div class="text-[12px] text-muted mt-1">还差 {{ stats.overall.total - stats.overall.done }} 节</div>
+              <div class="inline-flex items-center gap-1 mt-2 text-[11px] font-semibold text-brand-coral border-b border-dashed border-brand-coral/50">
+                <Icon name="chart" :size="12" /> 查看各方向明细
+              </div>
+            </div>
           </div>
-        </div>
+        </a-popover>
         <CheckinCard
           :streak="stats.streak.current"
           :longest="stats.streak.longest"
@@ -41,19 +76,39 @@
           @refresh="loadStats"
         />
         <StatCard title="答卷均分" :value="stats.exams.avg" :sub="stats.exams.count ? `共 ${stats.exams.count} 套 · 最高 ${stats.exams.best} 分` : '还没有答卷记录，去试试'" icon="chart" color="#14b8a6" />
-        <StatCard title="能力雷达" :value="stats.radar.filter((r:any)=>r.value>=60).length + '/6'" :sub="'笔试能力 ' + stats.exams.avg + ' 分'" icon="target" color="#d97706" />
+        <StatCard
+          title="最强方向"
+          :value="stats.radarInsight?.strong.axis || '—'"
+          :sub="stats.radarInsight ? `${stats.radarInsight.strong.value} 分 · 最弱「${stats.radarInsight.weak.axis}」${stats.radarInsight.weak.value} 分` : '完成学习或答卷后生成'"
+          icon="target" color="#d97706"
+        />
       </div>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 stagger">
-        <div class="card p-6">
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-7 stagger">
+        <div class="card p-6 flex flex-col">
           <h3 class="section-title mb-1">能力雷达</h3>
-          <p class="text-xs text-muted mb-3">六维能力分布，越高越稳</p>
-          <div class="h-[260px]"><RadarChart :data="stats.radar" /></div>
+          <p class="text-xs text-muted mb-2">
+            四个方向按「学习完成度 + 该方向答卷正确率」各半合成，另有两个跨方向维度；悬停任意顶点可看算法说明。
+          </p>
+          <div class="h-[280px] shrink-0"><RadarChart :data="stats.radar" /></div>
+          <!-- 雷达的价值在于「看完知道下一步做什么」，所以图下必须给结论 -->
+          <div v-if="stats.radarInsight" class="mt-4 rounded-xl bg-brand-coral/[0.06] border border-brand-coral/15 p-3.5">
+            <div class="flex items-center gap-1.5 text-[12px] font-bold text-brand-coral mb-1">
+              <Icon name="sparkles" :size="14" /> 雷达解读
+            </div>
+            <p class="text-[12px] text-sub leading-relaxed">{{ stats.radarInsight.advice }}</p>
+            <NuxtLink :to="stats.radarInsight.actionTo"
+                      class="inline-flex items-center gap-1 mt-2.5 text-[12px] font-semibold text-brand-coral hover:underline">
+              {{ stats.radarInsight.actionText }} <Icon name="arrowRight" :size="13" />
+            </NuxtLink>
+          </div>
         </div>
-        <div class="card p-6">
+
+        <div class="card p-6 flex flex-col">
           <h3 class="section-title mb-1">学习热力图</h3>
-          <p class="text-xs text-muted mb-3">近 20 周学习活跃度</p>
+          <p class="text-xs text-muted mb-5">上月与本月的学习活跃度</p>
           <Heatmap :days="stats.heatmap" />
-          <a-alert class="mt-4" type="info" :show-icon="true">
+          <a-alert class="!mt-6" type="info" :show-icon="true">
             <template #message>
               <div class="text-[12px] leading-relaxed">
                 <b>点亮规则：</b>每完成 1 节课程学习、或每日打卡 1 次，对应日期即点亮；颜色越深表示当日学习 / 打卡越活跃。连续活跃天数会在「连续学习」中累计。
@@ -61,34 +116,17 @@
             </template>
           </a-alert>
         </div>
-      </div>
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 stagger mb-7">
-        <div class="card p-6 lg:col-span-2">
-          <h3 class="section-title mb-4">方向进度</h3>
-          <div class="space-y-4">
-            <div v-for="m in stats.modules" :key="m.id">
-              <div class="flex items-center justify-between text-sm mb-1.5">
-                <span class="font-semibold flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 rounded-full" :style="{background:m.color}"></span>{{ m.name }}
-                </span>
-                <span class="text-muted">{{ m.done }}/{{ m.total }} · {{ m.percent }}%</span>
-              </div>
-              <div class="h-2.5 rounded-full bg-ink/8 overflow-hidden">
-                <div class="h-full rounded-full transition-all duration-1000" :style="{ width: m.percent+'%', background: m.color }"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="card p-6">
+
+        <div class="card p-6 lg:col-span-2 xl:col-span-1 flex flex-col">
           <h3 class="section-title mb-4">最近答卷</h3>
-          <div v-if="!stats.exams.recent.length" class="text-sm text-muted py-8 text-center">还没有答卷记录</div>
+          <div v-if="!stats.exams.recent.length" class="flex-1 flex items-center justify-center text-sm text-muted py-8 text-center">还没有答卷记录</div>
           <div v-else class="space-y-3">
-            <div v-for="r in stats.exams.recent" :key="r.createdAt" class="flex items-center justify-between p-3 rounded-xl bg-ink/5">
+            <div v-for="r in stats.exams.recent" :key="r.createdAt" class="flex items-center justify-between gap-3 p-3 rounded-xl bg-ink/5">
               <div class="min-w-0">
                 <div class="text-sm font-semibold truncate">{{ r.name }}</div>
                 <div class="text-[11px] text-muted" :title="fmtDateTime(r.createdAt)">{{ fmtDateTime(r.createdAt) }}</div>
               </div>
-              <div class="text-lg font-extrabold" :class="r.score>=70?'text-emerald-500':r.score>=50?'text-amber-500':'text-red-500'">{{ r.score }}</div>
+              <div class="text-lg font-extrabold shrink-0" :class="r.score>=70?'text-emerald-500':r.score>=50?'text-amber-500':'text-red-500'">{{ r.score }}</div>
             </div>
           </div>
           <NuxtLink to="/exam" class="btn btn-ghost btn-block mt-4">查看全部试卷</NuxtLink>
