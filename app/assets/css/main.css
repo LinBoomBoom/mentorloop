@@ -231,12 +231,67 @@ main :where([class*="gap-"], [class*="space-y-"]) > :where(*) + :where(*) { marg
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  transition: all .2s cubic-bezier(.4,0,.2,1) !important;
 }
 .ant-btn > span,
 .ant-btn-icon {
   display: inline-flex;
   align-items: center;
 }
+
+/* 统一按钮质感：默认按钮 hover 带品牌色，避免 antd 原生灰显得廉价；
+   text/link 按钮 hover 也高亮品牌色，保持全站操作反馈一致 */
+.ant-btn-default:not(:disabled):hover {
+  border-color: rgb(var(--brand-coral)) !important;
+  color: rgb(var(--brand-coral)) !important;
+  background: rgba(var(--brand-coral), .06) !important;
+}
+.ant-btn-default:not(:disabled):active {
+  background: rgba(var(--brand-coral), .12) !important;
+}
+.ant-btn-text:not(:disabled):hover,
+.ant-btn-link:not(:disabled):hover {
+  color: rgb(var(--brand-coral)) !important;
+  background: rgba(var(--brand-coral), .06) !important;
+}
+.ant-btn-dangerous.ant-btn-text:not(:disabled):hover,
+.ant-btn-dangerous.ant-btn-link:not(:disabled):hover {
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, .06) !important;
+}
+
+/* 禁用态主按钮不要死灰，保留品牌色低饱合提示「这是主操作，暂时不可点」 */
+.ant-btn-primary:disabled {
+  color: rgba(var(--brand-coral), .55) !important;
+  background: rgba(var(--brand-coral), .14) !important;
+  border-color: transparent !important;
+}
+
+/* BUG-6：antd 运行时向 <head> 注入 .ant-card { margin: 0 }，与 Tailwind 的 mb-、mt- 工具类平 specificity 时因源序在后而覆盖，
+   导致大量 a-card 上的间距工具类失效、块贴块。用更高特异性选择器强制还原常用间距值。 */
+main .ant-card.mb-1 { margin-bottom: 0.25rem !important; }
+main .ant-card.mb-2 { margin-bottom: 0.5rem !important; }
+main .ant-card.mb-3 { margin-bottom: 0.75rem !important; }
+main .ant-card.mb-4 { margin-bottom: 1rem !important; }
+main .ant-card.mb-5 { margin-bottom: 1.25rem !important; }
+main .ant-card.mb-6 { margin-bottom: 1.5rem !important; }
+main .ant-card.mb-8 { margin-bottom: 2rem !important; }
+main .ant-card.mt-1 { margin-top: 0.25rem !important; }
+main .ant-card.mt-2 { margin-top: 0.5rem !important; }
+main .ant-card.mt-3 { margin-top: 0.75rem !important; }
+main .ant-card.mt-4 { margin-top: 1rem !important; }
+main .ant-card.mt-5 { margin-top: 1.25rem !important; }
+main .ant-card.mt-6 { margin-top: 1.5rem !important; }
+main .ant-card.mt-8 { margin-top: 2rem !important; }
+main .ant-card.my-1 { margin-top: 0.25rem !important; margin-bottom: 0.25rem !important; }
+main .ant-card.my-2 { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
+main .ant-card.my-3 { margin-top: 0.75rem !important; margin-bottom: 0.75rem !important; }
+main .ant-card.my-4 { margin-top: 1rem !important; margin-bottom: 1rem !important; }
+main .ant-card.my-5 { margin-top: 1.25rem !important; margin-bottom: 1.25rem !important; }
+main .ant-card.mx-1 { margin-left: 0.25rem !important; margin-right: 0.25rem !important; }
+main .ant-card.mx-2 { margin-left: 0.5rem !important; margin-right: 0.5rem !important; }
+main .ant-card.mx-3 { margin-left: 0.75rem !important; margin-right: 0.75rem !important; }
+main .ant-card.mx-4 { margin-left: 1rem !important; margin-right: 1rem !important; }
 
 /* 自定义滚动条 */
 ::-webkit-scrollbar { width: 9px; height: 9px; }

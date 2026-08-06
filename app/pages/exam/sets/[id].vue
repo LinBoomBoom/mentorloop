@@ -29,7 +29,7 @@
       <h2 class="text-lg font-extrabold mb-2">试卷不存在或加载失败</h2>
       <p class="text-sm text-muted mb-6">{{ err || '该试卷链接无效，可能已被移除或 ID 错误。' }}</p>
       <div class="flex items-center justify-center gap-3">
-        <NuxtLink to="/exam"><a-button type="primary"><Icon name="arrowLeft" :size="16" /> 返回试卷列表</a-button></NuxtLink>
+        <NuxtLink to="/exam"><a-button><Icon name="arrowLeft" :size="16" /> 返回试卷列表</a-button></NuxtLink>
         <a-button @click="phase = 'loading'; refresh()">重新加载</a-button>
       </div>
     </a-card>
@@ -238,7 +238,7 @@
       <h2 class="text-lg font-extrabold mb-2">页面状态异常</h2>
       <p class="text-sm text-muted mb-6">交卷或加载过程中发生异常，请重试。若问题持续，可重新进入本卷。</p>
       <div class="flex items-center justify-center gap-3">
-        <NuxtLink to="/exam"><a-button type="primary">返回试卷列表</a-button></NuxtLink>
+        <NuxtLink to="/exam"><a-button>返回试卷列表</a-button></NuxtLink>
         <a-button @click="phase = 'loading'; refresh()">重新加载</a-button>
       </div>
     </a-card>
