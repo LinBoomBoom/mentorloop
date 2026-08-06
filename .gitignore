@@ -4,6 +4,7 @@ node_modules
 # Nuxt / Nitro build output
 .output
 .nuxt
+.nuxt_run
 .data
 
 # Local database (re-seeded automatically on first run)

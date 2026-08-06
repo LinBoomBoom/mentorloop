@@ -19,6 +19,7 @@ export default defineNuxtConfig({
     '/interview': { ssr: true, prerender: true },
     '/exam': { ssr: true, prerender: true },
     '/vip': { ssr: true, prerender: true },
+    '/roadmap': { ssr: true },
     // 内容详情页：开启 SSR（按需服务端渲染，无需枚举预渲染）
     '/learn/**': { ssr: true },
     '/interview/**': { ssr: true },

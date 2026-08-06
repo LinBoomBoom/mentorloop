@@ -74,7 +74,18 @@ const ICONS: Record<string, string> = {
   wallet: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/>',
   tree: '<path d="M12 21V11"/><circle cx="12" cy="7" r="4"/><path d="M12 11a3 3 0 0 0-3 3M12 11a3 3 0 0 1 3 3"/>',
   chevronDown: '<path d="M6 9l6 6 6-6"/>',
-  box: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16"/><path d="M9 9v11M15 9v11"/>'
+  box: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16"/><path d="M9 9v11M15 9v11"/>',
+  app: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 4v16M15 4v16M4 9h16M4 15h16"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  rocket: '<path d="M12 3c3 2 5 5 5 9l-3 3H10l-3-3c0-4 2-7 5-9z"/><circle cx="12" cy="9" r="2"/><path d="M9 15l-3 4M15 15l3 4M10 18l2 3 2-3"/>',
+  network: '<circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M12 11.5 6.5 17M12 11.5 17.5 17"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>',
+  activity: '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
+  cloud: '<path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 0 1 18 18z"/>',
+  git: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7M8.5 6H13a3 3 0 0 1 3 3v0"/>',
+  robot: '<rect x="5" y="8" width="14" height="10" rx="2"/><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6"/><path d="M5 12H3M21 12h-2"/>',
+  brain: '<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 2 4 3 3 0 0 0 5 1V5a3 3 0 0 0-3-1z"/><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-2 4 3 3 0 0 1-5 1"/>',
+  pipeline: '<rect x="3" y="4" width="6" height="4" rx="1"/><rect x="15" y="16" width="6" height="4" rx="1"/><path d="M6 8v4a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v1"/>'
 }
 
 const inner = computed(() => ICONS[props.name] || ICONS.box || '')
