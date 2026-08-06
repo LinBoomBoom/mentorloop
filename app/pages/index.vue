@@ -24,7 +24,7 @@
       <div v-for="i in 3" :key="i" class="card h-32 shimmer"></div>
     </div>
     <template v-else-if="showDash">
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4 stagger">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 stagger">
         <!-- 总进度：各方向明细收进悬停/点击浮层，避免首页再铺一整块「方向进度」 -->
         <a-popover placement="bottomLeft" :trigger="['hover', 'click']" :mouse-enter-delay="0.05" overlay-class-name="dash-breakdown">
           <template #content>
@@ -75,59 +75,82 @@
           :heatmap="stats.heatmap"
           @refresh="loadStats"
         />
-        <StatCard title="答卷均分" :value="stats.exams.avg" :sub="stats.exams.count ? `共 ${stats.exams.count} 套 · 最高 ${stats.exams.best} 分` : '还没有答卷记录，去试试'" icon="chart" color="#14b8a6" />
-        <StatCard
-          title="最强方向"
-          :value="stats.radarInsight?.strong.axis || '—'"
-          :sub="stats.radarInsight ? `${stats.radarInsight.strong.value} 分 · 最弱「${stats.radarInsight.weak.axis}」${stats.radarInsight.weak.value} 分` : '完成学习或答卷后生成'"
-          icon="target" color="#d97706"
-        />
+        <!-- 最强方向：不止展示一个数字，而是把「优势 + 最大短板 + 下一步去补强」串起来，更有行动指导意义 -->
+        <div class="card p-6 flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="section-title">最强方向</h3>
+            <span class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(217,119,6,.1);color:#d97706"><Icon name="target" :size="20" /></span>
+          </div>
+          <div class="text-2xl font-extrabold" style="color:#d97706">{{ stats.radarInsight?.strong.axis || '—' }}</div>
+          <div class="text-[12px] text-muted mt-1">综合 {{ stats.radarInsight?.strong.value ?? '—' }} 分 · 你当前最拿手的方向</div>
+          <div v-if="stats.radarInsight" class="mt-3 rounded-xl bg-amber-400/[0.10] border border-amber-400/20 p-3">
+            <div class="text-[12px] font-semibold text-amber-600 dark:text-amber-400">建议优先补强</div>
+            <div class="text-[12px] text-sub leading-relaxed mt-0.5">「{{ stats.radarInsight.weak.axis }}」仅 {{ stats.radarInsight.weak.value }} 分，是最大短板；补强它比巩固优势更能抬升整体水平。</div>
+          </div>
+          <NuxtLink v-if="stats.radarInsight" :to="`/learn/${stats.radarInsight.weak.key || ''}`" class="btn btn-ghost btn-block mt-auto">去补强「{{ stats.radarInsight.weak.axis }}」 →</NuxtLink>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-7 stagger">
         <div class="card p-6 flex flex-col">
-          <h3 class="section-title mb-1">能力雷达</h3>
-          <p class="text-xs text-muted mb-2">
-            四个方向按「学习完成度 + 该方向答卷正确率」各半合成，另有两个跨方向维度；悬停任意顶点可看算法说明。
-          </p>
-          <div class="h-[280px] shrink-0"><RadarChart :data="stats.radar" /></div>
-          <!-- 雷达的价值在于「看完知道下一步做什么」，所以图下必须给结论 -->
-          <div v-if="stats.radarInsight" class="mt-4 rounded-xl bg-brand-coral/[0.06] border border-brand-coral/15 p-3.5">
-            <div class="flex items-center gap-1.5 text-[12px] font-bold text-brand-coral mb-1">
-              <Icon name="sparkles" :size="14" /> 雷达解读
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-1.5">
+              <h3 class="section-title">能力雷达</h3>
+              <a-popover title="雷达解读" placement="bottomRight" :trigger="['hover', 'click']">
+                <template #content>
+                  <div class="w-[260px]">
+                    <p class="text-[12px] text-sub leading-relaxed">{{ stats.radarInsight?.advice }}</p>
+                    <NuxtLink v-if="stats.radarInsight" :to="stats.radarInsight.actionTo"
+                              class="inline-flex items-center gap-1 mt-2 text-[12px] font-semibold text-brand-coral hover:underline">
+                      {{ stats.radarInsight.actionText }} <Icon name="arrowRight" :size="12" />
+                    </NuxtLink>
+                  </div>
+                </template>
+                <button class="w-5 h-5 rounded-full bg-ink/5 text-muted text-[11px] font-bold leading-none flex items-center justify-center hover:bg-brand-coral/10 hover:text-brand-coral transition" aria-label="雷达解读">?</button>
+              </a-popover>
             </div>
-            <p class="text-[12px] text-sub leading-relaxed">{{ stats.radarInsight.advice }}</p>
-            <NuxtLink :to="stats.radarInsight.actionTo"
-                      class="inline-flex items-center gap-1 mt-2.5 text-[12px] font-semibold text-brand-coral hover:underline">
-              {{ stats.radarInsight.actionText }} <Icon name="arrowRight" :size="13" />
+            <NuxtLink v-if="stats.resume" :to="stats.resume.path"
+                      class="inline-flex items-center gap-1 max-w-[155px] truncate text-[12px] font-semibold text-brand-coral hover:underline"
+                      :title="`继续学习：${stats.resume.sectionTitle}`">
+              继续：{{ stats.resume.sectionTitle }} <Icon name="arrowRight" :size="12" />
             </NuxtLink>
           </div>
+          <p class="text-xs text-muted mb-2">
+            四个方向按「学习完成度 + 该方向答卷正确率」各半合成，另含学习节奏与实战强度；悬停任意顶点可看算法说明。
+          </p>
+          <div class="h-[280px] shrink-0"><RadarChart :data="stats.radar" /></div>
         </div>
 
         <div class="card p-6 flex flex-col">
-          <h3 class="section-title mb-1">学习热力图</h3>
-          <p class="text-xs text-muted mb-5">上月与本月的学习活跃度</p>
-          <Heatmap :days="stats.heatmap" />
-          <a-alert class="!mt-6" type="info" :show-icon="true">
-            <template #message>
-              <div class="text-[12px] leading-relaxed">
-                <b>点亮规则：</b>每完成 1 节课程学习、或每日打卡 1 次，对应日期即点亮；颜色越深表示当日学习 / 打卡越活跃。连续活跃天数会在「连续学习」中累计。
-              </div>
-            </template>
-          </a-alert>
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-1.5">
+              <h3 class="section-title">学习热力图</h3>
+              <a-popover title="点亮规则" placement="bottomRight" :trigger="['hover', 'click']">
+                <template #content>
+                  <div class="w-[260px] text-[12px] text-sub leading-relaxed">
+                    每完成 1 节课程学习、或每日打卡 1 次，对应日期即点亮；颜色越深表示当日学习 / 打卡越活跃。连续活跃天数会在「连续学习」中累计。
+                  </div>
+                </template>
+                <button class="w-5 h-5 rounded-full bg-ink/5 text-muted text-[11px] font-bold leading-none flex items-center justify-center hover:bg-brand-coral/10 hover:text-brand-coral transition" aria-label="点亮规则">?</button>
+              </a-popover>
+            </div>
+            <span class="text-[12px] text-muted">{{ heatRangeLabel }}</span>
+          </div>
+          <Heatmap :days="stats.heatmap" class="mt-2" />
         </div>
 
         <div class="card p-6 lg:col-span-2 xl:col-span-1 flex flex-col">
           <h3 class="section-title mb-4">最近答卷</h3>
           <div v-if="!stats.exams.recent.length" class="flex-1 flex items-center justify-center text-sm text-muted py-8 text-center">还没有答卷记录</div>
           <div v-else class="space-y-3">
-            <div v-for="r in stats.exams.recent" :key="r.createdAt" class="flex items-center justify-between gap-3 p-3 rounded-xl bg-ink/5">
+            <NuxtLink v-for="r in stats.exams.recent" :key="r.recordId" :to="`/exam/sets/${r.setId}?record=${r.recordId}`"
+                      class="flex items-center justify-between gap-3 p-3 rounded-xl bg-ink/5 border border-transparent hover:bg-brand-coral/5 hover:border-brand-coral/30 transition">
               <div class="min-w-0">
                 <div class="text-sm font-semibold truncate">{{ r.name }}</div>
                 <div class="text-[11px] text-muted" :title="fmtDateTime(r.createdAt)">{{ fmtDateTime(r.createdAt) }}</div>
               </div>
               <div class="text-lg font-extrabold shrink-0" :class="r.score>=70?'text-emerald-500':r.score>=50?'text-amber-500':'text-red-500'">{{ r.score }}</div>
-            </div>
+            </NuxtLink>
           </div>
           <NuxtLink to="/exam" class="btn btn-ghost btn-block mt-4">查看全部试卷</NuxtLink>
         </div>
@@ -251,4 +274,11 @@ async function loadStats(showSkeleton = false) {
 watch(() => auth.isLoggedIn, (v) => { if (v) loadStats(true) }, { immediate: true })
 
 const trackName = (t: string) => trackMeta[t]?.name || t
-</script>
+
+// 热力图月份区间标签（如「7月 – 8月」），显示在卡片标题右侧
+const heatRangeLabel = computed(() => {
+  const r = stats.value?.heatmapRange
+  if (!r) return ''
+  const s = r.start.split('-'), e = r.end.split('-')
+  return `${Number(s[1])}月 – ${Number(e[1])}月`
+})</script>

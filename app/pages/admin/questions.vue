@@ -150,7 +150,9 @@ async function load() {
   try {
     const qs = `?status=${encodeURIComponent(status.value)}&track=${encodeURIComponent(track.value)}&q=${encodeURIComponent(q.value)}`
     const r: any = await request(`/api/admin/user-questions${qs}`)
-    items.value = (r.items || []).map((it: any) => ({ ...it, enhanced_tags: it.enhanced_tags || '[]' }))
+    // 后端返回分页包装 { total, page, pageSize, items }；兼容直接返回数组的旧形态
+    const rows = r?.items?.items ?? r?.items ?? []
+    items.value = rows.map((it: any) => ({ ...it, enhanced_tags: it.enhanced_tags || '[]' }))
   } catch (e: any) {
     // 未授权 / 网络异常时静默，避免未捕获异常污染控制台
   }
@@ -213,11 +215,13 @@ async function batchReview(decision: 'accept' | 'reject') {
 }
 
 onMounted(() => {
-  // 等待登录态判定完成再加载，避免未授权时发出请求
+  // 登录态就绪后再加载；已就绪则直接加载。
+  // 注意：不能再用 { immediate: true } 让回调在 watch 赋值完成前就调用 stop()，
+  // 否则会抛 "Cannot access 'stop' before initialization"（TDZ）并破坏整个页面的响应式。
+  if (auth.loaded) { load(); return }
   const stop = watch(
     () => auth.loaded,
-    (v) => { if (v) { load(); stop() } },
-    { immediate: true }
+    (v) => { if (v) { load(); stop() } }
   )
 })
 </script>

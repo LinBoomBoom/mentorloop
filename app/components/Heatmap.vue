@@ -2,16 +2,17 @@
   <div class="w-full max-w-full">
     <!-- 月份标签行：与下方周列一一对齐，方便快速定位「上月 / 本月」 -->
     <div class="flex gap-[4px] mb-2 h-4 text-[11px] font-medium text-muted select-none">
-      <div v-for="(w, wi) in weeks" :key="'m' + wi" class="w-4 shrink-0 relative">
+      <div v-for="(w, wi) in weeks" :key="'m' + wi" class="flex-1 relative">
         <span v-if="monthLabels[wi]" class="absolute left-0 top-0 whitespace-nowrap">{{ monthLabels[wi] }}</span>
       </div>
     </div>
 
+    <!-- 周列用 flex-1 均分横向空间；单元格 aspect-square 铺满宽度，避免盒子右侧大片留空 -->
     <div class="flex gap-[4px]">
-      <div v-for="(week, wi) in weeks" :key="wi" class="flex flex-col gap-[4px]">
+      <div v-for="(week, wi) in weeks" :key="wi" class="flex-1 flex flex-col gap-[4px]">
         <div v-for="(day, di) in week" :key="di"
-             class="w-4 h-4 rounded-[4px] transition-transform"
-             :class="day ? 'hover:scale-125' : ''"
+             class="aspect-square rounded-[4px] transition-transform"
+             :class="day ? 'hover:scale-110' : ''"
              :style="cellStyle(day)"
              :title="day ? cellTitle(day) : ''"></div>
       </div>

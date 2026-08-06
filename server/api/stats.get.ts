@@ -20,8 +20,8 @@ export default defineEventHandler((event) => {
       overall: { done: 0, total: 0, percent: 0 },
       modules: [], heatmap: [], heatmapRange: null,
       streak: { current: 0, longest: 0, totalDays: 0, active30: 0 },
-      radar: [], radarInsight: null,
-      exams: { count: 0, avg: 0, best: 0, recent: [] }
+      radar: [], radarInsight: null, resume: null,
+      exams: { count: 0, best: 0, recent: [] }
     })
   }
   const prog: any = {}
@@ -47,7 +47,6 @@ export default defineEventHandler((event) => {
   // 运行时重算得分（基于子表/主表 fallback，兼容历史脏数据），保证统计与判分逻辑一致，永不显示旧 0 分
   const computed = recs.map((r: any) => ({ ...r, ...recomputeRecordScore(r.id, r.choice_review, r.written_review) }))
   const scores: number[] = computed.map((r: any) => r.score)
-  const examAvg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
 
   // 按方向汇总「答对题数 / 总题数」——聚合正确率比「各卷得分求平均」更能反映真实水平
   const examByTrack: Record<string, { correct: number; total: number; count: number }> = {}
@@ -174,15 +173,37 @@ export default defineEventHandler((event) => {
     actionTo = `/learn/${weak.key}`; actionText = `继续「${weak.axis}」`
   }
   const radarInsight = {
-    strong: { axis: strong.axis, value: strong.value },
-    weak: { axis: weak.axis, value: weak.value },
+    strong: { axis: strong.axis, value: strong.value, key: strong.key },
+    weak: { axis: weak.axis, value: weak.value, key: weak.key },
     advice, actionTo, actionText
   }
 
+  // 续学锚点：按「模块→章节→小节」顺序找出第一个未完成的小节，供首页「继续学习」一键直达
+  const sectRows = sqlite.prepare(
+    `SELECT s.id sid, s.title stitle, c.id cid, c.title ctitle, c.module_id mid, m.name mname
+     FROM sections s JOIN chapters c ON c.id=s.chapter_id JOIN modules m ON m.id=c.module_id
+     ORDER BY m.position, c.position, s.position`
+  ).all() as any[]
+  let resume: any = null
+  for (const s of sectRows) {
+    if (!prog[`${s.mid}/${s.cid}/${s.sid}`]) {
+      resume = {
+        moduleId: s.mid, moduleName: s.mname,
+        chapterId: s.cid, chapterTitle: s.ctitle,
+        sectionId: s.sid, sectionTitle: s.stitle,
+        path: `/learn/${s.mid}/${s.cid}/${s.sid}`
+      }
+      break
+    }
+  }
+
   const exams = {
-    count: scores.length, avg: examAvg,
+    count: scores.length,
     best: scores.length ? Math.max(...scores) : 0,
-    recent: computed.slice(0, 5).map((r: any) => ({ name: r.set_name, score: r.score, level: r.level, createdAt: r.created_at }))
+    // 列表项携带 set_id / record id，前端可直接跳转对应答卷的复盘页
+    recent: computed.slice(0, 5).map((r: any) => ({
+      recordId: r.id, setId: r.set_id, name: r.set_name, score: r.score, level: r.level, createdAt: r.created_at
+    }))
   }
   return json(event, 200, {
     overall: { done: doneAll, total: totalAll, percent: totalAll ? Math.round(doneAll / totalAll * 100) : 0 },
@@ -190,6 +211,6 @@ export default defineEventHandler((event) => {
     heatmap,
     heatmapRange: { start: ymd(startDisplay), end: ymd(endDisplay), today: todayKey },
     streak: { current: streak, longest, totalDays, active30 },
-    radar, radarInsight, exams
+    radar, radarInsight, resume, exams
   })
 })
