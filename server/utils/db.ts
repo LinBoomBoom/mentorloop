@@ -831,6 +831,22 @@ export function loadExamReviews(recordId: string, fallbackChoice?: string | null
   }
 }
 
+// 重算单条答卷的得分/正确数/总分/薄弱点/等级建议。
+// 统一供列表、统计、详情等所有读取 exam_records.score 的入口调用，保证与判分逻辑一致；
+// 历史脏数据（字母答案、标量 userAnswer 等）在读取时即被修正，无需数据迁移。
+export function recomputeRecordScore(recordId: string, fallbackChoice?: string | null, fallbackWritten?: string | null) {
+  const { choiceReview, correct, score, total } = loadExamReviews(recordId, fallbackChoice, fallbackWritten)
+  const wrongTags: any = {}
+  choiceReview.filter((c: any) => !c.right).forEach((c: any) => { wrongTags[c.tag] = (wrongTags[c.tag] || 0) + 1 })
+  const weakPoints = Object.entries(wrongTags).sort((a: any, b: any) => b[1] - a[1]).map(([tag, n]) => ({ tag, count: n }))
+  let level: string, advice: string
+  if (score >= 90) { level = '优秀'; advice = '基础非常扎实！建议挑战更高难度试卷，并重点打磨笔试题的表达深度与项目实战案例。' }
+  else if (score >= 70) { level = '良好'; advice = '整体掌握不错，但仍有薄弱知识点。建议针对下方薄弱标签回到学习中心对应章节复习，一周后重做本卷验证。' }
+  else if (score >= 50) { level = '及格'; advice = '基础存在明显漏洞。建议暂缓刷题，优先回到学习中心系统学习薄弱模块，掌握原理后再回来实战。' }
+  else { level = '待加强'; advice = '当前阶段不建议直接面试。请从学习中心第一章开始系统学习，配合高频面试题理解概念，循序渐进。' }
+  return { score, correct, total, weakPoints, level, advice }
+}
+
 // B7 迁移回填：解析主表 choice_review/written_review JSON 写入子表（幂等：已有子表记录则跳过）
 export function backfillExamReviews(db: any) {
   const rows = db.prepare("SELECT id, choice_review, written_review FROM exam_records WHERE choice_review IS NOT NULL AND choice_review <> '[]'").all() as any[]

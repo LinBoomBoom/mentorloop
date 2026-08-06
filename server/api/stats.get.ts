@@ -67,7 +67,10 @@ export default defineEventHandler((event) => {
   heatmap.forEach((h: any) => { if (h.count > 0) { run++; longest = Math.max(longest, run) } else run = 0 })
   const totalDays = Object.keys(days).length
 
-  const scores: number[] = sqlite.prepare('SELECT score FROM exam_records WHERE user_id=?').all(user.id).map((r: any) => r.score)
+  const recs = sqlite.prepare('SELECT * FROM exam_records WHERE user_id=? ORDER BY created_at DESC').all(user.id) as any[]
+  // 运行时重算得分（基于子表/主表 fallback，兼容历史脏数据），保证统计与判分逻辑一致，永不显示旧 0 分
+  const computed = recs.map((r: any) => ({ ...r, ...recomputeRecordScore(r.id, r.choice_review, r.written_review) }))
+  const scores: number[] = computed.map((r: any) => r.score)
   const examAvg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
   const getM = (id: string) => modules.find((m: any) => m.id === id) || { percent: 0 }
   const radar = [
@@ -78,11 +81,10 @@ export default defineEventHandler((event) => {
     { axis: '面试准备', value: Math.min(100, scores.length * 20) },
     { axis: '持续学习', value: Math.min(100, streak * 15) }
   ]
-  const recRows = sqlite.prepare('SELECT set_name,score,level,created_at FROM exam_records WHERE user_id=? ORDER BY created_at DESC').all(user.id)
   const exams = {
     count: scores.length, avg: examAvg,
     best: scores.length ? Math.max(...scores) : 0,
-    recent: recRows.slice(0, 5).map((r: any) => ({ name: r.set_name, score: r.score, level: r.level, createdAt: r.created_at }))
+    recent: computed.slice(0, 5).map((r: any) => ({ name: r.set_name, score: r.score, level: r.level, createdAt: r.created_at }))
   }
   return json(event, 200, {
     overall: { done: doneAll, total: totalAll, percent: totalAll ? Math.round(doneAll / totalAll * 100) : 0 },
