@@ -323,11 +323,18 @@ function selectChoice(c: any, i: number) {
   }
 }
 function optClass(c: any, i: number) {
-  const correct = c.answer.includes(i)
-  const chosen = (c.userAnswer || []).includes(i)
+  const correct = toArr(c.answer).includes(i)
+  const chosen = toArr(c.userAnswer).includes(i)
   if (correct) return 'border-emerald-500/40 bg-emerald-500/5 text-emerald-600'
   if (chosen && !correct) return 'border-rose-500/40 bg-rose-500/5 text-rose-600'
   return 'border-line text-sub'
+}
+// 前端兜底：任意值规整为数组（兼容旧数据 userAnswer 为标量下标的情形）
+function toArr(x: any): any[] {
+  if (Array.isArray(x)) return x
+  if (x == null) return []
+  if (typeof x === 'string') { try { const p = JSON.parse(x); return Array.isArray(p) ? p : [x] } catch { return [x] } }
+  return [x]
 }
 
 function startTimer() {

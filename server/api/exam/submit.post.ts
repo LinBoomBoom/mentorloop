@@ -39,7 +39,9 @@ export default defineEventHandler(async (event) => {
     const rightAns = [].concat(JSON.parse(c.answer)).sort().join(',')
     const isRight = userAns === rightAns && userAns !== ''
     if (isRight) correct++
-    return { id: c.id, q: c.q, options: JSON.parse(c.options), userAnswer: choiceAnswers[c.id] || [], answer: JSON.parse(c.answer), right: isRight, explain: c.explain, tag: c.tag }
+    // 单选题用户选的是单个数字下标，多选题是数组；统一规整为数组，避免前端 .includes 调用报错
+    const userAnswerArr = [].concat(choiceAnswers[c.id] || [])
+    return { id: c.id, q: c.q, options: JSON.parse(c.options), userAnswer: userAnswerArr, answer: JSON.parse(c.answer), right: isRight, explain: c.explain, tag: c.tag }
   })
   const choiceScore = choiceRows.length ? Math.round(correct / choiceRows.length * 100) : 0
 

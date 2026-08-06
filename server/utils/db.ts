@@ -742,6 +742,16 @@ export function uid(prefix = 'u_') { return prefix + crypto.randomBytes(6).toStr
 export function safeJson(s: any, d: any) {
   try { return JSON.parse(s) } catch { return d }
 }
+// 将任意值规整为数组：数字/字符串/对象 → [值]；已是数组则原样返回；null/undefined → []
+// 用于兼容旧数据中单选题 userAnswer 以标量（如数字下标）存储的情况
+export function toArr(x: any) {
+  if (Array.isArray(x)) return x
+  if (x == null) return []
+  if (typeof x === 'string') {
+    try { const p = JSON.parse(x); return Array.isArray(p) ? p : [x] } catch { return [x] }
+  }
+  return [x]
+}
 
 // B7 拆表后统一读取作答复盘：优先子表（结构化、可查询），子表为空则 fallback 主表老列
 export function loadExamReviews(recordId: string, fallbackChoice?: string | null, fallbackWritten?: string | null) {
@@ -752,8 +762,8 @@ export function loadExamReviews(recordId: string, fallbackChoice?: string | null
       choiceReview: cr.map((r) => ({
         id: r.choice_id, q: r.q,
         options: safeJson(r.options, []),
-        userAnswer: safeJson(r.user_answer, []),
-        answer: safeJson(r.answer, []),
+        userAnswer: toArr(safeJson(r.user_answer, [])),
+        answer: toArr(safeJson(r.answer, [])),
         right: !!r.right, explain: r.explain, tag: r.tag
       })),
       writtenReview: wr.map((r) => ({
@@ -765,7 +775,12 @@ export function loadExamReviews(recordId: string, fallbackChoice?: string | null
     }
   }
   return {
-    choiceReview: safeJson(fallbackChoice, []),
+    choiceReview: (safeJson(fallbackChoice, []) as any[]).map((c: any) => ({
+      ...c,
+      userAnswer: toArr(c.userAnswer),
+      answer: toArr(c.answer),
+      options: toArr(c.options)
+    })),
     writtenReview: safeJson(fallbackWritten, [])
   }
 }
