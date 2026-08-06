@@ -23,7 +23,8 @@
         <p class="text-muted">管理后台仅限管理员账号。请使用 admin@mentorloop.com 登录。</p>
         <NuxtLink to="/login" class="btn btn-primary mt-4">前往登录</NuxtLink>
       </div>
-      <slot v-else />
+      <!-- slot 始终参与渲染，确保 <NuxtPage/> 内容存在，消除 NUXT_E4011 警告；denied 时仅用 CSS 隐藏 -->
+      <div v-show="!denied" class="contents"><slot /></div>
     </main>
   </div>
 </template>

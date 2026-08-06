@@ -2,11 +2,6 @@
 import { sqlite, uid } from './db'
 import { createError } from 'h3'
 
-const TRACK_NAMES: Record<string, string> = {
-  frontend: '前端', backend: '后端', devops: '运维/DevOps', ai: 'AI 工程'
-}
-export function trackName(t: string) { return TRACK_NAMES[t] || t || '通用' }
-
 export function listReferrals(filter: { track?: string; city?: string; level?: string } = {}) {
   const where: string[] = []
   const params: any[] = []

@@ -1,7 +1,7 @@
 // 管理后台数据访问层（G 类：用户体系 / 内容 / 题库 / 订单 CRUD + 看板）
 // 纯函数式助手，直接操作 sqlite；路由层只负责鉴权 + 包装响应。可被 vitest 直接测试。
 import { sqlite, hashPwd, publicUser, uid, findBestSection } from './db'
-import { trackName } from './referral'
+import { trackName } from './interview'
 
 /* ============ 用户体系 (G4) ============ */
 export interface UserFilter { q?: string; role?: string; page?: number; pageSize?: number }
@@ -78,7 +78,7 @@ export function reviewUserQuestion(id: string, decision: string, patch: any = {}
   // accept：把增强结果转化为正式面试题
   let tags: string[] = []
   try { tags = JSON.parse(uq.enhanced_tags || '[]') } catch { tags = [] }
-  const qText = (patch.q ?? uq.enhanced_title ?? uq.raw_question || '').toString().trim()
+  const qText = ((patch.q ?? uq.enhanced_title) ?? (uq.raw_question || '')).toString().trim()
   const aText = (patch.a ?? uq.ai_answer ?? '').toString()
   const track = (patch.track ?? uq.track ?? 'frontend').toString()
   const type = (patch.type ?? 'hot').toString()
@@ -89,7 +89,7 @@ export function reviewUserQuestion(id: string, decision: string, patch: any = {}
 
   // 生成唯一且合规的正式题 ID；允许管理员显式指定，冲突则自动回退
   let nid = patch.id && /^[a-z0-9_-]{2,60}$/.test(String(patch.id)) ? String(patch.id) : ''
-  if (!nid || getInterview(nid)) nid = uid('iq_')
+  if (!nid || getInterviewQuestion(nid)) nid = uid('iq_')
   createInterview({ id: nid, track, type, q: qText, a: aText, keywords, sectionId })
 
   sqlite.prepare('UPDATE user_questions SET status=?, result_question_id=?, reviewed_at=?, updated_at=? WHERE id=?')
@@ -335,20 +335,20 @@ export function listInterview(track?: string, q?: string) {
   }
   return rows.map((r: any) => ({ ...r, keywords: JSON.parse(r.keywords || '[]') }))
 }
-export function getInterview(id: string) {
+export function getInterviewQuestion(id: string) {
   const r = sqlite.prepare('SELECT * FROM interview_questions WHERE id=?').get(id) as any
   return r ? { ...r, keywords: JSON.parse(r.keywords || '[]') } : null
 }
 export function createInterview(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,60}$/.test(id)) throw new Error('INVALID_ID')
-  if (getInterview(id)) throw new Error('DUP_ID')
+  if (getInterviewQuestion(id)) throw new Error('DUP_ID')
   sqlite.prepare('INSERT INTO interview_questions (id,track,type,q,a,keywords,section_id) VALUES (?,?,?,?,?,?,?)')
     .run(id, data.track || 'frontend', data.type || 'hot', data.q || '', data.a || '', JSON.stringify(data.keywords || []), data.sectionId || null)
-  return getInterview(id)
+  return getInterviewQuestion(id)
 }
 export function updateInterview(id: string, patch: any) {
-  const r = getInterview(id); if (!r) return null
+  const r = getInterviewQuestion(id); if (!r) return null
   const sets: string[] = []; const v: any[] = []
   if (patch.track !== undefined) { sets.push('track=?'); v.push(patch.track) }
   if (patch.type !== undefined) { sets.push('type=?'); v.push(patch.type) }
@@ -358,10 +358,10 @@ export function updateInterview(id: string, patch: any) {
   if (patch.sectionId !== undefined) { sets.push('section_id=?'); v.push(patch.sectionId || null) }
   if (!sets.length) return r
   v.push(id); sqlite.prepare(`UPDATE interview_questions SET ${sets.join(',')} WHERE id=?`).run(...v)
-  return getInterview(id)
+  return getInterviewQuestion(id)
 }
 export function deleteInterview(id: string) {
-  const r = getInterview(id); if (!r) return false
+  const r = getInterviewQuestion(id); if (!r) return false
   sqlite.prepare('DELETE FROM interview_questions WHERE id=?').run(id)
   return true
 }

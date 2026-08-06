@@ -100,6 +100,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin' })
 const { request } = useApi()
+const auth = useAuthStore()
 const tracks = ['frontend', 'backend', 'devops', 'ai']
 const items = ref<any[]>([])
 const status = ref('')
@@ -145,9 +146,14 @@ function parseTags(s: string): string[] {
 function splitText(t: string) { return (t || '').split(',').map((s: string) => s.trim()).filter(Boolean) }
 
 async function load() {
-  const qs = `?status=${encodeURIComponent(status.value)}&track=${encodeURIComponent(track.value)}&q=${encodeURIComponent(q.value)}`
-  const r: any = await request(`/api/admin/user-questions${qs}`)
-  items.value = (r.items || []).map((it: any) => ({ ...it, enhanced_tags: it.enhanced_tags || '[]' }))
+  if (!auth.isLoggedIn || auth.user?.role !== 'admin') return
+  try {
+    const qs = `?status=${encodeURIComponent(status.value)}&track=${encodeURIComponent(track.value)}&q=${encodeURIComponent(q.value)}`
+    const r: any = await request(`/api/admin/user-questions${qs}`)
+    items.value = (r.items || []).map((it: any) => ({ ...it, enhanced_tags: it.enhanced_tags || '[]' }))
+  } catch (e: any) {
+    // 未授权 / 网络异常时静默，避免未捕获异常污染控制台
+  }
 }
 async function loadSections(t: string) {
   try {
@@ -206,7 +212,14 @@ async function batchReview(decision: 'accept' | 'reject') {
   finally { busy.value = false }
 }
 
-onMounted(load)
+onMounted(() => {
+  // 等待登录态判定完成再加载，避免未授权时发出请求
+  const stop = watch(
+    () => auth.loaded,
+    (v) => { if (v) { load(); stop() } },
+    { immediate: true }
+  )
+})
 </script>
 
 <style scoped>

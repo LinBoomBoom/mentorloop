@@ -97,6 +97,34 @@
         </div>
       </a-card>
       <p v-if="auth.isLoggedIn && !done" class="text-xs text-muted mt-2 text-right">勾选即记录已掌握，进度自动保存</p>
+
+      <!-- 本节相关面试题（学→问闭环：已被采纳并关联到本小节的面试题直接挂在此处） -->
+      <a-card v-if="section && (relatedQ.length || relatedLoading)" class="mt-4" :body-style="{ padding: '20px' }">
+        <div class="flex items-center gap-2 mb-3 text-sm font-bold">
+          <Icon name="clipboard" :size="16" class="text-brand-coral" /> 本节相关面试题
+          <span class="text-xs font-normal text-muted">（由用户提问经审核采纳后关联到本节）</span>
+        </div>
+        <a-skeleton v-if="relatedLoading && !relatedQ.length" active :paragraph="{ rows: 3 }" />
+        <div v-else class="space-y-3">
+          <div v-for="iq in relatedQ" :key="iq.id" class="rounded-xl border border-ink/10 overflow-hidden">
+            <button type="button" class="w-full text-left flex items-start gap-2 p-3.5 hover:bg-ink/[.03] transition"
+                    @click="iq._open = !iq._open" :aria-expanded="!!iq._open">
+              <Icon :name="iq._open ? 'chevronDown' : 'chevronRight'" :size="15" class="text-muted mt-0.5 shrink-0" />
+              <span class="min-w-0">
+                <span class="font-medium">{{ iq.q }}</span>
+                <span class="ml-2 align-middle"><a-tag :bordered="false" class="!text-[10px]" :color="iq.difficulty === 'hard' ? 'red' : iq.difficulty === 'medium' ? 'gold' : 'default'">{{ iq.difficulty === 'hard' ? '困难' : iq.difficulty === 'medium' ? '较难' : '常规' }}</a-tag></span>
+                <span v-if="iq.tech && iq.tech !== '综合'" class="ml-1 align-middle"><a-tag :bordered="false" class="!text-[10px] !bg-ink/5 !text-muted">{{ iq.tech }}</a-tag></span>
+              </span>
+            </button>
+            <div v-if="iq._open" class="px-3.5 pb-4 -mt-1">
+              <div class="prose-dm pl-5 border-l-2 border-brand-coral/40" v-html="md(iq.a)"></div>
+            </div>
+          </div>
+          <NuxtLink to="/interview" class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-coral hover:underline mt-1">
+            <Icon name="arrowRight" :size="13" /> 去面试题库做更多练习
+          </NuxtLink>
+        </div>
+      </a-card>
         </div>
 
         <!-- 桌面端：本章目录（粘性侧栏） -->
@@ -161,6 +189,22 @@ const riskStyle = computed(() => {
 })
 
 // 阅读进度（P2-5）：根据页面滚动位置计算阅读百分比
+// 本节相关面试题（学→问闭环）：小节加载后，拉取关联到本节的已采纳面试题
+const relatedQ = ref<any[]>([])
+const relatedLoading = ref(false)
+async function loadRelated() {
+  const sid = section.value?.id
+  if (!sid) { relatedQ.value = []; return }
+  relatedLoading.value = true
+  try {
+    const r: any = await $fetch('/api/interview/by-section?sectionId=' + encodeURIComponent(sid))
+    relatedQ.value = (r.items || []).map((x: any) => ({ ...x, _open: false }))
+  } catch (e) {
+    relatedQ.value = []
+  } finally { relatedLoading.value = false }
+}
+watch(section, (s) => { if (s?.id) loadRelated() }, { immediate: true })
+
 const readPct = ref(0)
 function onScroll() {
   const doc = document.documentElement

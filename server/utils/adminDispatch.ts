@@ -107,7 +107,7 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
       if (method === 'GET' && seg.length === 1) return list({ items: A.listInterview(q.track as string, q.q as string) })
       if (method === 'POST' && seg.length === 1) return ok(A.createInterview(body))
       if (seg.length === 2) {
-        if (method === 'GET') return ok(A.getInterview(seg[1]))
+        if (method === 'GET') return ok(A.getInterviewQuestion(seg[1]))
         if (method === 'PATCH') return ok(A.updateInterview(seg[1], body))
         if (method === 'DELETE') return ok({ deleted: A.deleteInterview(seg[1]) })
       }
