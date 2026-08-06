@@ -35,13 +35,14 @@ export default defineEventHandler(async (event) => {
   const choiceRows = sqlite.prepare('SELECT * FROM exam_choices WHERE set_id=?').all(setId)
   let correct = 0
   const choiceReview = choiceRows.map((c: any) => {
-    const userAns = [].concat(choiceAnswers[c.id] || []).sort().join(',')
-    const rightAns = [].concat(JSON.parse(c.answer)).sort().join(',')
-    const isRight = userAns === rightAns && userAns !== ''
+    // answer 在库中存的是选项字母（如 "D"/["A","B"]），用户作答 choiceAnswers 是 0 基下标；
+    // 统一规整为下标数组再判分，避免「字母 vs 下标」永远不相等导致全判错。
+    const optCount = (JSON.parse(c.options) || []).length
+    const answerIdx = normalizeAnswer(JSON.parse(c.answer), optCount)
+    const userIdx = normalizeAnswer(choiceAnswers[c.id], optCount)
+    const isRight = isAnswerRight(answerIdx, userIdx, optCount)
     if (isRight) correct++
-    // 单选题用户选的是单个数字下标，多选题是数组；统一规整为数组，避免前端 .includes 调用报错
-    const userAnswerArr = [].concat(choiceAnswers[c.id] || [])
-    return { id: c.id, q: c.q, options: JSON.parse(c.options), userAnswer: userAnswerArr, answer: JSON.parse(c.answer), right: isRight, explain: c.explain, tag: c.tag }
+    return { id: c.id, q: c.q, options: JSON.parse(c.options), userAnswer: userIdx, answer: answerIdx, right: isRight, explain: c.explain, tag: c.tag }
   })
   const choiceScore = choiceRows.length ? Math.round(correct / choiceRows.length * 100) : 0
 
@@ -86,12 +87,13 @@ export default defineEventHandler(async (event) => {
 })
 
 function rowToRecord(r: any) {
-  const { choiceReview, writtenReview } = loadExamReviews(r.id, r.choice_review, r.written_review)
+  // 读取时重算 correct/score/total，使早期以字母存储答案或判分有误的历史记录也能正确展示（无需数据迁移）
+  const reviews = loadExamReviews(r.id, r.choice_review, r.written_review)
   return {
     id: r.id, userId: r.user_id, setId: r.set_id, setName: r.set_name, track: r.track,
-    score: r.score, correct: r.correct, total: r.total,
+    score: reviews.score, correct: reviews.correct, total: reviews.total,
     weakPoints: safeJson(r.weak_points, []), level: r.level, advice: r.advice, usedSeconds: r.used_seconds,
-    choiceReview, writtenReview, createdAt: r.created_at,
+    choiceReview: reviews.choiceReview, writtenReview: reviews.writtenReview, createdAt: r.created_at,
     nonce: r.submit_nonce
   }
 }

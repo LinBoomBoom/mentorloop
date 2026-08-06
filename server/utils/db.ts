@@ -752,36 +752,82 @@ export function toArr(x: any) {
   }
   return [x]
 }
+// 将答案规整为「下标数组」：兼容两种存储形态——
+//  · 字母形态（如 "D" / ["A","B"]，来自 exam_choices.answer 的真实数据）
+//  · 下标形态（如 3 / [0,1]，前端 choiceAnswers 与入库复盘使用）
+// optCount 为该题选项数量，超出范围的下标会被丢弃，避免脏数据误判。
+export function normalizeAnswer(raw: any, optCount = 99): number[] {
+  let arr: any[]
+  if (Array.isArray(raw)) arr = raw
+  else if (raw == null) return []
+  else arr = [raw]
+  const out: number[] = []
+  for (const x of arr) {
+    if (typeof x === 'number') {
+      if (x >= 0 && x < optCount) out.push(Math.floor(x))
+    } else if (typeof x === 'string') {
+      const s = x.trim()
+      if (/^[A-Za-z]$/.test(s)) {
+        const idx = s.toUpperCase().charCodeAt(0) - 65 // 'A'->0
+        if (idx >= 0 && idx < optCount) out.push(idx)
+      } else {
+        const n = Number(s)
+        if (!isNaN(n) && n >= 0 && n < optCount) out.push(Math.floor(n))
+      }
+    }
+  }
+  return out
+}
+// 单选题/多选题判分：将答案规整为下标数组后排序比对（空答案视为未作答=错）
+export function isAnswerRight(answerRaw: any, userRaw: any, optCount: number): boolean {
+  const a = normalizeAnswer(answerRaw, optCount).sort((x, y) => x - y)
+  const u = normalizeAnswer(userRaw, optCount).sort((x, y) => x - y)
+  return a.length > 0 && a.join(',') === u.join(',')
+}
 
 // B7 拆表后统一读取作答复盘：优先子表（结构化、可查询），子表为空则 fallback 主表老列
+// 关键：answer/userAnswer 统一规整为「下标数组」再判分，并就地重算 right/correct/score，
+// 使早期以字母存储答案、或判分逻辑有误的历史记录也能正确展示，无需数据迁移。
 export function loadExamReviews(recordId: string, fallbackChoice?: string | null, fallbackWritten?: string | null) {
   const cr = sqlite.prepare('SELECT * FROM exam_choice_reviews WHERE record_id=? ORDER BY rowid').all(recordId) as any[]
   const wr = sqlite.prepare('SELECT * FROM exam_written_reviews WHERE record_id=? ORDER BY rowid').all(recordId) as any[]
   if (cr.length) {
-    return {
-      choiceReview: cr.map((r) => ({
+    const choiceReview = cr.map((r) => {
+      const optCount = (safeJson(r.options, []) || []).length
+      const answer = normalizeAnswer(safeJson(r.answer, []), optCount)
+      const userAnswer = normalizeAnswer(safeJson(r.user_answer, []), optCount)
+      const right = isAnswerRight(answer, userAnswer, optCount)
+      return {
         id: r.choice_id, q: r.q,
         options: safeJson(r.options, []),
-        userAnswer: toArr(safeJson(r.user_answer, [])),
-        answer: toArr(safeJson(r.answer, [])),
-        right: !!r.right, explain: r.explain, tag: r.tag
-      })),
+        userAnswer, answer, right, explain: r.explain, tag: r.tag
+      }
+    })
+    const correct = choiceReview.filter((c: any) => c.right).length
+    const score = choiceReview.length ? Math.round(correct / choiceReview.length * 100) : 0
+    return {
+      choiceReview,
       writtenReview: wr.map((r) => ({
         id: r.written_id, q: r.q,
         userAnswer: r.user_answer || '（未作答）',
         reference: r.reference,
         points: safeJson(r.points, [])
-      }))
+      })),
+      correct, score, total: choiceReview.length
     }
   }
+  const fcr = (safeJson(fallbackChoice, []) as any[]).map((c: any) => {
+    const optCount = (toArr(c.options) || []).length
+    const answer = normalizeAnswer(c.answer, optCount)
+    const userAnswer = normalizeAnswer(c.userAnswer, optCount)
+    return { ...c, userAnswer, answer, right: isAnswerRight(answer, userAnswer, optCount) }
+  })
+  const correct = fcr.filter((c: any) => c.right).length
+  const score = fcr.length ? Math.round(correct / fcr.length * 100) : 0
   return {
-    choiceReview: (safeJson(fallbackChoice, []) as any[]).map((c: any) => ({
-      ...c,
-      userAnswer: toArr(c.userAnswer),
-      answer: toArr(c.answer),
-      options: toArr(c.options)
-    })),
-    writtenReview: safeJson(fallbackWritten, [])
+    choiceReview: fcr,
+    writtenReview: safeJson(fallbackWritten, []),
+    correct, score, total: fcr.length
   }
 }
 

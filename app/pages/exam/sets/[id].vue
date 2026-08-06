@@ -323,18 +323,25 @@ function selectChoice(c: any, i: number) {
   }
 }
 function optClass(c: any, i: number) {
-  const correct = toArr(c.answer).includes(i)
-  const chosen = toArr(c.userAnswer).includes(i)
+  const correct = toIdxList(c.answer).includes(i)
+  const chosen = toIdxList(c.userAnswer).includes(i)
   if (correct) return 'border-emerald-500/40 bg-emerald-500/5 text-emerald-600'
   if (chosen && !correct) return 'border-rose-500/40 bg-rose-500/5 text-rose-600'
   return 'border-line text-sub'
 }
-// 前端兜底：任意值规整为数组（兼容旧数据 userAnswer 为标量下标的情形）
-function toArr(x: any): any[] {
-  if (Array.isArray(x)) return x
-  if (x == null) return []
-  if (typeof x === 'string') { try { const p = JSON.parse(x); return Array.isArray(p) ? p : [x] } catch { return [x] } }
-  return [x]
+// 前端兜底：将答案（字母如 "D" 或下标如 3/数组）统一规整为下标数组，杜绝字母 vs 下标导致高亮/判分错乱
+function toIdxList(x: any): number[] {
+  const arr = Array.isArray(x) ? x : (x == null ? [] : [x])
+  const out: number[] = []
+  for (const v of arr) {
+    if (typeof v === 'number') out.push(Math.floor(v))
+    else if (typeof v === 'string') {
+      const s = v.trim()
+      if (/^[A-Za-z]$/.test(s)) out.push(s.toUpperCase().charCodeAt(0) - 65)
+      else { const n = Number(s); if (!isNaN(n)) out.push(Math.floor(n)) }
+    }
+  }
+  return out
 }
 
 function startTimer() {

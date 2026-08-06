@@ -5,7 +5,9 @@ export default defineEventHandler((event) => {
   const id = getRouterParam(event, 'id')
   const rec = sqlite.prepare('SELECT * FROM exam_records WHERE id=? AND user_id=?').get(id, user.id)
   if (!rec) return json(event, 404, { error: '记录不存在' })
-  const { choiceReview, writtenReview } = loadExamReviews(rec.id, rec.choice_review, rec.written_review)
+  // 读取时由 loadExamReviews 重算 correct/score/total（兼容早期以字母存储答案、或判分有误的历史记录），
+  // 历史记录的分数展示也随复盘一并修正，无需数据迁移。
+  const reviews = loadExamReviews(rec.id, rec.choice_review, rec.written_review)
   // 字段名需与 submit 内联 record / rowToRecord 保持一致（camelCase），
   // 否则前端 record.setName / record.usedSeconds 取到 undefined（表现为空标签、用时 NaN:NaN），
   // 且 choiceReview/writtenReview 为空时整段复盘会退化成"空白"。
@@ -15,15 +17,15 @@ export default defineEventHandler((event) => {
     setId: rec.set_id,
     setName: rec.set_name,
     track: rec.track,
-    score: rec.score,
-    correct: rec.correct,
-    total: rec.total,
+    score: reviews.score,
+    correct: reviews.correct,
+    total: reviews.total,
     weakPoints: safeJson(rec.weak_points, []),
     level: rec.level,
     advice: rec.advice,
     usedSeconds: rec.used_seconds,
-    choiceReview,
-    writtenReview,
+    choiceReview: reviews.choiceReview,
+    writtenReview: reviews.writtenReview,
     createdAt: rec.created_at,
     nonce: rec.submit_nonce
   }
