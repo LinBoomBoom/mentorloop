@@ -58,7 +58,7 @@ export default defineNuxtConfig({
   },
   nitro: {
     // better-sqlite3 为原生模块，构建时需保持外部引用（dev 不受影响）
-    externals: { inline: [] },
+    externals: { inline: [], external: ['pdf-parse', 'mammoth', 'pdfjs-dist'] },
     // 显式声明静态资源目录，确保 og-cover.png 等被复制并由 Nitro 以 / 路径提供
     publicAssets: [
       { dir: 'app/public', baseURL: '/' }

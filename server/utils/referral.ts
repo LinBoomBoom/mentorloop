@@ -1,6 +1,7 @@
 // H4 · 内推资源库：岗位列表（按方向/城市/级别筛选）+ 申请内推（落库，供导师/HR 后续处理）
 import { sqlite, uid } from './db'
 import { createError } from 'h3'
+import { trackName } from './interview'
 
 export function listReferrals(filter: { track?: string; city?: string; level?: string } = {}) {
   const where: string[] = []

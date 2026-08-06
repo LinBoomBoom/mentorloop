@@ -28,7 +28,9 @@
     "@pinia/nuxt": "1.0.1",
     "ant-design-vue": "^4.2.6",
     "better-sqlite3": "13.0.2",
+    "mammoth": "^1.9.0",
     "nuxt": "4.5.1",
+    "pdf-parse": "^1.1.1",
     "pinia": "4.0.2",
     "vue": "3.5.40"
   },
