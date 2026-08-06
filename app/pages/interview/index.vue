@@ -47,8 +47,12 @@
           {{ answer.matched ? ('匹配自题库' + (answer.track ? ' · ' + trackName(answer.track) : '')) : 'AI 提示' }}
         </div>
         <div class="prose-dm" v-html="md(answer.answer)"></div>
-        <div v-if="answer.collected" class="mt-3 pt-3 border-t border-dashed border-ink/10 text-xs text-muted flex items-center gap-1.5">
-          <Icon name="database" :size="13" /> 该问题暂未在题库中，已收录到「待补充题库」；我们会用 AI 增强后的标题持续完善它。
+        <div v-if="!answer.matched" class="mt-3 pt-3 border-t border-dashed border-ink/10 text-xs text-muted">
+          <div class="flex items-center gap-1.5 font-medium text-sub">
+            <Icon name="database" :size="13" /> 这道题不在当前面试题库中。
+          </div>
+          <p v-if="answer.collected" class="mt-1.5 leading-relaxed">我们已把它收录到「待补充题库」，后续会经 AI 语义化增强、由管理员审核后回流进正式题库。</p>
+          <p v-else class="mt-1.5 leading-relaxed">我们会结合 AI 增强后收录到「待补充题库」，供管理员审核补充。</p>
         </div>
       </div>
       <p v-if="askErr" class="text-red-500 text-sm mt-2">{{ askErr }}</p>
@@ -114,6 +118,9 @@
                 <Icon name="checkCircle" :size="13" /> 参考答案
               </div>
               <div class="rounded-r-lg border-l-2 border-brand-coral/60 bg-brand-coral/[.04] p-3.5 prose-dm" v-html="md(item.a)"></div>
+              <div v-if="item.sectionTitle" class="flex items-center gap-1.5 mt-3 text-xs text-muted">
+                <Icon name="book" :size="13" /> 关联章节：<span class="font-medium text-sub">{{ item.sectionTitle }}</span>
+              </div>
               <div v-if="item.keywords && item.keywords.length" class="flex flex-wrap gap-1.5 mt-3">
                 <a-tag v-for="k in item.keywords.slice(0, 8)" :key="k" class="!text-[10px] !bg-ink/5 !text-muted" :bordered="false">{{ k }}</a-tag>
               </div>

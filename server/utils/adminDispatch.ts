@@ -82,7 +82,7 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
 
     // 内容：小节 (G2)
     if (seg[0] === 'sections') {
-      if (method === 'GET' && seg.length === 1) return list({ items: A.listSections(q.chapterId as string) })
+      if (method === 'GET' && seg.length === 1) return list({ items: A.listSections(q.chapterId as string, q.track as string) })
       if (method === 'POST' && seg.length === 1) return ok(A.createSection(body))
       if (seg.length === 2) {
         if (method === 'GET') return ok(A.getSection(seg[1]))
@@ -138,6 +138,25 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
     }
     if (seg[0] === 'user-questions' && method === 'PATCH' && seg.length === 2) {
       return ok(A.reviewUserQuestion(seg[1], body.decision, body))
+    }
+    // 批量审核：body.ids 为待处理项 ID 数组，decision=accept|reject，patch 为可选统一覆盖字段
+    if (seg[0] === 'user-questions' && seg[1] === 'batch' && method === 'POST' && seg.length === 2) {
+      const ids = Array.isArray(body.ids) ? body.ids : []
+      const decision = body.decision
+      if (decision !== 'accept' && decision !== 'reject') throw new HttpErr(400, 'decision 必须为 accept 或 reject')
+      let okCount = 0
+      const skipped: string[] = []
+      const failed: string[] = []
+      for (const id of ids) {
+        try {
+          const r = A.reviewUserQuestion(id, decision, body.patch || {})
+          if (r) okCount++
+          else skipped.push(String(id))
+        } catch (e: any) {
+          failed.push(String(id) + ':' + (e?.message || 'err'))
+        }
+      }
+      return ok({ okCount, skipped, failed, total: ids.length })
     }
 
     throw new HttpErr(404, '未知的管理接口：' + method + ' /' + seg.join('/'))

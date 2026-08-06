@@ -38,7 +38,9 @@ export default defineEventHandler((event) => {
 
   // 当前页数据：仅取当前题型，按 weight 降序（高频题优先）再按 id 稳定排序
   const rows = sqlite.prepare(
-    `SELECT id,q,a,keywords,tech,difficulty FROM interview_questions
+    `SELECT id,q,a,keywords,tech,difficulty,section_id,
+       (SELECT s.title FROM sections s WHERE s.id = interview_questions.section_id) AS section_title
+     FROM interview_questions
      WHERE ${where} AND type=?
      ORDER BY COALESCE(weight,0) DESC, id
      LIMIT ? OFFSET ?`
@@ -72,7 +74,8 @@ export default defineEventHandler((event) => {
         a: r.a,
         keywords: JSON.parse(r.keywords || '[]'),
         tech: r.tech || '综合',
-        difficulty: r.difficulty || 'normal'
+        difficulty: r.difficulty || 'normal',
+        sectionTitle: r.section_title || null
       }))
     }
   })

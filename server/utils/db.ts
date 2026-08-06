@@ -83,6 +83,40 @@ function classifyTech(track: string, q: string, keywordsJson?: string, a?: strin
   return best
 }
 
+// 自动关联：依据方向 + 题干 + 关键词，在 sections 中找出最相关的小节。
+// 评分：关键词命中「章节标题/所属章节标题」权重最高，命中正文次之；题干与章节标题的字符重合作弱信号。
+// 找不到或方向无小节时返回 null（调用方据此跳过关联，不报错）。
+function normSectionText(s: string) {
+  return (s || '').toLowerCase().replace(/[\s,，。？?、；;：:！!().（）「」"'""'']/g, '')
+}
+export function findBestSection(track: string, q: string, keywords: string[]): { id: string; title: string; chapterTitle: string } | null {
+  const rows = sqlite.prepare(
+    `SELECT s.id, s.title, c.title AS chapter_title, s.content FROM sections s JOIN chapters c ON c.id = s.chapter_id WHERE s.direction = ?`
+  ).all(track) as any[]
+  if (!rows.length) return null
+  const kwNorm = (keywords || []).map((k) => normSectionText(k)).filter((k) => k.length > 1)
+  const qNorm = normSectionText(q)
+  let best: any = null
+  let bestScore = 0
+  for (const r of rows) {
+    const head = normSectionText(r.title) + ' ' + normSectionText(r.chapter_title)
+    const body = head + ' ' + normSectionText(r.content)
+    let score = 0
+    for (const k of kwNorm) {
+      if (head.includes(k)) score += 5
+      else if (body.includes(k)) score += 2
+    }
+    if (qNorm) {
+      let shared = 0
+      const t = normSectionText(r.title)
+      for (const ch of qNorm) if (t.includes(ch)) shared++
+      score += Math.min(shared, 12) * 0.2
+    }
+    if (score > bestScore) { bestScore = score; best = r }
+  }
+  return best && bestScore > 0 ? { id: best.id, title: best.title, chapterTitle: best.chapter_title } : null
+}
+
 const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
   {
     version: 1,
@@ -527,6 +561,16 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       // 审核回溯：记录采纳后生成的正式面试题 ID 与审核时间，便于后台追踪与去重展示。
       try { db.exec('ALTER TABLE user_questions ADD COLUMN result_question_id TEXT') } catch { /* 列已存在则忽略 */ }
       try { db.exec('ALTER TABLE user_questions ADD COLUMN reviewed_at INTEGER') } catch { /* 列已存在则忽略 */ }
+    }
+  },
+  {
+    version: 14,
+    name: 'interview_question_section',
+    up: (db) => {
+      // 自动关联：采纳「待补充题库」题时，把它关联到最相关的小节（section），
+      // 让用户在前台面试题库里能看到该题对应的学习章节，形成「学→问」闭环。
+      try { db.exec('ALTER TABLE interview_questions ADD COLUMN section_id TEXT') } catch { /* 列已存在则忽略 */ }
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_iq_section ON interview_questions(section_id)') } catch { /* 列已存在则忽略 */ }
     }
   }
 ]

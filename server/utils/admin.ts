@@ -1,6 +1,6 @@
 // 管理后台数据访问层（G 类：用户体系 / 内容 / 题库 / 订单 CRUD + 看板）
 // 纯函数式助手，直接操作 sqlite；路由层只负责鉴权 + 包装响应。可被 vitest 直接测试。
-import { sqlite, hashPwd, publicUser, uid } from './db'
+import { sqlite, hashPwd, publicUser, uid, findBestSection } from './db'
 import { trackName } from './referral'
 
 /* ============ 用户体系 (G4) ============ */
@@ -40,7 +40,23 @@ export function listUserQuestions(f: UserQuestionFilter = {}) {
   const pageSize = Math.min(100, f.pageSize || 30)
   const rows = sqlite.prepare(`SELECT * FROM user_questions ${w} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .all(...params, pageSize, (page - 1) * pageSize) as any[]
-  return { total, page, pageSize, items: rows }
+  const items = rows.map((it: any) => {
+    const safeTags = (() => { try { return JSON.parse(it.enhanced_tags || '[]') } catch { return [] } })()
+    const base: any = { ...it, enhanced_tags: it.enhanced_tags || '[]' }
+    if (it.status === 'pending') {
+      // 待审核：预计算建议关联的小节，供审核页展示与一键采纳
+      base.suggest = findBestSection(it.track || 'frontend', it.enhanced_title || it.raw_question || '', safeTags)
+    } else if (it.status === 'accepted' && it.result_question_id) {
+      // 已采纳：回显实际关联的小节
+      const iq = sqlite.prepare('SELECT section_id FROM interview_questions WHERE id=?').get(it.result_question_id) as any
+      if (iq && iq.section_id) {
+        const s = sqlite.prepare(`SELECT s.title, c.title AS chapter_title FROM sections s JOIN chapters c ON c.id=s.chapter_id WHERE s.id=?`).get(iq.section_id) as any
+        if (s) base.section = { id: iq.section_id, title: s.title, chapterTitle: s.chapter_title }
+      }
+    }
+    return base
+  })
+  return { total, page, pageSize, items }
 }
 
 // 审核「待补充题库」中的用户提问。
@@ -68,14 +84,17 @@ export function reviewUserQuestion(id: string, decision: string, patch: any = {}
   const type = (patch.type ?? 'hot').toString()
   const keywords = Array.isArray(patch.keywords) ? patch.keywords : tags
 
+  // 自动关联：优先用管理员指定的小节，否则按方向 + 题干 + 标签自动匹配最相关小节
+  const sectionId = patch.sectionId || findBestSection(track, qText, keywords)?.id || null
+
   // 生成唯一且合规的正式题 ID；允许管理员显式指定，冲突则自动回退
   let nid = patch.id && /^[a-z0-9_-]{2,60}$/.test(String(patch.id)) ? String(patch.id) : ''
   if (!nid || getInterview(nid)) nid = uid('iq_')
-  createInterview({ id: nid, track, type, q: qText, a: aText, keywords })
+  createInterview({ id: nid, track, type, q: qText, a: aText, keywords, sectionId })
 
   sqlite.prepare('UPDATE user_questions SET status=?, result_question_id=?, reviewed_at=?, updated_at=? WHERE id=?')
     .run('accepted', nid, now, now, id)
-  return { id, status: 'accepted', questionId: nid }
+  return { id, status: 'accepted', questionId: nid, sectionId }
 }
 export function updateUser(id: string, patch: any) {
   const u = sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
@@ -196,8 +215,9 @@ export function deleteChapter(id: string) {
 }
 
 /* ============ 内容：小节 (G2) ============ */
-export function listSections(chapterId?: string) {
+export function listSections(chapterId?: string, track?: string) {
   if (chapterId) return sqlite.prepare('SELECT * FROM sections WHERE chapter_id=? ORDER BY position').all(chapterId)
+  if (track) return sqlite.prepare(`SELECT s.id, s.title, c.title AS chapter_title FROM sections s JOIN chapters c ON c.id = s.chapter_id WHERE s.direction=? ORDER BY c.title, s.position`).all(track)
   return sqlite.prepare('SELECT * FROM sections ORDER BY chapter_id, position').all()
 }
 export function getSection(id: string) { return sqlite.prepare('SELECT * FROM sections WHERE id=?').get(id) || null }
@@ -323,8 +343,8 @@ export function createInterview(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,60}$/.test(id)) throw new Error('INVALID_ID')
   if (getInterview(id)) throw new Error('DUP_ID')
-  sqlite.prepare('INSERT INTO interview_questions (id,track,type,q,a,keywords) VALUES (?,?,?,?,?,?)')
-    .run(id, data.track || 'frontend', data.type || 'hot', data.q || '', data.a || '', JSON.stringify(data.keywords || []))
+  sqlite.prepare('INSERT INTO interview_questions (id,track,type,q,a,keywords,section_id) VALUES (?,?,?,?,?,?,?)')
+    .run(id, data.track || 'frontend', data.type || 'hot', data.q || '', data.a || '', JSON.stringify(data.keywords || []), data.sectionId || null)
   return getInterview(id)
 }
 export function updateInterview(id: string, patch: any) {
@@ -335,6 +355,7 @@ export function updateInterview(id: string, patch: any) {
   if (patch.q !== undefined) { sets.push('q=?'); v.push(patch.q) }
   if (patch.a !== undefined) { sets.push('a=?'); v.push(patch.a) }
   if (patch.keywords !== undefined) { sets.push('keywords=?'); v.push(JSON.stringify(patch.keywords)) }
+  if (patch.sectionId !== undefined) { sets.push('section_id=?'); v.push(patch.sectionId || null) }
   if (!sets.length) return r
   v.push(id); sqlite.prepare(`UPDATE interview_questions SET ${sets.join(',')} WHERE id=?`).run(...v)
   return getInterview(id)
