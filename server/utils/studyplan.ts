@@ -10,6 +10,9 @@ const TRACK_NAMES: Record<string, string> = {
 export const VALID_TRACKS = ['frontend', 'backend', 'devops', 'ai']
 function trackName(t: string) { return TRACK_NAMES[t] || t || '通用' }
 const PLAN_TTL_MS = 7 * 86400000
+// 进程内短时效缓存：同一用户同一方向在会话内重复请求直接命中，避免重复解析/落库抖动
+const memCache = new Map<string, { at: number; data: any }>()
+const MEM_TTL_MS = 5 * 60_000
 
 export class NoRecordsError extends Error {
   constructor() { super('NO_RECORDS'); this.name = 'NoRecordsError' }
@@ -69,11 +72,20 @@ export async function getOrCreateStudyPlan(userId: string, opts: { force?: boole
   // 该方向没有自己的答卷时，标记为「跨方向推断」，前端会给出说明
   const inferred = !!wanted && !scoped.length
 
+  // 进程内缓存优先，避免同会话内重复解析/落库
+  const mk = `${userId}:${track}`
+  if (!force) {
+    const mc = memCache.get(mk)
+    if (mc && (Date.now() - mc.at) < MEM_TTL_MS) return mc.data
+  }
+
   const cached = sqlite.prepare(
     'SELECT * FROM study_plans WHERE user_id=? AND track=? ORDER BY created_at DESC LIMIT 1'
   ).get(userId, track) as any
+
+  let result: any
   if (cached && !force && (Date.now() - cached.created_at) < PLAN_TTL_MS) {
-    return {
+    result = {
       track,
       weakPoints: safeParse(cached.weak_points, []),
       plan: decorate(safeParse(cached.plan, { summary: '', milestones: [] }), track),
@@ -81,19 +93,32 @@ export async function getOrCreateStudyPlan(userId: string, opts: { force?: boole
       inferred,
       generatedAt: cached.created_at
     }
+  } else {
+    if (!llmEnabled()) throw new Error('AI 服务未配置（缺少 DEEPSEEK_API_KEY）')
+    const { rows } = chapterIndex(track)
+    const generated = await generatePlan(track, weakPoints, rows.map((r: any) => r.title))
+
+    const now = Date.now()
+    // 只清理该方向的旧计划，其它方向的缓存保留（切换方向时才不会每次都重新烧 token）
+    sqlite.prepare('DELETE FROM study_plans WHERE user_id=? AND track=?').run(userId, track)
+    sqlite.prepare('INSERT INTO study_plans (id,user_id,track,weak_points,plan,created_at) VALUES (?,?,?,?,?,?)')
+      .run(uid('sp_'), userId, track, JSON.stringify(weakPoints), JSON.stringify(generated), now)
+
+    result = { track, weakPoints, plan: decorate(generated, track), cached: false, inferred, generatedAt: now }
   }
 
-  if (!llmEnabled()) throw new Error('AI 服务未配置（缺少 DEEPSEEK_API_KEY）')
-  const { rows } = chapterIndex(track)
-  const generated = await generatePlan(track, weakPoints, rows.map((r: any) => r.title))
+  // 写入进程内缓存，命中后同会话内重复切换零延迟
+  memCache.set(`${userId}:${track}`, { at: Date.now(), data: result })
+  return result
+}
 
-  const now = Date.now()
-  // 只清理该方向的旧计划，其它方向的缓存保留（切换方向时才不会每次都重新烧 token）
-  sqlite.prepare('DELETE FROM study_plans WHERE user_id=? AND track=?').run(userId, track)
-  sqlite.prepare('INSERT INTO study_plans (id,user_id,track,weak_points,plan,created_at) VALUES (?,?,?,?,?,?)')
-    .run(uid('sp_'), userId, track, JSON.stringify(weakPoints), JSON.stringify(generated), now)
-
-  return { track, weakPoints, plan: decorate(generated, track), cached: false, inferred, generatedAt: now }
+// 首次生成某方向后，后台（fire-and-forget）把其余方向也一并生成并落库缓存，
+// 这样用户切换其余 tab 时数据库已命中 7 天缓存，无需再等大模型，首切即快。
+export function prewarmTracks(userId: string, excludeTrack: string) {
+  for (const t of VALID_TRACKS) {
+    if (t === excludeTrack) continue
+    getOrCreateStudyPlan(userId, { track: t }).catch(() => {})
+  }
 }
 
 async function generatePlan(track: string, weakPoints: any[], chapters: string[]) {

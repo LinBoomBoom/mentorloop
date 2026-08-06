@@ -10,11 +10,11 @@
       <button
         v-for="t in TRACKS"
         :key="t"
-        class="px-3.5 py-1.5 rounded-full text-sm font-medium transition disabled:opacity-50"
+        class="px-3.5 py-1.5 rounded-full text-sm font-medium transition disabled:opacity-50 flex items-center gap-1.5"
         :class="selectedTrack === t ? 'bg-brand-coral text-white shadow-sm' : 'bg-ink/5 text-sub hover:bg-ink/10'"
-        :disabled="loading"
+        :disabled="pendingTrack === t"
         @click="selectTrack(t)"
-      >{{ trackName(t) }}</button>
+      ><Icon v-if="pendingTrack === t" name="spinner" :size="14" class="animate-spin" /><span>{{ trackName(t) }}</span></button>
     </div>
 
     <!-- 门禁 -->
@@ -37,7 +37,14 @@
     </div>
 
     <!-- 路径 -->
-    <div v-else-if="plan" class="space-y-5">
+    <div v-else-if="plan" class="relative">
+      <!-- 切换方向时的轻量加载态：保留旧内容，仅叠加遮罩与 spinner，避免整页空白闪一下 -->
+      <div v-if="switching" class="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-white/55 backdrop-blur-[1px] rounded-2xl">
+        <div class="flex items-center gap-2 text-sm text-brand-coral font-medium">
+          <Icon name="spinner" :size="18" class="animate-spin" /> 正在为你生成「{{ trackName(pendingTrack || plan.track) }}」路径…
+        </div>
+      </div>
+      <div :class="switching ? 'opacity-60 pointer-events-none select-none' : ''" class="space-y-5 transition-opacity">
       <!-- AI 教学联动：把纯文本路径变成可执行的练习入口 -->
       <div class="card p-5 border border-brand-coral/20 bg-gradient-to-br from-brand-coral/[.06] to-transparent reveal">
         <div class="flex items-center gap-2 mb-2 text-sm font-semibold text-brand-coral">
@@ -82,6 +89,7 @@
           <NuxtLink :to="`/interview/sim?track=${plan.track}`" class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-coral hover:underline"><Icon name="chat" :size="13" /> AI 模拟面试：{{ m.interviewGoal }}</NuxtLink>
         </div>
       </div>
+      </div>
     </div>
 
     <p v-if="err" class="text-red-500 text-sm mt-4">{{ err }}</p>
@@ -94,11 +102,16 @@ const { guard } = useLoginGate()
 
 const vipOk = ref(false)
 const gate = ref<any>(null)
-const loading = ref(true)
+const loading = ref(true)      // 仅首次加载用整页骨架
+const switching = ref(false)   // 切 tab 用轻量加载态（保留旧内容，不整页空白）
+const pendingTrack = ref('')   // 正在加载的方向
 const plan = ref<any>(null)
 const noRecord = ref(false)
 const err = ref('')
 const selectedTrack = ref<string>('')
+
+// 前端按方向缓存：切回已加载过的方向零延迟，无需再请求/再空白
+const plansCache = reactive<Record<string, any>>({})
 
 const TRACKS = ['frontend', 'backend', 'devops', 'ai'] as const
 const TRACK_NAMES: Record<string, string> = { frontend: '前端', backend: '后端', devops: '运维 / DevOps', ai: 'AI 工程' }
@@ -114,22 +127,38 @@ useSeoMeta({
 
 // 生成/获取学习路径；不传 track 时由后端按作答推断主方向，传 track 时按方向切缓存动态切换
 async function generate(track?: string, force = false) {
-  loading.value = true; err.value = ''; noRecord.value = false
+  err.value = ''; noRecord.value = false
+  const key = track || ''
+  // 命中前端缓存 → 立即切换，零等待、零空白
+  if (!force && plansCache[key]) {
+    plan.value = plansCache[key]
+    selectedTrack.value = plansCache[key].track
+    switching.value = false
+    pendingTrack.value = ''
+    return
+  }
+  // 切 tab 时保留旧内容（仅首次加载才用整页骨架），用轻量遮罩提示加载中
+  if (plan.value && track) { switching.value = true; pendingTrack.value = track }
+  else loading.value = true
   try {
     const body: any = { force }
     if (track) body.track = track
     const r: any = await request('/api/vip/path', { method: 'POST', body })
+    plansCache[key] = r
     plan.value = r
     selectedTrack.value = r.track
   } catch (e: any) {
     if (/至少一次模拟考试/.test(e.message)) noRecord.value = true
     else err.value = e.message
-  } finally { loading.value = false }
+  } finally {
+    loading.value = false
+    switching.value = false
+    pendingTrack.value = ''
+  }
 }
 
 function selectTrack(t: string) {
-  if (t === selectedTrack.value) return
-  selectedTrack.value = t
+  if (t === selectedTrack.value && !switching.value) return
   generate(t)
 }
 

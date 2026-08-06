@@ -6,6 +6,8 @@ export default defineEventHandler(async (event) => {
   const { force, track } = await readBody(event)
   try {
     const res = await getOrCreateStudyPlan(user.id, { force, track })
+    // 首次真正生成时，后台预热其余方向，使切换其它 tab 也能秒开
+    if (res.cached === false) prewarmTracks(user.id, res.track)
     return json(event, 200, res)
   } catch (e: any) {
     if (e && e.name === 'NoRecordsError') return json(event, 409, { error: '请先完成至少一次模拟考试，我们才能为你定制学习路径' })
