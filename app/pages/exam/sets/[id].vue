@@ -166,62 +166,82 @@
         </div>
       </a-card>
 
+      <!-- 复盘数据不完整提示（早期记录/数据缺失时） -->
+      <a-alert v-if="!hasReviews" type="warning" class="mb-6"
+               message="本复盘的题目与答案数据不完整"
+               description="该记录可能来自较早版本或数据写入异常，无法展示逐题复盘。建议重新作答本卷以获取完整复盘。" show-icon />
+
       <!-- 选择题复盘 -->
-      <h3 class="section-title mb-3">选择题复盘</h3>
-      <div class="space-y-3 mb-8">
-        <a-card v-for="(c, idx) in record.choiceReview" :key="c.id" :body-style="{ padding: '20px' }"
-                :class="c.right ? '!border-emerald-500/25' : '!border-rose-500/25'">
-          <div class="flex items-start gap-3 mb-3">
-            <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                  :class="c.right ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'">
-              <Icon :name="c.right ? 'check' : 'x'" :size="15" />
-            </span>
-            <p class="text-sm font-semibold leading-relaxed flex-1">
-              <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ c.q }}
-            </p>
-            <a-tag shrink-0 class="!py-0.5 !text-[10px]" :bordered="false">{{ c.tag }}</a-tag>
-          </div>
-          <div class="grid sm:grid-cols-2 gap-2">
-            <div v-for="(opt, i) in c.options" :key="i"
-                 class="px-3.5 py-2.5 rounded-xl border text-sm flex items-center gap-2.5"
-                 :class="optClass(c, i)">
-              <span class="w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-xs font-bold"
-                    :class="optClass(c, i).includes('emerald') ? 'bg-emerald-500 text-white'
-                      : optClass(c, i).includes('rose') ? 'bg-rose-500 text-white' : 'bg-ink/10 text-muted'">{{ optLabel(i) }}</span>
-              <span class="flex-1 min-w-0 break-words">{{ opt }}</span>
+      <template v-if="record.choiceReview && record.choiceReview.length">
+        <h3 class="section-title mb-3">选择题复盘</h3>
+        <div class="space-y-3 mb-8">
+          <a-card v-for="(c, idx) in record.choiceReview" :key="c.id" :body-style="{ padding: '20px' }"
+                  :class="c.right ? '!border-emerald-500/25' : '!border-rose-500/25'">
+            <div class="flex items-start gap-3 mb-3">
+              <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
+                    :class="c.right ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'">
+                <Icon :name="c.right ? 'check' : 'x'" :size="15" />
+              </span>
+              <p class="text-sm font-semibold leading-relaxed flex-1">
+                <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ c.q }}
+              </p>
+              <a-tag shrink-0 class="!py-0.5 !text-[10px]" :bordered="false">{{ c.tag }}</a-tag>
             </div>
-          </div>
-          <div v-if="c.explain" class="mt-3 text-xs text-sub bg-ink/5 rounded-xl p-3 leading-relaxed">
-            <span class="font-semibold text-brand-coral">解析：</span>{{ c.explain }}
-          </div>
-        </a-card>
-      </div>
+            <div class="grid sm:grid-cols-2 gap-2">
+              <div v-for="(opt, i) in c.options" :key="i"
+                   class="px-3.5 py-2.5 rounded-xl border text-sm flex items-center gap-2.5"
+                   :class="optClass(c, i)">
+                <span class="w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-xs font-bold"
+                      :class="optClass(c, i).includes('emerald') ? 'bg-emerald-500 text-white'
+                        : optClass(c, i).includes('rose') ? 'bg-rose-500 text-white' : 'bg-ink/10 text-muted'">{{ optLabel(i) }}</span>
+                <span class="flex-1 min-w-0 break-words">{{ opt }}</span>
+              </div>
+            </div>
+            <div v-if="c.explain" class="mt-3 text-xs text-sub bg-ink/5 rounded-xl p-3 leading-relaxed">
+              <span class="font-semibold text-brand-coral">解析：</span>{{ c.explain }}
+            </div>
+          </a-card>
+        </div>
+      </template>
 
       <!-- 笔试题复盘 -->
-      <h3 class="section-title mb-3">笔试题复盘</h3>
-      <div class="space-y-3">
-        <a-card v-for="(w, idx) in record.writtenReview" :key="w.id" :body-style="{ padding: '20px' }">
-          <p class="text-sm font-semibold leading-relaxed mb-3">
-            <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ w.q }}
-          </p>
-          <div class="grid md:grid-cols-2 gap-3">
-            <div class="rounded-xl p-3 bg-ink/[.04]">
-              <div class="text-[11px] font-semibold text-muted mb-1.5">你的作答</div>
-              <div class="text-sm whitespace-pre-wrap leading-relaxed">{{ w.userAnswer }}</div>
+      <template v-if="record.writtenReview && record.writtenReview.length">
+        <h3 class="section-title mb-3">笔试题复盘</h3>
+        <div class="space-y-3">
+          <a-card v-for="(w, idx) in record.writtenReview" :key="w.id" :body-style="{ padding: '20px' }">
+            <p class="text-sm font-semibold leading-relaxed mb-3">
+              <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ w.q }}
+            </p>
+            <div class="grid md:grid-cols-2 gap-3">
+              <div class="rounded-xl p-3 bg-ink/[.04]">
+                <div class="text-[11px] font-semibold text-muted mb-1.5">你的作答</div>
+                <div class="text-sm whitespace-pre-wrap leading-relaxed">{{ w.userAnswer }}</div>
+              </div>
+              <div class="rounded-xl p-3 bg-brand-coral/[.06] border border-brand-coral/15">
+                <div class="text-[11px] font-semibold text-brand-coral mb-1.5">参考要点</div>
+                <div class="text-sm whitespace-pre-wrap leading-relaxed">{{ w.reference }}</div>
+                <ul v-if="w.points?.length" class="mt-2 space-y-1">
+                  <li v-for="p in w.points" :key="p" class="text-xs text-sub flex items-start gap-1.5">
+                    <Icon name="check" :size="13" class="text-emerald-500 mt-0.5 shrink-0" />{{ p }}
+                  </li>
+                </ul>
+              </div>
             </div>
-            <div class="rounded-xl p-3 bg-brand-coral/[.06] border border-brand-coral/15">
-              <div class="text-[11px] font-semibold text-brand-coral mb-1.5">参考要点</div>
-              <div class="text-sm whitespace-pre-wrap leading-relaxed">{{ w.reference }}</div>
-              <ul v-if="w.points?.length" class="mt-2 space-y-1">
-                <li v-for="p in w.points" :key="p" class="text-xs text-sub flex items-start gap-1.5">
-                  <Icon name="check" :size="13" class="text-emerald-500 mt-0.5 shrink-0" />{{ p }}
-                </li>
-              </ul>
-            </div>
-          </div>
-        </a-card>
-      </div>
+          </a-card>
+        </div>
+      </template>
     </div>
+
+    <!-- 兜底：任何未命中上述状态的异常态都不应整页空白，给出错误与重试入口 -->
+    <a-card v-else class="text-center" :body-style="{ padding: '40px' }">
+      <Icon name="alertTriangle" :size="48" class="text-muted mx-auto mb-4" />
+      <h2 class="text-lg font-extrabold mb-2">页面状态异常</h2>
+      <p class="text-sm text-muted mb-6">交卷或加载过程中发生异常，请重试。若问题持续，可重新进入本卷。</p>
+      <div class="flex items-center justify-center gap-3">
+        <NuxtLink to="/exam"><a-button type="primary">返回试卷列表</a-button></NuxtLink>
+        <a-button @click="phase = 'loading'; refresh()">重新加载</a-button>
+      </div>
+    </a-card>
   </div>
 </template>
 
@@ -261,6 +281,9 @@ const timeTight = computed(() => !!dur.value && timeLeft.value <= 60)
 
 const vipLocked = computed(() => !!set.value?.vipOnly && !auth.isVip)
 
+// 复盘题目/答案是否完整：为空时（多来自早期记录或数据缺失）应给出提示而非渲染两个空标题
+const hasReviews = computed(() => ((record.value?.choiceReview?.length) || 0) + ((record.value?.writtenReview?.length) || 0) > 0)
+
 // 交卷遮罩里的进度提示：让用户清楚「提交了多少题」而不是盯着一个转圈的按钮
 const totalCount = computed(() => (set.value?.choices?.length || 0) + (set.value?.written?.length || 0))
 const answeredCount = computed(() => {
@@ -274,7 +297,9 @@ const answeredCount = computed(() => {
 
 const optLabel = (i: number) => String.fromCharCode(65 + i)
 const fmt = (s: number) => {
-  s = Math.max(0, Math.floor(s))
+  s = Number(s)
+  if (!isFinite(s) || s < 0) s = 0
+  s = Math.floor(s)
   const m = Math.floor(s / 60), ss = s % 60
   return `${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
 }
@@ -348,6 +373,9 @@ async function submit() {
       // P1-6：将 attemptId 交给服务端，由服务端根据开考时间计算真实用时
       body: { setId: set.value.id, choiceAnswers, writtenAnswers, usedSeconds: 0, nonce: submitNonce, attemptId: attemptId.value }
     })
+    // 防御：若响应缺少 record（数据缺失/接口异常），不要进入空白复盘，
+    // 而是抛错走 catch —— 保留答题页并提示用户重试，避免"整页空白、题目答案全无"。
+    if (!res || !res.record) throw new Error('复盘数据为空，请重试')
     record.value = res.record
     phase.value = 'review'
     // 交卷后整块视图被替换，若不回到顶部，用户仍停在页面中段会误以为「还在加载」
@@ -396,6 +424,7 @@ onMounted(async () => {
   if (recordId) {
     try {
       const r: any = await request('/api/exam/records/' + recordId)
+      if (!r || !r.record) throw new Error('该复盘记录数据缺失或已不可用')
       record.value = r.record
       phase.value = 'review'
       stopTimer()
