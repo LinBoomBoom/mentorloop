@@ -498,6 +498,27 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       )`)
       db.exec('CREATE INDEX IF NOT EXISTS idx_exam_attempts_user_set ON exam_attempts(user_id, set_id, status, started_at)')
     }
+  },
+  {
+    version: 12,
+    name: 'user-questions',
+    up: (db) => {
+      // M6 内容扩建：面试题库「待补充池」。收录用户提问中题库未命中的题目，
+      // 经 LLM 语义化增强标题/标签后供管理员审核、回流进面试题库。
+      db.exec(`CREATE TABLE IF NOT EXISTS user_questions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        track TEXT,
+        raw_question TEXT NOT NULL,
+        enhanced_title TEXT,
+        enhanced_tags TEXT,
+        ai_answer TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at INTEGER,
+        updated_at INTEGER
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_user_questions_status ON user_questions(status, created_at DESC)')
+    }
   }
 ]
 

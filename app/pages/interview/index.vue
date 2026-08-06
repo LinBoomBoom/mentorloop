@@ -29,12 +29,27 @@
         <input v-model="askText" class="input flex-1" placeholder="问我点什么？比如：Vue3 响应式原理、Redis 缓存击穿…" @keyup.enter="ask" />
         <a-button type="primary" class="shrink-0 !h-[42px]" @click="ask" :disabled="asking"><Icon name="sparkles" :size="16" /> 提问</a-button>
       </div>
-      <div v-if="answer" class="rounded-xl p-4 mt-2" :class="answer.matched ? 'bg-brand-coral/5 border border-brand-coral/20' : 'bg-ink/5'">
+      <!-- 生成中过渡块：LLM 推理可能需要数秒，给出可见反馈，避免用户以为卡死而反复点击/刷新 -->
+      <div v-if="generating" class="rounded-xl p-4 mt-2 bg-ink/5 border border-dashed border-brand-coral/30">
+        <div class="flex items-center gap-2 mb-3 text-xs font-semibold text-brand-coral">
+          <Icon name="spinner" :size="16" class="animate-spin" /> AI 模型生成中…（基于大模型推理，通常需要几秒，请稍候）
+        </div>
+        <div class="space-y-2">
+          <div class="h-3 rounded bg-ink/10 animate-pulse"></div>
+          <div class="h-3 rounded bg-ink/10 animate-pulse w-5/6"></div>
+          <div class="h-3 rounded bg-ink/10 animate-pulse w-2/3"></div>
+          <div class="h-3 rounded bg-ink/10 animate-pulse w-1/2"></div>
+        </div>
+      </div>
+      <div v-else-if="answer" class="rounded-xl p-4 mt-2" :class="answer.matched ? 'bg-brand-coral/5 border border-brand-coral/20' : 'bg-ink/5'">
         <div class="flex items-center gap-2 mb-2 text-xs font-semibold" :class="answer.matched ? 'text-brand-coral' : 'text-muted'">
           <Icon :name="answer.matched ? 'checkCircle' : 'sparkles'" :size="15" />
           {{ answer.matched ? ('匹配自题库' + (answer.track ? ' · ' + trackName(answer.track) : '')) : 'AI 提示' }}
         </div>
         <div class="prose-dm" v-html="md(answer.answer)"></div>
+        <div v-if="answer.collected" class="mt-3 pt-3 border-t border-dashed border-ink/10 text-xs text-muted flex items-center gap-1.5">
+          <Icon name="database" :size="13" /> 该问题暂未在题库中，已收录到「待补充题库」；我们会用 AI 增强后的标题持续完善它。
+        </div>
       </div>
       <p v-if="askErr" class="text-red-500 text-sm mt-2">{{ askErr }}</p>
     </a-card>
@@ -165,6 +180,8 @@ const askText = ref('')
 const askTrack = ref(typeof qAsk === 'string' && VALID_TRACKS.includes(qAsk) ? qAsk : '')
 const answer = ref<any>(null)
 const asking = ref(false)
+const generating = ref(false) // 延迟 300ms 后才显示「生成中」过渡块，避免题库命中时的快速闪烁
+const genTimer: any = null
 const askErr = ref('')
 
 // 难度三档展示：常规/较难/困难（medium 为原被塌缩掉的「较难」中间档）
@@ -203,12 +220,21 @@ onBeforeUnmount(() => { if (searchTimer) clearTimeout(searchTimer) })
 watch(askText, (v) => {
   if (!v.trim()) { answer.value = null; askErr.value = '' }
 })
+onBeforeUnmount(() => { if (genTimer) clearTimeout(genTimer) })
 async function ask() {
   if (!askText.value) { askErr.value = '请先输入问题'; return }
   if (await guard()) return // 未登录 → 引导登录
-  asking.value = true; askErr.value = ''
+  asking.value = true; askErr.value = ''; answer.value = null
+  // 延迟 300ms 显示「生成中」过渡块：题库命中等快速响应不会出现闪烁，
+  // 而 LLM 推理（通常数秒）期间能给出明确反馈，避免用户误以为卡死而反复点击/刷新
+  if (genTimer) clearTimeout(genTimer)
+  const timer = setTimeout(() => { if (asking.value) generating.value = true }, 300)
   try {
     answer.value = await request('/api/interview/ask', { method: 'POST', body: { track: askTrack.value || undefined, question: askText.value } })
-  } catch (e: any) { askErr.value = e.message } finally { asking.value = false }
+  } catch (e: any) { askErr.value = e.message } finally {
+    clearTimeout(timer)
+    asking.value = false
+    generating.value = false
+  }
 }
 </script>

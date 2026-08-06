@@ -54,13 +54,42 @@ export default defineEventHandler(async (event) => {
       const trackHint = track ? `用户指定的技术方向为「${track}」。` : ''
       const sys = `你是资深技术面试官与导师。用户提出一个技术面试相关问题，请基于你的知识给出准确、结构化的中文解答，包含核心要点，必要时给出简短代码示例。若问题与编程 / 技术面试无关或你确实无法回答，请诚实说明，不要编造内容。`
       const userMsg = `${trackHint}问题：${question}`
-      const text = await getLlm().chat(
-        [{ role: 'system', content: sys }, { role: 'user', content: userMsg }],
-        { temperature: 0.5, maxTokens: 1200 }
-      )
-      const ans = text && text.trim() ? text.trim() : ''
+      // 并行：① 生成解答 ② 对问题做语义化增强（改写成精准、可检索的面试题标题 + 技术标签），
+      // 用于把「题库未命中」的用户提问收录进「待补充题库」，经 AI 增强后便于后续审核回流。
+      const titleSys = `你是技术内容编辑。用户提了一个技术 / 面试问题，请将其改写为一句精准、可检索、语义完整的「面试题标题」，便于日后收录进面试题库。只输出一个 JSON 对象：{"title":"<中文标题，10-30 字>","tags":["<技术关键词>","..."]}，不要任何解释或代码块标记。标题内如需举例请用单引号。`
+      const titleMsg = `方向：${track || '未指定'}。原始问题：${question}`
+      const [ansText, enhanceRaw] = await Promise.all([
+        getLlm().chat(
+          [{ role: 'system', content: sys }, { role: 'user', content: userMsg }],
+          { temperature: 0.5, maxTokens: 1200 }
+        ),
+        getLlm().chat(
+          [{ role: 'system', content: titleSys }, { role: 'user', content: titleMsg }],
+          { temperature: 0.3, maxTokens: 160 }
+        )
+      ])
+      const ans = ansText && ansText.trim() ? ansText.trim() : ''
+      // 解析增强标题（容错：解析失败则用原始问题作标题）
+      let enhancedTitle = ''
+      let enhancedTags: string[] = []
+      try {
+        const p = parseJsonBlock(enhanceRaw || '')
+        if (p && typeof p === 'object') {
+          enhancedTitle = (p.title || '').toString().trim().slice(0, 80)
+          if (Array.isArray(p.tags)) enhancedTags = p.tags.map((x: any) => String(x).trim()).filter(Boolean).slice(0, 6)
+        }
+      } catch { /* 容错：下方兜底 */ }
+      if (!enhancedTitle) enhancedTitle = question.trim().slice(0, 80)
       if (ans) {
-        return json(event, 200, { matched: false, answer: ans, source: 'ai', track: track || undefined })
+        const collected = collectUserQuestion({
+          userId: user.id,
+          track: track || undefined,
+          raw: question.trim(),
+          enhancedTitle,
+          enhancedTags,
+          aiAnswer: ans
+        })
+        return json(event, 200, { matched: false, answer: ans, source: 'ai', track: track || undefined, collected })
       }
     } catch {
       // LLM 调用异常时落到下方兜底文案，不影响主流程
@@ -74,6 +103,31 @@ export default defineEventHandler(async (event) => {
     source: 'fallback'
   })
 })
+
+// 把「题库未命中」的用户提问收录进 user_questions（待补充池）。
+// 同用户 + 同一原始问题去重：已存在则更新增强结果与答案，避免反复提问产生重复行。
+// 收录失败不影响主响应（用户仍能拿到答案），仅静默返回 false。
+function collectUserQuestion(o: {
+  userId: string; track?: string; raw: string;
+  enhancedTitle: string; enhancedTags: string[]; aiAnswer: string
+}): boolean {
+  try {
+    const now = Date.now()
+    const existing = sqlite.prepare('SELECT id FROM user_questions WHERE user_id=? AND raw_question=?').get(o.userId, o.raw) as any
+    if (existing) {
+      sqlite.prepare(
+        'UPDATE user_questions SET track=?, enhanced_title=?, enhanced_tags=?, ai_answer=?, status=?, updated_at=? WHERE id=?'
+      ).run(o.track || null, o.enhancedTitle, JSON.stringify(o.enhancedTags), o.aiAnswer, 'pending', now, existing.id)
+    } else {
+      sqlite.prepare(
+        'INSERT INTO user_questions (id,user_id,track,raw_question,enhanced_title,enhanced_tags,ai_answer,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)'
+      ).run(uid('uq_'), o.userId, o.track || null, o.raw, o.enhancedTitle, JSON.stringify(o.enhancedTags), o.aiAnswer, 'pending', now, now)
+    }
+    return true
+  } catch {
+    return false
+  }
+}
 
 function sharedOf(qNorm: string, text: string): number {
   let n = 0

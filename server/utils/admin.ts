@@ -26,6 +26,22 @@ export function getUserById(id: string) {
   const u = sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
   return u ? publicUser(u) : null
 }
+
+/* ============ 面试题库待补充池（收录自用户提问，经 LLM 语义化增强） ============ */
+export interface UserQuestionFilter { status?: string; track?: string; page?: number; pageSize?: number }
+export function listUserQuestions(f: UserQuestionFilter = {}) {
+  const where: string[] = []
+  const params: any[] = []
+  if (f.status) { where.push('status=?'); params.push(f.status) }
+  if (f.track) { where.push('track=?'); params.push(f.track) }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : ''
+  const total = (sqlite.prepare(`SELECT COUNT(*) c FROM user_questions ${w}`).get(...params) as any).c
+  const page = Math.max(1, f.page || 1)
+  const pageSize = Math.min(100, f.pageSize || 30)
+  const rows = sqlite.prepare(`SELECT * FROM user_questions ${w} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .all(...params, pageSize, (page - 1) * pageSize) as any[]
+  return { total, page, pageSize, items: rows }
+}
 export function updateUser(id: string, patch: any) {
   const u = sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
   if (!u) return null

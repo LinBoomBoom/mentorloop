@@ -131,6 +131,11 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
       if (seg.length === 2 && method === 'PATCH') return ok(A.updateReferralApplication(seg[1], body.status))
     }
 
+    // 面试题库待补充池（收录自用户提问，题库未命中经 LLM 增强）
+    if (seg[0] === 'user-questions' && method === 'GET' && seg.length === 1) {
+      return list({ items: A.listUserQuestions({ status: q.status as string, track: q.track as string, page: +q.page || 1, pageSize: +q.pageSize || 30 }) })
+    }
+
     throw new HttpErr(404, '未知的管理接口：' + method + ' /' + seg.join('/'))
   }
 }
