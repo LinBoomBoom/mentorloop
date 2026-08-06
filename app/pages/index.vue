@@ -87,7 +87,9 @@
             <div class="text-[12px] font-semibold text-amber-600 dark:text-amber-400">建议优先补强</div>
             <div class="text-[12px] text-sub leading-relaxed mt-0.5">「{{ stats.radarInsight.weak.axis }}」仅 {{ stats.radarInsight.weak.value }} 分，是最大短板；补强它比巩固优势更能抬升整体水平。</div>
           </div>
-          <NuxtLink v-if="stats.radarInsight" :to="`/learn/${stats.radarInsight.weak.key || ''}`" class="btn btn-ghost btn-block mt-auto">去补强「{{ stats.radarInsight.weak.axis }}」 →</NuxtLink>
+          <NuxtLink v-if="stats.radarInsight" :to="`/learn/${stats.radarInsight.weak.key || ''}`" class="btn btn-primary btn-block mt-auto">
+            去补强「{{ stats.radarInsight.weak.axis }}」 <Icon name="arrowRight" :size="15" />
+          </NuxtLink>
         </div>
       </div>
 

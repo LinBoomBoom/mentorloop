@@ -36,13 +36,14 @@
 
     <a-button
       class="!mt-3 w-full"
-      size="small"
-      :type="checkedToday ? 'default' : 'primary'"
+      type="primary"
       :disabled="checkedToday || !loaded"
       :loading="submitting"
       @click="checkIn"
     >
-      {{ checkedToday ? '今日已打卡 ✓' : '立即打卡' }}
+      <Icon v-if="checkedToday" name="check" :size="15" />
+      <Icon v-else name="flame" :size="15" />
+      {{ checkedToday ? '今日已打卡' : '立即打卡' }}
     </a-button>
   </div>
 </template>
