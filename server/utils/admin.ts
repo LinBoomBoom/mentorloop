@@ -1,6 +1,6 @@
 // 管理后台数据访问层（G 类：用户体系 / 内容 / 题库 / 订单 CRUD + 看板）
 // 纯函数式助手，直接操作 sqlite；路由层只负责鉴权 + 包装响应。可被 vitest 直接测试。
-import { sqlite, hashPwd, publicUser } from './db'
+import { sqlite, hashPwd, publicUser, uid } from './db'
 import { trackName } from './referral'
 
 /* ============ 用户体系 (G4) ============ */
@@ -41,6 +41,41 @@ export function listUserQuestions(f: UserQuestionFilter = {}) {
   const rows = sqlite.prepare(`SELECT * FROM user_questions ${w} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .all(...params, pageSize, (page - 1) * pageSize) as any[]
   return { total, page, pageSize, items: rows }
+}
+
+// 审核「待补充题库」中的用户提问。
+// decision='reject'：仅置为 rejected，不入库。
+// decision='accept'：将 LLM 增强后的标题/答案/标签写入正式面试题库（patch 可覆盖微调），
+//   并回填 result_question_id、status='accepted'，便于后台追踪。已审过的不可重复审核。
+export function reviewUserQuestion(id: string, decision: string, patch: any = {}) {
+  const uq = sqlite.prepare('SELECT * FROM user_questions WHERE id=?').get(id) as any
+  if (!uq) return null
+  if (uq.status !== 'pending') throw new Error('ALREADY_REVIEWED')
+  const now = Date.now()
+
+  if (decision === 'reject') {
+    sqlite.prepare('UPDATE user_questions SET status=?, reviewed_at=?, updated_at=? WHERE id=?')
+      .run('rejected', now, now, id)
+    return { id, status: 'rejected' }
+  }
+
+  // accept：把增强结果转化为正式面试题
+  let tags: string[] = []
+  try { tags = JSON.parse(uq.enhanced_tags || '[]') } catch { tags = [] }
+  const qText = (patch.q ?? uq.enhanced_title ?? uq.raw_question || '').toString().trim()
+  const aText = (patch.a ?? uq.ai_answer ?? '').toString()
+  const track = (patch.track ?? uq.track ?? 'frontend').toString()
+  const type = (patch.type ?? 'hot').toString()
+  const keywords = Array.isArray(patch.keywords) ? patch.keywords : tags
+
+  // 生成唯一且合规的正式题 ID；允许管理员显式指定，冲突则自动回退
+  let nid = patch.id && /^[a-z0-9_-]{2,60}$/.test(String(patch.id)) ? String(patch.id) : ''
+  if (!nid || getInterview(nid)) nid = uid('iq_')
+  createInterview({ id: nid, track, type, q: qText, a: aText, keywords })
+
+  sqlite.prepare('UPDATE user_questions SET status=?, result_question_id=?, reviewed_at=?, updated_at=? WHERE id=?')
+    .run('accepted', nid, now, now, id)
+  return { id, status: 'accepted', questionId: nid }
 }
 export function updateUser(id: string, patch: any) {
   const u = sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)

@@ -8,6 +8,7 @@
         <NuxtLink to="/admin/content" class="nav-item" :class="{ active: $route.path.startsWith('/admin/content') }">📚 内容管理</NuxtLink>
         <NuxtLink to="/admin/exams" class="nav-item" :class="{ active: $route.path.startsWith('/admin/exams') }">📝 试卷题库</NuxtLink>
         <NuxtLink to="/admin/interview" class="nav-item" :class="{ active: $route.path.startsWith('/admin/interview') }">💡 面试题库</NuxtLink>
+        <NuxtLink to="/admin/questions" class="nav-item" :class="{ active: $route.path.startsWith('/admin/questions') }">📥 待补充题库</NuxtLink>
         <NuxtLink to="/admin/orders" class="nav-item" :class="{ active: $route.path.startsWith('/admin/orders') }">💳 订单 / 订阅</NuxtLink>
         <NuxtLink to="/admin/referrals" class="nav-item" :class="{ active: $route.path.startsWith('/admin/referrals') }">🤝 内推资源</NuxtLink>
       </nav>

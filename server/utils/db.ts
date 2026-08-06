@@ -519,6 +519,15 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       )`)
       db.exec('CREATE INDEX IF NOT EXISTS idx_user_questions_status ON user_questions(status, created_at DESC)')
     }
+  },
+  {
+    version: 13,
+    name: 'user_questions_review',
+    up: (db) => {
+      // 审核回溯：记录采纳后生成的正式面试题 ID 与审核时间，便于后台追踪与去重展示。
+      try { db.exec('ALTER TABLE user_questions ADD COLUMN result_question_id TEXT') } catch { /* 列已存在则忽略 */ }
+      try { db.exec('ALTER TABLE user_questions ADD COLUMN reviewed_at INTEGER') } catch { /* 列已存在则忽略 */ }
+    }
   }
 ]
 

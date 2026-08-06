@@ -14,8 +14,9 @@ function mapErr(e: any) {
   if (m === 'NO_MODULE') return new HttpErr(400, '所属模块不存在')
   if (m === 'NO_CHAPTER') return new HttpErr(400, '所属章节不存在')
   if (m === 'WEAK_PASSWORD') return new HttpErr(400, '密码至少 8 位')
-  if (m === 'BAD_STATUS') return new HttpErr(400, '非法的申请状态')
-  return new HttpErr(400, m || '请求错误')
+    if (m === 'BAD_STATUS') return new HttpErr(400, '非法的申请状态')
+    if (m === 'ALREADY_REVIEWED') return new HttpErr(400, '该提问已被审核过，不能重复审核')
+    return new HttpErr(400, m || '请求错误')
 }
 
 export function adminDispatch(admin: any, method: string, seg: string[], q: any, body: any) {
@@ -134,6 +135,9 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
     // 面试题库待补充池（收录自用户提问，题库未命中经 LLM 增强）
     if (seg[0] === 'user-questions' && method === 'GET' && seg.length === 1) {
       return list({ items: A.listUserQuestions({ status: q.status as string, track: q.track as string, page: +q.page || 1, pageSize: +q.pageSize || 30 }) })
+    }
+    if (seg[0] === 'user-questions' && method === 'PATCH' && seg.length === 2) {
+      return ok(A.reviewUserQuestion(seg[1], body.decision, body))
     }
 
     throw new HttpErr(404, '未知的管理接口：' + method + ' /' + seg.join('/'))
