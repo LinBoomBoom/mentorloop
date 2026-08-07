@@ -73,7 +73,7 @@
     <div v-show="view === 'tree'">
       <a-card :body-style="{ padding: kw ? '8px' : '0' }">
         <div v-if="treeData.length" class="p-2">
-          <SkillTreeChart :tree-data="treeData" :initial-depth="initialDepth" :dark="isDark" :height="treeHeight" @node-click="openNode" />
+          <SkillTreeChart :tree-data="treeData" :dark="isDark" @node-click="openNode" />
           <p class="text-[11px] text-muted mt-1 px-2">提示：可滚轮缩放、拖拽平移；点击节点查看说明；虚线框为「方向 / 赛道 / 等级」，小圆点为具体技能。</p>
         </div>
         <a-empty v-else description="没有匹配的技能，换个关键词试试" class="py-16" />
@@ -200,13 +200,6 @@ const totalMust = stats.must
 
 // ---- 树形图 / 路线图数据（纯函数，来自数据模块）----
 const treeData = computed(() => buildTreeData(activeDir.value, kw.value))
-const initialDepth = computed(() => (activeDir.value === 'all' ? 1 : 2))
-// 高度随展开后的可见节点数自适应：30 个赛道时固定高度会挤成一团
-const treeHeight = computed(() => {
-  if (activeDir.value === 'all') return 820
-  const n = roadmap.find(d => d.id === activeDir.value)?.subTracks.length || 6
-  return Math.min(1100, Math.max(600, n * 66))
-})
 const boardView = computed(() => buildBoardView(activeDir.value, kw.value))
 
 // ---- 抽屉 ----
