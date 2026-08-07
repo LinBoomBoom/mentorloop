@@ -50,9 +50,9 @@ test('章节/节总量不退化（回归护栏：曾因 id 撞车静默丢题 #5
       sections += c.sections.length
     }
   }
-  // 当前基线 49 章 / 360 节；只增不减，缩小即回归
-  expect(chapters).toBe(49)
-  expect(sections).toBeGreaterThanOrEqual(360)
+  // 当前基线 101 章 / 547 节（含细分赛道课程，gen-learn 批量生成）；只增不减，缩小即回归
+  expect(chapters).toBeGreaterThanOrEqual(101)
+  expect(sections).toBeGreaterThanOrEqual(547)
 })
 
 test('面试题零空答（210 题全有答案）', () => {

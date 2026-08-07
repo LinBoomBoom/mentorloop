@@ -165,7 +165,7 @@ function loadSections() {
 
 export function mapSkillToSections(track: string, skillName: string, desc = '', subtrackId = '', limit = 3): { id: string; title: string; chapterTitle: string; chapterId: string; moduleId: string; score: number }[] {
   // 可靠的按方向过滤：chapters.module_id 是指向 modules 的外键，方向值恰好等于路线图 track（frontend/backend/devops/ai）。
-  const rows = loadSections().filter((r: any) => r.module_id === track)
+  const rows = loadSections().filter((r: any) => r.module_id === track && !NICHE_PREFIXES.some((p: string) => r.chapter_title.startsWith(p)))
   if (!rows.length) return []
   const toks = sectTokens(skillName, 1).concat(sectTokens(desc, 0.6))
   if (!toks.length) return []
@@ -201,6 +201,38 @@ export function mapSkillToSections(track: string, skillName: string, desc = '', 
   const key = skillKey(track, subtrackId, skillName)
   sqlite.transaction(() => { for (const b of best) cache.run(key, b.id, track, subtrackId, skillName, b.score) })()
   return best.map(({ id, title, chapter_title, chapter_id, module_id, score }) => ({ id, title, chapterTitle: chapter_title, chapterId: chapter_id, moduleId: module_id, score }))
+}
+
+/* ---------------- 细分赛道 → 真实章节（确定性，按赛道标签前缀精确查）----------------
+ * 这些细分赛道已有「本站体系化课程」（章节标题以赛道标签前缀，如「鸿蒙 · …」），
+ * 直接按章节标题前缀精确匹配，杜绝早期「鸿蒙→Vue」这类跨框架模糊错配。
+ * 返回 null 表示该 subtrack 不是已知细分赛道，调用方应回退到 mapSkillToSections 模糊匹配；
+ * 返回 []（空数组）表示「已查但暂无可匹配章节」（如后端细分赛道尚未生成），调用方应展示空而非回退模糊，避免误导。
+ */
+export const LEARN_KEYWORD: Record<string, string> = {
+  // 前端侧细分赛道（已生成课程，key=路线图 subtrack id，value=章节标题前缀）
+  'fe-harmony': '鸿蒙', 'fe-native': '原生', 'fe-app': '跨端', 'fe-uniapp': 'uni-app',
+  'fe-miniprogram': '小程序', 'fe-desktop': '桌面', 'fe-viz': '可视化',
+  // 后端 / 运维 / AI 侧（后续批次生成后将自动生效，key 待与路线图 id 对齐）
+  'be-bigdata': '大数据', 'be-game': '游戏服务端', 'be-search': '搜索', 'be-sdet': 'SDET',
+  'op-cloud': '云平台', 'ai-algo': '算法', 'ai-mlops': 'MLOps', 'ai-traindata': '训练数据',
+  'ai-infr': 'AI Infra', 'ai-edge': '端侧AI'
+}
+// 章节标题前缀集合：模糊匹配路径只服务主流技能（细分赛道已走确定性查找），
+// 因此排除这些带赛道标签前缀的章节，避免主流技能误混入细分赛道章节。
+const NICHE_PREFIXES = Object.values(LEARN_KEYWORD).map((l) => l + ' ·')
+
+export function mapSkillToNicheChapters(track: string, subtrackId: string): { id: string; title: string; chapterTitle: string; chapterId: string; moduleId: string; score: number }[] | null {
+  const kw = LEARN_KEYWORD[subtrackId]
+  if (!kw) return null // 非细分赛道 → 回退模糊匹配
+  const rows = sqlite.prepare(
+    `SELECT s.id, s.title, s.chapter_id, c.title AS chapter_title, c.module_id
+     FROM sections s JOIN chapters c ON c.id = s.chapter_id
+     WHERE c.module_id = ? AND c.title LIKE ?
+     ORDER BY c.position, s.position`
+  ).all(track, `${kw} · %`) as any[]
+  // 注意：即便为空也返回 []（非 null），调用方据此展示「暂无匹配章节」而非回退模糊匹配
+  return rows.map((r: any) => ({ id: r.id, title: r.title, chapterTitle: r.chapter_title, chapterId: r.chapter_id, moduleId: r.module_id, score: 0 }))
 }
 
 /* ---------------- 错题本（P2）+ 间隔复习 SRS ---------------- */

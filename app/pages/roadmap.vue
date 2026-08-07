@@ -244,40 +244,38 @@
             </div>
           </div>
 
-          <!-- 推荐学习：细分赛道用官方权威资料，主流赛道用内部课程章节 -->
+          <!-- 推荐学习：优先展示本站真实章节（细分赛道确定性匹配，主流赛道模糊匹配）-->
           <div class="mb-4">
             <div class="flex items-center justify-between mb-2">
               <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="book" :size="15" style="color:#ff5e7e" /> 推荐学习</span>
+              <span v-if="learnLoading" class="text-xs text-muted font-normal">匹配中…</span>
             </div>
+            <a-empty v-else-if="!learnSections.length" description="暂无匹配章节" :image="undefined" class="py-4">
+              <template #description><span class="text-xs text-muted">该技能暂未匹配到课程章节；可参考下方官方资料。</span></template>
+            </a-empty>
+            <div v-else class="space-y-1.5">
+              <NuxtLink v-for="sec in learnSections" :key="sec.id" :to="`/learn/${sec.moduleId}/${sec.chapterId}/${sec.id}`"
+                        class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
+                <div class="font-medium text-ink truncate">{{ sec.title }}</div>
+                <div class="text-[11px] text-muted truncate">{{ sec.chapterTitle }}</div>
+              </NuxtLink>
+            </div>
+          </div>
 
-            <!-- 细分赛道：本站无体系化课程，直接引导官方文档 -->
-            <template v-if="selected.official && selected.official.length">
-              <p class="text-xs text-muted mb-2 leading-snug">本站暂未提供该细分赛道的体系化课程，以下为官方权威学习资料：</p>
-              <div class="space-y-1.5">
-                <a v-for="res in selected.official" :key="res.url" :href="res.url" target="_blank" rel="noopener noreferrer"
-                   class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
-                  <div class="font-medium text-ink truncate flex items-center gap-1.5">
-                    <Icon name="globe" :size="13" class="text-brand-coral shrink-0" />{{ res.title }}
-                  </div>
-                  <div v-if="res.note" class="text-[11px] text-muted mt-0.5 leading-snug">{{ res.note }}</div>
-                </a>
-              </div>
-            </template>
-
-            <!-- 主流赛道：技能 → 课程章节映射 -->
-            <template v-else>
-              <span v-if="learnLoading" class="text-xs text-muted">匹配中…</span>
-              <a-empty v-else-if="!learnSections.length" description="暂无匹配章节" :image="undefined" class="py-4">
-                <template #description><span class="text-xs text-muted">该技能暂未匹配到课程章节。</span></template>
-              </a-empty>
-              <div v-else class="space-y-1.5">
-                <NuxtLink v-for="sec in learnSections" :key="sec.id" :to="`/learn/${sec.moduleId}/${sec.chapterId}/${sec.id}`"
-                          class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
-                  <div class="font-medium text-ink truncate">{{ sec.title }}</div>
-                  <div class="text-[11px] text-muted truncate">{{ sec.chapterTitle }}</div>
-                </NuxtLink>
-              </div>
-            </template>
+          <!-- 延伸阅读：官方权威资料（细分赛道为主，主流赛道无）-->
+          <div v-if="selected.official && selected.official.length" class="mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="globe" :size="15" style="color:#ff5e7e" /> 延伸阅读（官方）</span>
+            </div>
+            <div class="space-y-1.5">
+              <a v-for="res in selected.official" :key="res.url" :href="res.url" target="_blank" rel="noopener noreferrer"
+                 class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
+                <div class="font-medium text-ink truncate flex items-center gap-1.5">
+                  <Icon name="globe" :size="13" class="text-brand-coral shrink-0" />{{ res.title }}
+                </div>
+                <div v-if="res.note" class="text-[11px] text-muted mt-0.5 leading-snug">{{ res.note }}</div>
+              </a>
+            </div>
           </div>
 
           <div class="text-xs text-muted">
@@ -475,8 +473,8 @@ watch(selected, async (sel) => {
   if (relatedAbort) { relatedAbort.abort(); relatedAbort = null }
   learnSections.value = []
   if (sel && sel.kind === 'skill' && sel.track && sel.name) {
-    // 细分赛道（有官方资料）不调用内部章节匹配，避免出现「鸿蒙→Vue」这类错配
-    if (!sel.official || !sel.official.length) loadLearn()
+    // 所有技能都尝试匹配真实章节；细分赛道由 API 走确定性前缀匹配（不会回退模糊导致错配）
+    loadLearn()
     relatedLoading.value = true
     const ac = new AbortController()
     relatedAbort = ac
