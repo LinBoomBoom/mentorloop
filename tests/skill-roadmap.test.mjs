@@ -32,16 +32,136 @@ describe('技能路线图数据集', () => {
 
   it('前端包含用户点名的细分赛道（Web/移动端/APP/Uniapp）', () => {
     const fe = roadmap.find(d => d.id === 'frontend')
-    const names = fe.subTracks.map(s => s.name)
-    expect(names.some(n => n.includes('Web'))).toBe(true)
+    const names = fe.subTracks.map(s => s.name.toLowerCase())
+    expect(names.some(n => n.includes('web'))).toBe(true)
     expect(names.some(n => n.includes('移动端'))).toBe(true)
-    expect(names.some(n => n.includes('APP'))).toBe(true)
-    expect(names.some(n => n.toLowerCase().includes('uni-app') || n.includes('uni'))).toBe(true)
+    expect(names.some(n => n.includes('app'))).toBe(true)
+    expect(names.some(n => n.includes('uni'))).toBe(true)
   })
 
   it('每个技能点都有名称', () => {
     for (const d of roadmap) for (const st of d.subTracks) for (const lv of st.levels)
       for (const s of lv.skills) expect(s.name.length).toBeGreaterThan(0)
+  })
+})
+
+// ===== 内容覆盖度护栏：对标 roadmap.sh 与 2026 国内 JD 审计出的必须覆盖项 =====
+describe('内容覆盖度（防回退）', () => {
+  const flat = []
+  for (const d of roadmap) for (const st of d.subTracks) for (const lv of st.levels)
+    for (const s of lv.skills) flat.push({ dir: d.id, track: st.name, level: lv.level, text: `${s.name} ${s.desc || ''}` })
+
+  const hit = (re, filter = () => true) => flat.filter(x => filter(x) && re.test(x.text))
+
+  it('运维方向必须覆盖 Kubernetes 核心能力（此前为 0，P0 缺口）', () => {
+    const ops = x => x.dir === 'devops'
+    expect(hit(/Kubernetes|K8s/i, ops).length).toBeGreaterThan(0)
+    expect(hit(/Pod/i, ops).length).toBeGreaterThan(0)
+    expect(hit(/Ingress/i, ops).length).toBeGreaterThan(0)
+    expect(hit(/RBAC/i, ops).length).toBeGreaterThan(0)
+    expect(hit(/Helm/i, ops).length).toBeGreaterThan(0)
+    // 云原生须是独立赛道，而非零散技能点
+    const ks = roadmap.find(d => d.id === 'devops').subTracks.map(s => s.name)
+    expect(ks.some(n => /Kubernetes|云原生/.test(n))).toBe(true)
+  })
+
+  it('前端覆盖鸿蒙 ArkTS 与原生客户端两个赛道', () => {
+    const names = roadmap.find(d => d.id === 'frontend').subTracks.map(s => s.name)
+    expect(names.some(n => /鸿蒙|HarmonyOS/.test(n))).toBe(true)
+    expect(names.some(n => /原生客户端|Android|iOS/.test(n))).toBe(true)
+    expect(hit(/ArkTS/i).length).toBeGreaterThan(0)
+    expect(hit(/Kotlin|Swift/i).length).toBeGreaterThan(0)
+  })
+
+  it('覆盖面试高频通用技能点（a11y / OWASP / 算法 / gRPC / 设计模式 等）', () => {
+    const required = [
+      ['无障碍 a11y', /无障碍|a11y|ARIA/i],
+      ['OWASP', /OWASP/i],
+      ['数据结构与算法', /数据结构与算法/],
+      ['gRPC', /gRPC/i],
+      ['Linux', /Linux/i],
+      ['跨域 CORS', /CORS|跨域/i],
+      ['单元测试', /单元测试/],
+      ['XSS/CSRF', /XSS|CSRF/i],
+      ['包管理', /包管理/],
+      ['设计模式', /设计模式/],
+    ]
+    const missing = required.filter(([, re]) => hit(re).length === 0).map(([n]) => n)
+    expect(missing).toEqual([])
+  })
+
+  it('TypeScript 属于初级必会（2026 国内 JD 已是入门要求）', () => {
+    const fe = roadmap.find(d => d.id === 'frontend')
+    const web = fe.subTracks.find(s => s.name.includes('Web'))
+    const jun = web.levels.find(l => l.level === 'junior')
+    const ts = jun.skills.find(s => /TypeScript/i.test(s.name))
+    expect(ts).toBeTruthy()
+    expect(ts.must).toBe(true)
+  })
+
+  it('大数据(后端) 与 训练数据(AI) 职责边界清晰，不再重叠', () => {
+    const be = roadmap.find(d => d.id === 'backend').subTracks.find(s => /大数据/.test(s.name))
+    const aiData = roadmap.find(d => d.id === 'ai').subTracks.find(s => /训练数据|标注/.test(s.name))
+    expect(be).toBeTruthy()
+    expect(aiData).toBeTruthy()
+    expect(be.name).toMatch(/数仓|BI/)
+    expect(aiData.name).toMatch(/训练数据|标注/)
+    // 两者技能点不应大面积同名
+    const nameOf = st => new Set(st.levels.flatMap(l => l.skills.map(s => s.name)))
+    const a = nameOf(be), b = nameOf(aiData)
+    const overlap = [...a].filter(n => b.has(n))
+    expect(overlap.length).toBeLessThanOrEqual(1)
+  })
+})
+
+// ===== 数据规范护栏（对应 app/data/roadmap/types.ts 顶部约定）=====
+describe('数据规范', () => {
+  it('赛道 id 全局唯一，且等级顺序固定为 初→中→高', () => {
+    const ids = new Set()
+    for (const d of roadmap) for (const st of d.subTracks) {
+      expect(ids.has(st.id)).toBe(false)
+      ids.add(st.id)
+      expect(st.levels.map(l => l.level)).toEqual(['junior', 'mid', 'senior'])
+    }
+  })
+
+  it('每个等级至少有 1 个必会（must）技能点', () => {
+    const bad = []
+    for (const d of roadmap) for (const st of d.subTracks) for (const lv of st.levels)
+      if (!lv.skills.some(s => s.must)) bad.push(`${d.name}/${st.name}/${lv.title}`)
+    expect(bad).toEqual([])
+  })
+
+  it('技能点粒度均衡：初/中级 4-8 个，高级 3-5 个', () => {
+    const bad = []
+    for (const d of roadmap) for (const st of d.subTracks) for (const lv of st.levels) {
+      const [lo, hi] = lv.level === 'senior' ? [3, 5] : [4, 8]
+      const n = lv.skills.length
+      if (n < lo || n > hi) bad.push(`${d.name}/${st.name}/${lv.title}=${n}`)
+    }
+    expect(bad).toEqual([])
+  })
+
+  it('同名技能点必须同义（描述一致），避免搜索串味', () => {
+    const byName = new Map()
+    for (const d of roadmap) for (const st of d.subTracks) for (const lv of st.levels)
+      for (const s of lv.skills) {
+        if (!byName.has(s.name)) byName.set(s.name, new Set())
+        byName.get(s.name).add(s.desc || '')
+      }
+    const conflict = [...byName.entries()].filter(([, descs]) => descs.size > 1).map(([n]) => n)
+    expect(conflict).toEqual([])
+  })
+
+  it('每个技能点都有描述，且赛道有 summary / icon', () => {
+    for (const d of roadmap) for (const st of d.subTracks) {
+      expect(st.summary.length).toBeGreaterThan(5)
+      expect(st.icon.length).toBeGreaterThan(0)
+      for (const lv of st.levels) {
+        expect(lv.stance.length).toBeGreaterThan(5)
+        for (const s of lv.skills) expect((s.desc || '').length).toBeGreaterThan(5)
+      }
+    }
   })
 })
 
@@ -123,6 +243,8 @@ describe('全局统计', () => {
     expect(s.skills).toBe(manual)
     expect(s.must).toBe(manualMust)
     expect(s.subTracks).toBe(manualSub)
-    expect(s.skills).toBeGreaterThan(100) // 内容足够丰富才有参考价值
+    // 2026-08-07 内容审计后：30 赛道 / 400+ 技能点，不允许回退
+    expect(s.subTracks).toBeGreaterThanOrEqual(30)
+    expect(s.skills).toBeGreaterThanOrEqual(400)
   })
 })

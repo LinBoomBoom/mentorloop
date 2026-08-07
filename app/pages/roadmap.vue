@@ -201,7 +201,12 @@ const totalMust = stats.must
 // ---- 树形图 / 路线图数据（纯函数，来自数据模块）----
 const treeData = computed(() => buildTreeData(activeDir.value, kw.value))
 const initialDepth = computed(() => (activeDir.value === 'all' ? 1 : 2))
-const treeHeight = computed(() => (activeDir.value === 'all' ? 760 : 640))
+// 高度随展开后的可见节点数自适应：30 个赛道时固定高度会挤成一团
+const treeHeight = computed(() => {
+  if (activeDir.value === 'all') return 820
+  const n = roadmap.find(d => d.id === activeDir.value)?.subTracks.length || 6
+  return Math.min(1100, Math.max(600, n * 66))
+})
 const boardView = computed(() => buildBoardView(activeDir.value, kw.value))
 
 // ---- 抽屉 ----
