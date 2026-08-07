@@ -250,7 +250,7 @@
               <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="book" :size="15" style="color:#ff5e7e" /> 推荐学习</span>
               <span v-if="learnLoading" class="text-xs text-muted font-normal">匹配中…</span>
             </div>
-            <a-empty v-else-if="!learnSections.length" description="暂无匹配章节" :image="undefined" class="py-4">
+            <a-empty v-if="!learnLoading && !learnSections.length" description="暂无匹配章节" :image="undefined" class="py-4">
               <template #description><span class="text-xs text-muted">该技能暂未匹配到课程章节；可参考下方官方资料。</span></template>
             </a-empty>
             <div v-else class="space-y-1.5">
