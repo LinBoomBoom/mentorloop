@@ -74,7 +74,7 @@
       <a-card :body-style="{ padding: kw ? '8px' : '0' }">
         <div v-if="treeData.length" class="p-2">
           <SkillTreeChart :tree-data="treeData" :initial-depth="initialDepth" :dark="isDark" @node-click="openNode" />
-          <p class="text-[11px] text-muted mt-1 px-2">提示：可滚轮缩放、拖拽平移；点击节点查看说明；虚线框为「方向 / 赛道 / 等级」，小圆点为具体技能。</p>
+          <p class="text-[11px] text-muted mt-1 px-2">提示：画布高度随内容自适应，直接滚动页面查看全部；点击节点可展开/收起；虚线框为「方向 / 赛道 / 等级」，小圆点为具体技能。</p>
         </div>
         <a-empty v-else description="没有匹配的技能，换个关键词试试" class="py-16" />
       </a-card>
@@ -200,10 +200,9 @@ const totalMust = stats.must
 
 // ---- 树形图 / 路线图数据（纯函数，来自数据模块）----
 const treeData = computed(() => buildTreeData(activeDir.value, kw.value))
-// 展开深度：'all' 作为概览，展开到「等级」即可（技能点折叠，点等级即展开），
-// 避免 408 个技能点全展开后纵向过长、不放大就看不清；
-// 选定具体方向时全展开技能点，配合组件默认的 1:1 清晰比例 + 拖拽浏览。
-const initialDepth = computed(() => (activeDir.value === 'all' ? 3 : 999))
+// 展开深度：全部展开（技能点默认展示）。画布高度随内容自适应，页面自然滚动，
+// 不再有拖拽平移窗口；点节点可临时收起。
+const initialDepth = computed(() => 999)
 const boardView = computed(() => buildBoardView(activeDir.value, kw.value))
 
 // ---- 抽屉 ----
