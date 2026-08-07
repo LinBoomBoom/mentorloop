@@ -122,10 +122,12 @@ function normText(s: string) {
   return (s || '').toLowerCase().replace(/[\s,，。？?、；;：:！!().（）「」"'""'']/g, '')
 }
 export function mapSkillToSections(track: string, skillName: string, limit = 3): { id: string; title: string; chapterTitle: string; chapterId: string; moduleId: string; score: number }[] {
+  // 注意：sections.direction 列在生产数据中是被污染的（存成了描述句、且大量为空），
+  // 不能作为方向过滤条件。改为跨全部章节做关键词评分——技能名本身带方向性，会自然偏向正确赛道。
   const rows = sqlite.prepare(
     `SELECT s.id, s.title, c.id AS chapter_id, c.module_id AS module_id, c.title AS chapter_title
-     FROM sections s JOIN chapters c ON c.id=s.chapter_id WHERE s.direction=?`
-  ).all(track) as any[]
+     FROM sections s JOIN chapters c ON c.id=s.chapter_id`
+  ).all() as any[]
   if (!rows.length) return []
   const q = normText(skillName)
   const qTokens = q.length > 3 ? [q] : q.split('').filter(Boolean)

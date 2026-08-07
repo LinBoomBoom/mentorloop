@@ -96,9 +96,10 @@
 </template>
 
 <script setup lang="ts">
-import { message } from 'ant-design-vue'
+import { App } from 'ant-design-vue'
 import { useMarkdown } from '~/composables/useMarkdown'
 const { md } = useMarkdown()
+const { message } = App.useApp()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()

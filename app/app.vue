@@ -1,15 +1,17 @@
 <template>
   <StyleProvider hash-priority="1">
     <ConfigProvider :theme="theme">
-      <NuxtLayout>
-        <NuxtPage />
-      </NuxtLayout>
+      <App>
+        <NuxtLayout>
+          <NuxtPage />
+        </NuxtLayout>
+      </App>
     </ConfigProvider>
   </StyleProvider>
 </template>
 
 <script setup lang="ts">
-import { ConfigProvider, StyleProvider, theme as antdTheme } from 'ant-design-vue'
+import { App, ConfigProvider, StyleProvider, theme as antdTheme } from 'ant-design-vue'
 
 // 品牌主题令牌：主色取品牌珊瑚 #ff5e7e，成功/警告/错误对齐既有语义色。
 const isDark = ref(false)

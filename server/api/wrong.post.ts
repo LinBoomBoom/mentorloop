@@ -1,5 +1,5 @@
-import { getUser, json } from '../../utils/db'
-import { actWrongItem } from '../../utils/skillMastery'
+import { getUser, json } from '../utils/db'
+import { actWrongItem } from '../utils/skillMastery'
 
 // POST /api/wrong —— 错题本操作：review（SRS 排期下次）/ dismiss（移除）
 // body: { id, action }

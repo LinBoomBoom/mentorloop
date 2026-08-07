@@ -49,7 +49,8 @@
 </template>
 
 <script setup lang="ts">
-import { message } from 'ant-design-vue'
+import { App } from 'ant-design-vue'
+const { message } = App.useApp()
 
 const props = defineProps<{
   streak?: number

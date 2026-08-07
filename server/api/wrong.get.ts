@@ -1,5 +1,5 @@
-import { getUser, json } from '../../utils/db'
-import { listWrongItems } from '../../utils/skillMastery'
+import { getUser, json } from '../utils/db'
+import { listWrongItems } from '../utils/skillMastery'
 
 // GET /api/wrong?due=1 —— 错题本（跨卷/练习错题 + SRS 到期过滤）
 export default defineEventHandler((event) => {

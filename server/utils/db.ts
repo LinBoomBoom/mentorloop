@@ -699,6 +699,18 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       `)
       db.exec('CREATE INDEX IF NOT EXISTS idx_uwi_user ON user_wrong_items(user_id, next_review_at)')
     }
+  },
+  {
+    version: 18,
+    name: 'skill-section-map-track-cols',
+    up: (db) => {
+      // 修补：v17 在某些环境曾先按「无 track」的旧 schema 应用并登记，导致 skill_section_map 缺 track/subtrack_id/skill_name 列。
+      // 该表仅为启发式缓存（可重算），补列安全。幂等：已存在则跳过。
+      const cols = new Set((db.prepare('PRAGMA table_info(skill_section_map)').all() as any[]).map((r: any) => r.name))
+      if (!cols.has('track')) db.exec('ALTER TABLE skill_section_map ADD COLUMN track TEXT')
+      if (!cols.has('subtrack_id')) db.exec('ALTER TABLE skill_section_map ADD COLUMN subtrack_id TEXT')
+      if (!cols.has('skill_name')) db.exec('ALTER TABLE skill_section_map ADD COLUMN skill_name TEXT')
+    }
   }
 ]
 
