@@ -144,6 +144,51 @@
           </div>
           <p class="text-sm text-ink leading-relaxed">{{ selected.desc || '（暂无详细说明）' }}</p>
           <a-divider />
+
+          <!-- 相关面试题（按技能名联动题库） -->
+          <div class="mb-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-bold flex items-center gap-1.5">
+                <Icon name="code" :size="15" style="color:#ff5e7e" /> 相关面试题
+                <span v-if="relatedLoading" class="text-xs text-muted font-normal">加载中…</span>
+                <span v-else-if="relatedCount >= 0" class="text-xs text-muted font-normal">{{ relatedCount }} 道</span>
+              </span>
+              <a-button v-if="selected.track && selected.name" type="link" size="small" class="!px-0"
+                        :href="`/interview?track=${selected.track}&q=${encodeURIComponent(selected.name)}`">去题库练习 →</a-button>
+            </div>
+
+            <a-empty v-if="!relatedLoading && relatedQuestions.length === 0" description="暂无相关面试题" :image="undefined" class="py-6">
+              <template #description><span class="text-xs text-muted">该技能点暂无对应面试题，可在题库搜索更多。</span></template>
+            </a-empty>
+
+            <div v-else class="space-y-2">
+              <div v-for="(rq, i) in relatedQuestions" :key="rq.id" class="rounded-xl border border-line overflow-hidden">
+                <button type="button" class="w-full text-left px-3 py-2.5 flex items-start gap-2 hover:bg-surface transition"
+                        @click="rq._open = !rq._open">
+                  <Icon :name="rq._open ? 'chevron-down' : 'chevron-right'" :size="14" class="mt-0.5 shrink-0 text-muted" />
+                  <span class="flex-1 min-w-0">
+                    <span class="text-[13px] leading-snug text-ink">{{ rq.q }}</span>
+                    <span class="flex flex-wrap gap-1.5 mt-1.5">
+                      <span class="text-[10px] px-1.5 py-0.5 rounded-full"
+                            :class="rq.difficulty === 'hard' ? 'bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400'
+                                  : rq.difficulty === 'medium' ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400'
+                                  : 'bg-slate-100 text-slate-500 dark:bg-slate-500/15 dark:text-slate-400'">
+                        {{ rq.difficulty === 'hard' ? '困难' : rq.difficulty === 'medium' ? '较难' : '常规' }}
+                      </span>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-coral/10 text-brand-coral">{{ rq.tech }}</span>
+                    </span>
+                  </span>
+                </button>
+                <div v-if="rq._open" class="px-3 pb-3 -mt-1 border-t border-line pt-2.5">
+                  <div class="rounded-r-lg border-l-2 border-brand-coral/60 bg-brand-coral/[.04] p-3.5 prose-dm text-[13px]" v-html="md(rq.a)"></div>
+                </div>
+              </div>
+              <a-button v-if="relatedQuestions.length" type="link" size="small" block class="!px-0 mt-1"
+                        :href="`/interview?track=${selected.track}&q=${encodeURIComponent(selected.name)}`">查看全部并练习 →</a-button>
+            </div>
+          </div>
+
+          <a-divider />
           <div class="text-xs text-muted">
             所属赛道：<span class="text-ink font-medium">{{ selected.subtrack }}</span><br />
             技术方向：<span class="text-ink font-medium">{{ selected.direction }}</span>
@@ -189,8 +234,10 @@
 
 <script setup lang="ts">
 import { roadmap, levelColor, levelLabel, buildTreeData, buildBoardView, globalStats, type LevelKey, type SkillNode, type LevelGroup, type SubTrack, type Direction } from '~/data/skillRoadmap'
+import { useMarkdown } from '~/composables/useMarkdown'
 
 const { isDark } = useTheme()
+const { md } = useMarkdown()
 
 const tabs = [{ id: 'all', name: '全部', color: '#ff5e7e' }, ...roadmap.map(d => ({ id: d.id, name: d.name, color: d.color }))]
 const activeDir = ref('all')
@@ -224,8 +271,42 @@ const drawerTitle = computed(() => {
 })
 function openNode(meta: any) { selected.value = meta }
 function openSkill(s: SkillNode, lv: LevelGroup, st: SubTrack, d: Direction) {
-  selected.value = { kind: 'skill', name: s.name, desc: s.desc, must: s.must, level: lv.level, levelTitle: levelLabel[lv.level], subtrack: st.name, direction: d.name }
+  selected.value = { kind: 'skill', name: s.name, desc: s.desc, must: s.must, level: lv.level, levelTitle: levelLabel[lv.level], subtrack: st.name, direction: d.name, track: d.id }
 }
+
+// ---- 技能点 → 相关面试题（联动题库）----
+const relatedQuestions = ref<any[]>([])
+const relatedLoading = ref(false)
+const relatedCount = ref(-1)
+let relatedAbort: AbortController | null = null
+
+watch(selected, async (sel) => {
+  // 切换技能点时重置
+  relatedQuestions.value = []
+  relatedCount.value = -1
+  relatedLoading.value = false
+  if (relatedAbort) { relatedAbort.abort(); relatedAbort = null }
+  if (sel && sel.kind === 'skill' && sel.track && sel.name) {
+    relatedLoading.value = true
+    const ac = new AbortController()
+    relatedAbort = ac
+    try {
+      const url = `/api/interview/${sel.track}?q=${encodeURIComponent(sel.name)}&pageSize=15`
+      const res: any = await $fetch(url, { signal: ac.signal })
+      // 复用面试 API 的 bank.items（已含 q/a/keywords/tech/difficulty）
+      const items = (res?.bank?.items || []).map((it: any) => ({ ...it, _open: false }))
+      if (!ac.signal.aborted) {
+        relatedQuestions.value = items
+        relatedCount.value = items.length
+      }
+    } catch (e: any) {
+      if (!ac.signal.aborted) relatedCount.value = 0
+    } finally {
+      if (!ac.signal.aborted) relatedLoading.value = false
+    }
+  }
+})
+
 
 useSeoMeta({
   title: '技能路线图 · MentorLoop',

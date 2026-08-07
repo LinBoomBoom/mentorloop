@@ -62,7 +62,7 @@ function buildSkillNode(s: SkillNode, lv: LevelGroup, st: SubTrack, d: Direction
   return {
     name: s.name,
     _type: 'skill',
-    _meta: { kind: 'skill', name: s.name, desc: s.desc, must: s.must, level: lv.level, levelTitle: levelLabel[lv.level], subtrack: st.name, direction: d.name },
+    _meta: { kind: 'skill', name: s.name, desc: s.desc, must: s.must, level: lv.level, levelTitle: levelLabel[lv.level], subtrack: st.name, direction: d.name, track: d.id, subtrackId: st.id, skillIndex: lv.skills.indexOf(s) },
     itemStyle: { color: levelColor[lv.level] }
   }
 }
