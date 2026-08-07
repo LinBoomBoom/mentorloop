@@ -403,12 +403,16 @@ const learnSections = ref<any[]>([])
 const learnLoading = ref(false)
 async function loadLearn() {
   learnSections.value = []
-  if (!selected.value?.track || !selected.value?.name) return
+  const sel = selected.value
+  if (!sel?.track || !sel?.name) return
   learnLoading.value = true
   try {
-    const r: any = await request(
-      `/api/skill/learn?track=${encodeURIComponent(selected.value.track)}&skill=${encodeURIComponent(selected.value.name)}`
-    )
+    const params = new URLSearchParams()
+    params.set('track', sel.track)
+    params.set('skill', sel.name)
+    if (sel.desc) params.set('desc', sel.desc)
+    if (sel.subtrackId) params.set('subtrack', sel.subtrackId)
+    const r: any = await request(`/api/skill/learn?${params.toString()}`)
     learnSections.value = r.sections || []
   } catch (e) { /* 非关键 */ } finally { learnLoading.value = false }
 }

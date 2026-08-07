@@ -115,38 +115,92 @@ function bump(userId: string, skillKey: string, track: string, subtrackId: strin
 }
 
 /* ---------------- 技能 → 课程章节映射（P1a，按需计算并缓存） ----------------
- * 启发式：把技能名做字符级归一化后，与同方向 sections 的「标题 + 章节标题」做重叠计分，
- * 取分数最高的若干小节作为「去学习」入口。结果缓存到 skill_section_map（带 track/name 便于插入 mastery 行）。
+ * 启发式（v2，修复「全部返回空」的根因）：
+ *   旧逻辑把归一化后的技能名当作「整串」去 title+chapter 里找子串，几乎永远命中不了
+ *   （如技能「HTML 语义化与标签」vs 章节「HTML 语义化与文档结构」——措辞不同即 0 分）。
+ *   改为「分词重叠打分」：
+ *     - 英文/数字词（>=2 字符）作为强信号（剔除 web/api/app 等过于泛化的词，否则会误命中无关章节）；
+ *     - 中文按「长短语(>=3 字) + 2 字 bigram」拆词，长短语权重更高，避免单字噪声；
+ *     - 同时用技能 desc（含大量关键词）参与打分，显著提升特异度与覆盖率；
+ *     - 候选章节先用可靠的 chapters.module_id = track 过滤（sections.direction 列被污染，不可用）。
+ *   评分：标题/章节名命中权重高，正文命中权重低（0.4）仅作补充；要求至少 1 个标题级命中，
+ *   杜绝纯正文噪声。结果取分最高的若干小节，并缓存到 skill_section_map。
  */
+const STOP_ENG = new Set(['web', 'api', 'app', 'ui', 'dev', 'cli', 'sdk', 'ide', 'os'])
+const STOP_CN = new Set(['与', '和', '及', '或', '的', '了', '中', '在', '为', '对', '等', '其', '各', '能', '会', '类', '型', '系', '方', '法', '用', '于', '一', '个', '有', '是', '上', '下', '内', '外', '级', '高', '低', '新', '老', '主', '从', '并', '进', '通', '多', '基', '核', '常', '实'])
 function normText(s: string) {
   return (s || '').toLowerCase().replace(/[\s,，。？?、；;：:！!().（）「」"'""'']/g, '')
 }
-export function mapSkillToSections(track: string, skillName: string, limit = 3): { id: string; title: string; chapterTitle: string; chapterId: string; moduleId: string; score: number }[] {
-  // 注意：sections.direction 列在生产数据中是被污染的（存成了描述句、且大量为空），
-  // 不能作为方向过滤条件。改为跨全部章节做关键词评分——技能名本身带方向性，会自然偏向正确赛道。
+function sectTokens(text: string, scale: number): { t: string; w: number }[] {
+  const q = normText(text)
+  const out: { t: string; w: number }[] = []
+  const eng = q.match(/[a-z0-9]{2,}/g) || []
+  for (const w of eng) { if (STOP_ENG.has(w)) continue; out.push({ t: w, w: 6 * scale }) }
+  const runs = q.match(/[一-龥]+/g) || []
+  for (const run of runs) {
+    if (run.length === 1) continue
+    if (run.length >= 3 && !STOP_CN.has(run)) out.push({ t: run, w: 3 * scale })
+    for (let i = 0; i < run.length - 1; i++) {
+      const g = run.slice(i, i + 2)
+      if (!STOP_CN.has(g)) out.push({ t: g, w: 1 * scale })
+    }
+  }
+  return out
+}
+
+// 章节静态数据（章节/正文不随请求变化），首次加载后模块级缓存，避免每次请求重查+重归一化正文。
+let _sectionsCache: any[] | null = null
+function loadSections() {
+  if (_sectionsCache) return _sectionsCache
   const rows = sqlite.prepare(
-    `SELECT s.id, s.title, c.id AS chapter_id, c.module_id AS module_id, c.title AS chapter_title
-     FROM sections s JOIN chapters c ON c.id=s.chapter_id`
+    `SELECT s.id, s.title, c.id AS chapter_id, c.module_id AS module_id, c.title AS chapter_title, s.content
+     FROM sections s JOIN chapters c ON c.id = s.chapter_id`
   ).all() as any[]
+  _sectionsCache = rows.map((r) => {
+    const head = normText(r.title) + ' ' + normText(r.chapter_title)
+    return { ...r, head, body: head + ' ' + normText(r.content || '') }
+  })
+  return _sectionsCache
+}
+
+export function mapSkillToSections(track: string, skillName: string, desc = '', subtrackId = '', limit = 3): { id: string; title: string; chapterTitle: string; chapterId: string; moduleId: string; score: number }[] {
+  // 可靠的按方向过滤：chapters.module_id 是指向 modules 的外键，方向值恰好等于路线图 track（frontend/backend/devops/ai）。
+  const rows = loadSections().filter((r: any) => r.module_id === track)
   if (!rows.length) return []
-  const q = normText(skillName)
-  const qTokens = q.length > 3 ? [q] : q.split('').filter(Boolean)
+  const toks = sectTokens(skillName, 1).concat(sectTokens(desc, 0.6))
+  if (!toks.length) return []
+  // 去重（同一词串只保留最高权重），避免「基础」同时出现在技能名与 desc 中被重复计数、绕过门控
+  const seen = new Map<string, number>()
+  for (const tk of toks) { const p = seen.get(tk.t); if (p === undefined || tk.w > p) seen.set(tk.t, tk.w) }
+  const uniqToks = [...seen].map(([t, w]) => ({ t, w }))
   let best: any[] = []
   for (const r of rows) {
-    const head = normText(r.title) + ' ' + normText(r.chapter_title)
-    let score = 0
-    for (const t of qTokens) if (head.includes(t)) score += t.length >= 2 ? 3 : 1
-    if (score > 0) best.push({ ...r, score })
+    let titleScore = 0, titleHits = 0, strongHit = false
+    for (const tk of uniqToks) {
+      if (r.head.includes(tk.t)) {
+        titleScore += tk.w
+        titleHits++
+        if (tk.w >= 3) strongHit = true // 英文词(6)或中文长短语(3)视为强信号
+      }
+    }
+    // 门控：至少命中一个强信号，或 ≥2 个标题级词；仅有 1 个标题级 bigram 视为弱关联，跳过（避免误导）
+    if (!strongHit && titleHits < 2) continue
+    let score = titleScore
+    for (const tk of uniqToks) {
+      if (!r.head.includes(tk.t) && r.body.includes(tk.t)) score += tk.w * 0.4 // 正文命中仅作弱补充
+    }
+    if (score < 2) continue
+    best.push({ ...r, score })
   }
-  best.sort((a, b) => b.score - a.score)
+  best.sort((a: any, b: any) => b.score - a.score)
   best = best.slice(0, limit)
   // 缓存映射（带元数据，便于后续反向联动掌握度）
   const cache = sqlite.prepare(
     `INSERT OR REPLACE INTO skill_section_map (skill_key, section_id, track, subtrack_id, skill_name, score) VALUES (?,?,?,?,?,?)`
   )
-  const key = skillKey(track, '', skillName)
-  const tx = sqlite.transaction(() => { for (const b of best) cache.run(key, b.id, track, '', skillName, b.score) })()
-  return best.map(({ id, title, chapterTitle, chapter_id, module_id, score }) => ({ id, title, chapterTitle, chapterId: chapter_id, moduleId: module_id, score }))
+  const key = skillKey(track, subtrackId, skillName)
+  sqlite.transaction(() => { for (const b of best) cache.run(key, b.id, track, subtrackId, skillName, b.score) })()
+  return best.map(({ id, title, chapter_title, chapter_id, module_id, score }) => ({ id, title, chapterTitle: chapter_title, chapterId: chapter_id, moduleId: module_id, score }))
 }
 
 /* ---------------- 错题本（P2）+ 间隔复习 SRS ---------------- */

@@ -7,5 +7,7 @@ export default defineEventHandler((event) => {
   const track = q.track as string
   const skill = q.skill as string
   if (!track || !skill) return json(event, 400, { error: '参数缺失' })
-  return json(event, 200, { sections: mapSkillToSections(track, skill) })
+  const desc = (q.desc as string) || ''
+  const subtrack = (q.subtrack as string) || ''
+  return json(event, 200, { sections: mapSkillToSections(track, skill, desc, subtrack) })
 })
