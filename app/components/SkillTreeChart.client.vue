@@ -16,14 +16,14 @@
     <div class="absolute right-2 top-2 z-10 flex gap-1.5 select-none">
       <button type="button" class="zoom-btn w-8 h-8 rounded-lg border border-line bg-surface text-sub hover:text-ink hover:border-brand-coral flex items-center justify-center text-base shadow-soft" title="放大" @click="zoomBy(1.15)">＋</button>
       <button type="button" class="zoom-btn w-8 h-8 rounded-lg border border-line bg-surface text-sub hover:text-ink hover:border-brand-coral flex items-center justify-center text-base shadow-soft" title="缩小" @click="zoomBy(1 / 1.15)">－</button>
-      <button type="button" class="zoom-btn w-8 h-8 rounded-lg border border-line bg-surface text-sub hover:text-ink hover:border-brand-coral flex items-center justify-center text-base shadow-soft" title="重置视图" @click="resetView">⤢</button>
+      <button type="button" class="zoom-btn w-8 h-8 rounded-lg border border-line bg-surface text-sub hover:text-ink hover:border-brand-coral flex items-center justify-center text-base shadow-soft" title="适应全图（概览）" @click="fitView">⤢</button>
     </div>
 
     <!-- 操作提示 -->
     <div
       class="absolute left-2 bottom-2 z-10 text-[11px] text-muted bg-surface border border-line px-2 py-1 rounded-md pointer-events-none"
     >
-      滚轮缩放 · 拖拽平移 · 点击节点看说明
+      滚轮缩放 · 拖拽平移浏览 · 点击节点看说明（⤢ 看全图）
     </div>
 
     <!-- 平移 / 缩放舞台（transform 实现，四方向对称夹紧） -->
@@ -105,8 +105,14 @@ function clampPan() {
   else ty.value = clamp(ty.value, vh - innerH, 0)
 }
 
-// 重置：优先等比适配整棵内容可见，否则 1:1 居中
+// 重置为「可读比例」（1:1）：文字清晰，靠拖拽/滚动浏览，无需放大
 function resetView() {
+  scale.value = 1
+  clampPan()
+}
+
+// 适应全图（概览）：等比缩小到整棵内容可见；点 ⤢ 时调用
+function fitView() {
   const vw = viewportEl.value?.clientWidth || 0
   const vh = viewportEl.value?.clientHeight || 0
   const fit = Math.min(1, vh / contentHeight.value, vw / (vw || 1))
