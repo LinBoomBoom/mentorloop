@@ -79,6 +79,7 @@
               <NuxtLink to="/learn" class="text-sub hover:text-brand-coral transition">学习路径</NuxtLink>
               <NuxtLink to="/interview" class="text-sub hover:text-brand-coral transition">面试题库</NuxtLink>
               <NuxtLink to="/exam" class="text-sub hover:text-brand-coral transition">模拟答卷</NuxtLink>
+              <NuxtLink to="/wrong" class="text-sub hover:text-brand-coral transition">错题本</NuxtLink>
               <NuxtLink to="/roadmap" class="text-sub hover:text-brand-coral transition">技能路线图</NuxtLink>
               <NuxtLink to="/vip" class="text-sub hover:text-brand-coral transition">VIP 会员</NuxtLink>
             </div>
@@ -93,11 +94,11 @@
     </div>
 
     <!-- 移动端底部 Tab -->
-    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 glass border-t border-line grid grid-cols-6 overflow-hidden">
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 glass border-t border-line grid grid-cols-7 overflow-hidden">
       <NuxtLink v-for="item in nav" :key="item.to" :to="item.to"
                 class="flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition min-w-0"
                 :class="isActive(item) ? 'text-brand-coral' : 'text-muted'">
-        <Icon :name="item.icon" :size="20" />
+        <Icon :name="item.icon" :size="18" />
         <span class="truncate max-w-full">{{ item.short }}</span>
       </NuxtLink>
     </nav>
@@ -115,6 +116,7 @@ const nav = [
   { to: '/learn', label: '学习中心', short: '学习', icon: 'book' },
   { to: '/interview', label: '面试题库', short: '面试', icon: 'chat' },
   { to: '/exam', label: '模拟答卷', short: '答卷', icon: 'clipboard' },
+  { to: '/wrong', label: '错题本', short: '错题', icon: 'alertTriangle' },
   { to: '/roadmap', label: '技能路线图', short: '路线图', icon: 'compass' },
   { to: '/vip', label: 'VIP 会员', short: 'VIP', icon: 'crown' }
 ]

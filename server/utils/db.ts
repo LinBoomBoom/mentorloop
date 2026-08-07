@@ -634,6 +634,71 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
         tx()
       } catch { /* 种子缺失或损坏时跳过，不阻塞启动 */ }
     }
+  },
+  {
+    version: 17,
+    name: 'skill-mastery-wrongbook',
+    up: (db) => {
+      // P0 技能掌握度：把「学面一体」真正闭环的持久层。
+      //   - user_skill_mastery：per-user × 408 技能点的信号计数（显式标记 / 题库练习 / 模拟自测 / 已学章节），读取时统一算出 status+mastery。
+      //   - skill_section_map：技能点 → 课程小节 的缓存映射（启发式关键词匹配，避免每次重算）。
+      //   - user_wrong_items：跨卷/练习错题本 + 间隔复习(SRS) 调度。
+      // 全部幂等（IF NOT EXISTS / 主键），对老库重跑安全。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS user_skill_mastery (
+          user_id TEXT NOT NULL,
+          skill_key TEXT NOT NULL,
+          track TEXT NOT NULL,
+          subtrack_id TEXT NOT NULL,
+          skill_name TEXT NOT NULL,
+          marked INTEGER DEFAULT 0,
+          practiced_correct INTEGER DEFAULT 0,
+          practiced_total INTEGER DEFAULT 0,
+          exam_correct INTEGER DEFAULT 0,
+          exam_total INTEGER DEFAULT 0,
+          learned_sections INTEGER DEFAULT 0,
+          learned_total INTEGER DEFAULT 0,
+          updated_at INTEGER,
+          PRIMARY KEY (user_id, skill_key),
+          FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_usm_user ON user_skill_mastery(user_id)')
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS skill_section_map (
+          skill_key TEXT NOT NULL,
+          section_id TEXT NOT NULL,
+          track TEXT,
+          subtrack_id TEXT,
+          skill_name TEXT,
+          score INTEGER DEFAULT 0,
+          PRIMARY KEY (skill_key, section_id)
+        )
+      `)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_ssm_skill ON skill_section_map(skill_key)')
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS user_wrong_items (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          source TEXT NOT NULL,
+          item_id TEXT NOT NULL,
+          track TEXT,
+          subtrack_id TEXT,
+          skill_key TEXT,
+          q TEXT,
+          user_answer TEXT,
+          answer TEXT,
+          wrong_count INTEGER DEFAULT 1,
+          next_review_at INTEGER,
+          reviewed_at INTEGER,
+          created_at INTEGER,
+          FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_uwi_user ON user_wrong_items(user_id, next_review_at)')
+    }
   }
 ]
 
@@ -1076,6 +1141,8 @@ export function deleteAccount(userId: string) {
   const tx = sqlite.transaction(() => {
     sqlite.prepare('DELETE FROM exam_records WHERE user_id=?').run(userId)
     sqlite.prepare('DELETE FROM progress WHERE user_id=?').run(userId)
+    sqlite.prepare('DELETE FROM user_skill_mastery WHERE user_id=?').run(userId)
+    sqlite.prepare('DELETE FROM user_wrong_items WHERE user_id=?').run(userId)
     sqlite.prepare('DELETE FROM sessions WHERE user_id=?').run(userId)
     sqlite.prepare('DELETE FROM orders WHERE user_id=?').run(userId)
     sqlite.prepare('DELETE FROM subscriptions WHERE user_id=?').run(userId)

@@ -32,6 +32,42 @@
       </a-card>
     </div>
 
+    <!-- 我的掌握度（登录后展示，免费层即可用，是学面一体闭环核心） -->
+    <a-card v-if="masterySummary.loggedIn" class="mb-5" :body-style="{ padding: '16px' }">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-sm font-bold flex items-center gap-1.5">
+          <Icon name="check" :size="16" style="color:#ff5e7e" /> 我的掌握度
+        </span>
+        <span class="text-xs text-muted">已掌握 {{ masterySummary.mastered }}/{{ masterySummary.total }} · 必会 {{ masterySummary.mustMastered }}/{{ masterySummary.mustTotal }}</span>
+      </div>
+      <!-- 总体进度条 -->
+      <div class="space-y-1 mb-3">
+        <div class="flex justify-between text-xs">
+          <span class="text-muted">全部技能掌握率</span>
+          <span class="font-bold tabular-nums">{{ masterySummary.pct }}%</span>
+        </div>
+        <div class="h-2 rounded-full bg-surface overflow-hidden">
+          <div class="h-full rounded-full transition-all" :style="{ width: masterySummary.pct + '%', background: '#ff5e7e' }"></div>
+        </div>
+        <div class="flex justify-between text-xs pt-1">
+          <span class="text-muted">必会硬门槛完成率</span>
+          <span class="font-bold tabular-nums text-amber-500">{{ masterySummary.mustPct }}%</span>
+        </div>
+        <div class="h-2 rounded-full bg-surface overflow-hidden">
+          <div class="h-full rounded-full transition-all" :style="{ width: masterySummary.mustPct + '%', background: '#f59e0b' }"></div>
+        </div>
+      </div>
+      <!-- 分方向 -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div v-for="(t, id) in masterySummary.perTrack" :key="id" class="rounded-xl border border-line p-2.5">
+          <div class="flex items-center gap-1.5 text-xs font-semibold truncate">
+            <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: t.color }"></span>{{ t.name }}
+          </div>
+          <div class="text-[11px] text-muted mt-1 tabular-nums">掌握 {{ t.mastered }}/{{ t.total }} · 必会 {{ t.mustMastered }}/{{ t.mustTotal }}</div>
+        </div>
+      </div>
+    </a-card>
+
     <!-- 控制条：方向 / 视图 / 搜索 -->
     <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
       <div class="flex flex-wrap gap-2">
@@ -116,12 +152,13 @@
                   <div class="text-[10px] text-muted mb-2 leading-snug">{{ lv.stance }}</div>
                   <div class="flex flex-col gap-1.5">
                     <button v-for="s in lv.skills" :key="s.name" type="button" @click="openSkill(s, lv, st, g.direction)"
-                            :title="s.desc || s.name"
-                            class="text-left text-[12px] leading-snug px-2 py-1.5 rounded-lg border transition"
+                            :title="(s.desc || s.name) + ' · 掌握度：' + mStatus(g.direction.id, st.id, s.name)"
+                            class="text-left text-[12px] leading-snug px-2 py-1.5 rounded-lg border transition flex items-start gap-1.5"
                             :class="s.must ? 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-400' : 'border-line text-sub hover:border-brand-coral/40 hover:text-ink'">
-                      <span class="inline-flex items-start gap-1">
+                      <span class="w-1.5 h-1.5 rounded-full mt-1 shrink-0" :style="{ background: statusDotColor[mStatus(g.direction.id, st.id, s.name)] }"></span>
+                      <span class="inline-flex items-start gap-1 flex-1 min-w-0">
                         <span v-if="s.must" class="text-amber-500 font-bold leading-none">★</span>
-                        <span>{{ s.name }}</span>
+                        <span class="truncate">{{ s.name }}</span>
                       </span>
                     </button>
                   </div>
@@ -188,7 +225,43 @@
             </div>
           </div>
 
+          <!-- 我的掌握度 & 行动（免费即可用）-->
           <a-divider />
+          <div class="mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-bold">我的掌握度</span>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    :style="{ background: statusDotColor[mStatus(selected.track, selected.subtrackId, selected.name)] + '22', color: statusDotColor[mStatus(selected.track, selected.subtrackId, selected.name)] }">
+                {{ { new:'未开始', learning:'学习中', familiar:'较熟悉', mastered:'已掌握' }[mStatus(selected.track, selected.subtrackId, selected.name)] }}
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <a-button v-if="auth.isLoggedIn" size="small" type="primary" :loading="markingSkill" @click="toggleMark">
+                {{ (masteryMap[sk(selected.track, selected.subtrackId, selected.name)]?.marked) ? '取消掌握标记' : '标记已掌握' }}
+              </a-button>
+              <a-button v-else size="small" type="primary" :href="`/auth/login?redirect=${encodeURIComponent($route.fullPath)}`">登录后标记</a-button>
+              <a-button size="small" :href="`/exam/practice?track=${selected.track}&subtrack=${selected.subtrackId}&skill=${encodeURIComponent(selected.name)}`">去自测 →</a-button>
+            </div>
+          </div>
+
+          <!-- 推荐学习（技能 → 课程章节映射）-->
+          <div class="mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="book" :size="15" style="color:#ff5e7e" /> 推荐学习</span>
+              <span v-if="learnLoading" class="text-xs text-muted">匹配中…</span>
+            </div>
+            <a-empty v-if="!learnLoading && !learnSections.length" description="暂无匹配章节" :image="undefined" class="py-4">
+              <template #description><span class="text-xs text-muted">该技能暂未匹配到课程章节。</span></template>
+            </a-empty>
+            <div v-else class="space-y-1.5">
+              <NuxtLink v-for="sec in learnSections" :key="sec.id" :to="`/learn/${sec.moduleId}/${sec.chapterId}/${sec.id}`"
+                        class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
+                <div class="font-medium text-ink truncate">{{ sec.title }}</div>
+                <div class="text-[11px] text-muted truncate">{{ sec.chapterTitle }}</div>
+              </NuxtLink>
+            </div>
+          </div>
+
           <div class="text-xs text-muted">
             所属赛道：<span class="text-ink font-medium">{{ selected.subtrack }}</span><br />
             技术方向：<span class="text-ink font-medium">{{ selected.direction }}</span>
@@ -238,6 +311,8 @@ import { useMarkdown } from '~/composables/useMarkdown'
 
 const { isDark } = useTheme()
 const { md } = useMarkdown()
+const auth = useAuthStore()
+const { request } = useApi()
 
 const tabs = [{ id: 'all', name: '全部', color: '#ff5e7e' }, ...roadmap.map(d => ({ id: d.id, name: d.name, color: d.color }))]
 const activeDir = ref('all')
@@ -250,6 +325,49 @@ const stats = globalStats()
 const totalSkills = stats.skills
 const totalSubTracks = stats.subTracks
 const totalMust = stats.must
+
+// ---- P0 技能掌握度（登录后拉取；纯前端用 roadmap 树做方向/必会聚合）----
+type MStatus = 'new' | 'learning' | 'familiar' | 'mastered'
+const sk = (track: string, subtrackId: string, name: string) => [track, subtrackId, name].join('::')
+const masteryMap = ref<Record<string, any>>({})
+async function loadMastery() {
+  if (!auth.isLoggedIn) { masteryMap.value = {}; return }
+  try {
+    const r: any = await request('/api/skill/mastery')
+    masteryMap.value = r.map || {}
+  } catch (e) { /* 掌握度非关键，失败静默 */ }
+}
+function mStatus(track: string, subtrackId: string, name: string): MStatus {
+  return (masteryMap.value[sk(track, subtrackId, name)]?.status as MStatus) || 'new'
+}
+const statusDotColor: Record<MStatus, string> = {
+  new: '#cbd5e1',
+  learning: '#3b82f6',
+  familiar: '#14b8a6',
+  mastered: '#ff5e7e'
+}
+const masterySummary = computed(() => {
+  const map = masteryMap.value
+  const perTrack: Record<string, any> = {}
+  let total = 0, mastered = 0, mustTotal = 0, mustMastered = 0
+  for (const d of roadmap) {
+    perTrack[d.id] = { name: d.name, color: d.color, total: 0, mastered: 0, mustTotal: 0, mustMastered: 0 }
+    for (const st of d.subTracks) for (const lv of st.levels) for (const s of lv.skills) {
+      const m = map[sk(d.id, st.id, s.name)]
+      total++; perTrack[d.id].total++
+      if (s.must) { mustTotal++; perTrack[d.id].mustTotal++ }
+      if (m && m.status === 'mastered') { mastered++; perTrack[d.id].mastered++ }
+      if (s.must && m && m.status === 'mastered') { mustMastered++; perTrack[d.id].mustMastered++ }
+    }
+  }
+  return {
+    total, mastered, mustTotal, mustMastered, perTrack,
+    pct: total ? Math.round(mastered / total * 100) : 0,
+    mustPct: mustTotal ? Math.round(mustMastered / mustTotal * 100) : 0,
+    loggedIn: auth.isLoggedIn
+  }
+})
+onMounted(loadMastery)
 
 // ---- 树形图 / 路线图数据（纯函数，来自数据模块）----
 const treeData = computed(() => buildTreeData(activeDir.value, kw.value))
@@ -280,13 +398,50 @@ const relatedLoading = ref(false)
 const relatedCount = ref(-1)
 let relatedAbort: AbortController | null = null
 
+// ---- 技能 → 学习章节（P1a「去学习」入口）----
+const learnSections = ref<any[]>([])
+const learnLoading = ref(false)
+async function loadLearn() {
+  learnSections.value = []
+  if (!selected.value?.track || !selected.value?.name) return
+  learnLoading.value = true
+  try {
+    const r: any = await request(
+      `/api/skill/learn?track=${encodeURIComponent(selected.value.track)}&skill=${encodeURIComponent(selected.value.name)}`
+    )
+    learnSections.value = r.sections || []
+  } catch (e) { /* 非关键 */ } finally { learnLoading.value = false }
+}
+
+// ---- 标记/取消「已掌握」（免费核心闭环）----
+const markingSkill = ref(false)
+async function toggleMark() {
+  if (!auth.isLoggedIn || !selected.value?.track || markingSkill.value) return
+  const s = selected.value
+  const key = sk(s.track, s.subtrackId, s.name)
+  const next = !(masteryMap.value[key]?.marked)
+  markingSkill.value = true
+  try {
+    await request('/api/skill/mastery', { method: 'POST', body: {
+      skillKey: key, track: s.track, subtrackId: s.subtrackId, skillName: s.name, marked: next
+    } })
+    // 乐观更新本地掌握度
+    masteryMap.value = {
+      ...masteryMap.value,
+      [key]: { ...(masteryMap.value[key] || { status: 'new', mastered: false, practiced_total: 0, exam_total: 0, learned_total: 0 }), marked: next, status: next ? 'mastered' : 'new', mastery: next ? 100 : 0 }
+    }
+  } catch (e) { /* 静默 */ } finally { markingSkill.value = false }
+}
+
 watch(selected, async (sel) => {
   // 切换技能点时重置
   relatedQuestions.value = []
   relatedCount.value = -1
   relatedLoading.value = false
   if (relatedAbort) { relatedAbort.abort(); relatedAbort = null }
+  learnSections.value = []
   if (sel && sel.kind === 'skill' && sel.track && sel.name) {
+    loadLearn()
     relatedLoading.value = true
     const ac = new AbortController()
     relatedAbort = ac
