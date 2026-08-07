@@ -93,7 +93,7 @@
     </div>
 
     <!-- 移动端底部 Tab -->
-    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 glass border-t border-line grid grid-cols-7 overflow-hidden">
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 glass border-t border-line grid grid-cols-6 overflow-hidden">
       <NuxtLink v-for="item in nav" :key="item.to" :to="item.to"
                 class="flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition min-w-0"
                 :class="isActive(item) ? 'text-brand-coral' : 'text-muted'">
@@ -115,7 +115,6 @@ const nav = [
   { to: '/learn', label: '学习中心', short: '学习', icon: 'book' },
   { to: '/interview', label: '面试题库', short: '面试', icon: 'chat' },
   { to: '/exam', label: '模拟答卷', short: '答卷', icon: 'clipboard' },
-  { to: '/skills', label: '技能树', short: '技能树', icon: 'tree' },
   { to: '/roadmap', label: '技能路线图', short: '路线图', icon: 'compass' },
   { to: '/vip', label: 'VIP 会员', short: 'VIP', icon: 'crown' }
 ]
