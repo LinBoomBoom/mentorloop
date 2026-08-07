@@ -46,16 +46,22 @@
         </button>
       </div>
 
-      <div class="lg:ml-auto flex items-center gap-2">
+      <div class="flex items-center gap-2">
         <!-- 视图切换 -->
-        <div class="flex p-1 rounded-xl border border-line bg-surface">
-          <button type="button" @click="view = 'tree'" class="px-3 py-1.5 rounded-lg text-sm font-semibold transition"
-                  :class="view === 'tree' ? 'bg-brand-coral text-white shadow-soft' : 'text-sub hover:text-ink'">🌳 树形图</button>
-          <button type="button" @click="view = 'board'" class="px-3 py-1.5 rounded-lg text-sm font-semibold transition"
-                  :class="view === 'board' ? 'bg-brand-coral text-white shadow-soft' : 'text-sub hover:text-ink'">🗂 路线图</button>
+        <div class="flex p-0.5 rounded-xl border border-line bg-surface shrink-0">
+          <button type="button" @click="view = 'tree'" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap"
+                  :class="view === 'tree' ? 'bg-brand-coral text-white shadow-soft' : 'text-sub hover:text-ink'">
+            <Icon name="git" :size="15" class="shrink-0" />
+            树形图
+          </button>
+          <button type="button" @click="view = 'board'" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap"
+                  :class="view === 'board' ? 'bg-brand-coral text-white shadow-soft' : 'text-sub hover:text-ink'">
+            <Icon name="grid" :size="15" class="shrink-0" />
+            路线图
+          </button>
         </div>
         <!-- 搜索 -->
-        <a-input v-model:value="kw" placeholder="搜索技能，如：性能 / RAG / 微服务" allow-clear class="w-44 sm:w-56">
+        <a-input v-model:value="kw" placeholder="搜索技能，如：性能 / RAG / 微服务" allow-clear class="w-60 sm:w-72 min-w-0">
           <template #prefix><Icon name="search" :size="15" /></template>
         </a-input>
       </div>
