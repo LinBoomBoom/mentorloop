@@ -9,6 +9,9 @@ export default defineEventHandler((event) => {
   const query = getQuery(event)
   const type = query.type === 'special' ? 'special' : 'hot'
   const tech = (query.tech as string) || ''
+  // 技能树浏览模式：按路线图赛道 / 技能点精确筛选（仅路线图题 rq- 带这两个归属）
+  const subtrack = (query.subtrack as string) || ''
+  const skill = (query.skill as string) || ''
   const kw = ((query.q as string) || '').trim()
   const page = Math.max(1, parseInt(String(query.page || '1'), 10) || 1)
   const pageSize = Math.min(PAGE_SIZE_MAX, Math.max(1, parseInt(String(query.pageSize || '10'), 10) || 10))
@@ -20,6 +23,8 @@ export default defineEventHandler((event) => {
   const cond: string[] = ['track=?']
   const args: any[] = [track]
   if (tech) { cond.push('tech=?'); args.push(tech) }
+  if (subtrack) { cond.push('subtrack=?'); args.push(subtrack) }
+  if (skill) { cond.push('skill=?'); args.push(skill) }
   if (kw) {
     // A10 转义 LIKE 通配符。注意 SQLite 默认无转义字符，必须显式声明 ESCAPE '\'，
     // 否则 likeWrap 产出的 \% 会被当成「字面反斜杠 + 通配符」，导致搜索 % / _ 静默返回空。
@@ -38,7 +43,7 @@ export default defineEventHandler((event) => {
 
   // 当前页数据：仅取当前题型，按 weight 降序（高频题优先）再按 id 稳定排序
   const rows = sqlite.prepare(
-    `SELECT id,q,a,keywords,tech,difficulty,section_id,
+    `SELECT id,q,a,keywords,tech,difficulty,section_id,subtrack,skill,
        (SELECT s.title FROM sections s WHERE s.id = interview_questions.section_id) AS section_title
      FROM interview_questions
      WHERE ${where} AND type=?
@@ -49,6 +54,9 @@ export default defineEventHandler((event) => {
   // 技术子类选项：只受关键词影响（不受 tech 自身影响，否则选中后其它选项会消失）
   const techCond: string[] = ['track=?']
   const techArgs: any[] = [track]
+  // 赛道/技能点是比 tech 更强的限定，选中后技术子类应随之收敛
+  if (subtrack) { techCond.push('subtrack=?'); techArgs.push(subtrack) }
+  if (skill) { techCond.push('skill=?'); techArgs.push(skill) }
   if (kw) {
     const like = likeWrap(kw)
     techCond.push(`(q LIKE ? ESCAPE '\\' OR a LIKE ? ESCAPE '\\' OR keywords LIKE ? ESCAPE '\\')`)
@@ -75,7 +83,9 @@ export default defineEventHandler((event) => {
         keywords: JSON.parse(r.keywords || '[]'),
         tech: r.tech || '综合',
         difficulty: r.difficulty || 'normal',
-        sectionTitle: r.section_title || null
+        sectionTitle: r.section_title || null,
+        subtrack: r.subtrack || null,
+        skill: r.skill || null
       }))
     }
   })

@@ -153,8 +153,8 @@
                 <span v-if="relatedLoading" class="text-xs text-muted font-normal">加载中…</span>
                 <span v-else-if="relatedCount >= 0" class="text-xs text-muted font-normal">{{ relatedCount }} 道</span>
               </span>
-              <a-button v-if="selected.track && selected.name" type="link" size="small" class="!px-0"
-                        :href="`/interview?track=${selected.track}&q=${encodeURIComponent(selected.name)}`">去题库练习 →</a-button>
+              <a-button v-if="selected.track && selected.subtrackId && selected.name" type="link" size="small" class="!px-0"
+                        :href="`/interview?mode=tree&track=${selected.track}&subtrack=${selected.subtrackId}&skill=${encodeURIComponent(selected.name)}`">去题库练习 →</a-button>
             </div>
 
             <a-empty v-if="!relatedLoading && relatedQuestions.length === 0" description="暂无相关面试题" :image="undefined" class="py-6">
@@ -271,7 +271,7 @@ const drawerTitle = computed(() => {
 })
 function openNode(meta: any) { selected.value = meta }
 function openSkill(s: SkillNode, lv: LevelGroup, st: SubTrack, d: Direction) {
-  selected.value = { kind: 'skill', name: s.name, desc: s.desc, must: s.must, level: lv.level, levelTitle: levelLabel[lv.level], subtrack: st.name, direction: d.name, track: d.id }
+  selected.value = { kind: 'skill', name: s.name, desc: s.desc, must: s.must, level: lv.level, levelTitle: levelLabel[lv.level], subtrack: st.name, subtrackId: st.id, direction: d.name, track: d.id }
 }
 
 // ---- 技能点 → 相关面试题（联动题库）----

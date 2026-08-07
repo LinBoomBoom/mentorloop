@@ -72,14 +72,66 @@
               :class="activeTrack === t.id ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ t.name }}</button>
     </div>
 
+    <!-- 浏览模式：按技术子类筛选（全库）/ 按技能路线图导航（路线图专属题） -->
+    <div class="flex gap-2 mb-4 flex-wrap items-center">
+      <span class="text-xs text-muted mr-1">浏览方式：</span>
+      <button @click="setMode('tech')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition border"
+              :class="browseMode === 'tech' ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">
+        <Icon name="search" :size="14" class="inline -mt-0.5" /> 按技术筛选
+      </button>
+      <button @click="setMode('tree')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition border"
+              :class="browseMode === 'tree' ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">
+        <Icon name="target" :size="14" class="inline -mt-0.5" /> 按技能树
+      </button>
+    </div>
+
     <a-input v-model:value="q" class="mb-4 max-w-md" placeholder="搜索面试题，如：响应式、缓存击穿…" aria-label="搜索面试题">
       <template #prefix><Icon name="search" :size="17" class="text-muted" /></template>
     </a-input>
 
     <a-card v-if="!bank"><a-skeleton active :paragraph="{ rows: 4 }" /></a-card>
     <template v-else>
+      <!-- 技能树导航：赛道卡片 → 技能点 chips，结构与 /roadmap 路线图一致 -->
+      <template v-if="browseMode === 'tree'">
+        <!-- 未选赛道：展示该方向下全部赛道及其专属题数 -->
+        <div v-if="!treeSubtrack" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+          <button v-for="st in curSubtracks" :key="st.id" @click="pickSubtrack(st.id)"
+                  class="text-left rounded-xl border border-line p-4 hover:border-brand-coral/50 hover:bg-brand-coral/[.03] transition">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <span class="font-bold text-sm leading-snug">{{ st.name }}</span>
+              <span class="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-coral/10 text-brand-coral">{{ subCount(st.id) }} 题</span>
+            </div>
+            <div class="text-xs text-muted">{{ stSkillCount(st) }} 个技能点 · {{ stMustCount(st) }} 个必会</div>
+          </button>
+        </div>
+
+        <!-- 已选赛道：面包屑 + 分层技能点 -->
+        <div v-else class="mb-5">
+          <div class="flex items-center gap-2 mb-3 flex-wrap text-sm">
+            <button @click="clearSubtrack" class="text-brand-coral font-semibold hover:underline">← 全部赛道</button>
+            <span class="text-muted">/</span>
+            <span class="font-bold">{{ curSubtrackObj && curSubtrackObj.name }}</span>
+            <template v-if="treeSkill">
+              <span class="text-muted">/</span>
+              <span class="font-semibold text-brand-coral">{{ treeSkill }}</span>
+              <button @click="pickSkill(treeSkill)" class="text-xs text-muted hover:text-brand-coral">✕ 取消</button>
+            </template>
+          </div>
+          <div v-for="lv in ((curSubtrackObj && curSubtrackObj.levels) || [])" :key="lv.level" class="mb-2.5 flex items-start gap-2 flex-wrap">
+            <span class="text-[11px] font-bold px-2 py-1 rounded-md shrink-0 mt-0.5"
+                  :style="{ background: levelColor[lv.level] + '1a', color: levelColor[lv.level] }">{{ levelLabel[lv.level] }}</span>
+            <button v-for="s in lv.skills" :key="s.name" @click="pickSkill(s.name)"
+                    class="px-2.5 py-1 rounded-lg text-xs font-medium transition border"
+                    :class="treeSkill === s.name ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">
+              <span v-if="s.must" class="text-brand-gold">★</span>{{ s.name }}
+              <span class="opacity-60 ml-0.5">{{ skillCount(treeSubtrack, s.name) }}</span>
+            </button>
+          </div>
+        </div>
+      </template>
+
       <!-- 技术二级筛选：由服务端按当前方向 + 搜索词归纳，带命中数 -->
-      <div v-if="techOptions.length" class="flex gap-2 mb-4 flex-wrap items-center">
+      <div v-else-if="techOptions.length" class="flex gap-2 mb-4 flex-wrap items-center">
         <span class="text-xs text-muted mr-1">技术：</span>
         <button @click="setTech('')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
                 :class="!techFilter ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">全部</button>
@@ -88,6 +140,8 @@
                 :class="techFilter === t.tech ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ t.tech }} <span class="opacity-60">{{ t.count }}</span></button>
       </div>
 
+      <!-- 题目区：技能树模式需先选定赛道，避免一上来就平铺全量题目淹没导航 -->
+      <template v-if="browseMode === 'tech' || treeSubtrack">
       <!-- 题型切换 -->
       <div class="flex gap-2 mb-4 flex-wrap">
         <button @click="setTab('hot')" class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
@@ -116,6 +170,7 @@
               <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0" :class="qTab === 'hot' ? 'bg-brand-gold/10 text-brand-gold' : 'bg-brand-pink/10 text-brand-pink'">{{ qTab === 'hot' ? 'Q' : 'S' }}</span>
               <span class="font-medium text-sm flex-1 pr-2 leading-snug">{{ item.q }}</span>
               <a-tag class="hidden sm:inline-block shrink-0 !text-[10px] !bg-ink/5 !text-sub" :bordered="false">{{ item.tech }}</a-tag>
+              <a-tag v-if="item.skill" class="hidden md:inline-block shrink-0 !text-[10px] !bg-brand-coral/10 !text-brand-coral" :bordered="false">{{ item.skill }}</a-tag>
               <a-tag class="shrink-0 !text-[10px]" :class="diffMeta(item.difficulty).cls" :bordered="false">{{ diffMeta(item.difficulty).label }}</a-tag>
               <Icon name="chevronRight" :size="16" class="text-muted transition-transform shrink-0" :class="openSet.has(item.id) ? 'rotate-90' : ''" />
             </button>
@@ -142,11 +197,14 @@
                         @change="goPage" />
         </div>
       </div>
+      </template>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
+import { roadmap, levelColor, levelLabel } from '~/data/skillRoadmap'
+import type { SubTrack } from '~/data/skillRoadmap'
 const { request } = useApi()
 const { md } = useMarkdown()
 const { guard } = useLoginGate()
@@ -168,10 +226,48 @@ const page = ref(1)
 const q = ref(initKw)
 const qDebounced = ref(initKw) // 搜索防抖，避免每次按键都打服务端
 
-// 服务端分页：题库扩到 2600+ 道后不能再整库下发，只取当前页
-const { data: bankRes, pending } = await useFetch(() => '/api/interview/' + activeTrack.value, {
-  query: { type: qTab, tech: techFilter, q: qDebounced, page, pageSize: PAGE_SIZE },
+// ===== 技能树浏览模式 =====
+// 浏览方式：tech=按技术子类（全库）/ tree=按路线图赛道+技能点（仅路线图专属题 rq-）
+// 深链：/interview?mode=tree&subtrack=xxx&skill=yyy（由 /roadmap 技能抽屉「去题库练习」跳转）
+const browseMode = ref(route.query.mode === 'tree' ? 'tree' : 'tech')
+const treeSubtrack = ref(typeof route.query.subtrack === 'string' ? route.query.subtrack : '')
+const treeSkill = ref(typeof route.query.skill === 'string' ? route.query.skill : '')
+
+// 当前方向下的赛道列表（静态路线图数据，前端已内置）
+const curSubtracks = computed<SubTrack[]>(() => {
+  const dir = roadmap.find(d => d.id === activeTrack.value)
+  return dir ? dir.subTracks : []
+})
+// 当前已选赛道对象（用于面包屑名称与分层技能点渲染）
+const curSubtrackObj = computed<SubTrack | null>(() => {
+  if (!treeSubtrack.value) return null
+  return curSubtracks.value.find(s => s.id === treeSubtrack.value) || null
+})
+
+// 技能树题数聚合（每赛道 / 每「赛道|技能」的题数，供徽标展示）
+const { data: treeRes } = await useFetch(() => '/api/interview/tree/' + activeTrack.value, {
   watch: [activeTrack]
+})
+const treeAgg = computed<any>(() => treeRes.value?.tree || { bySubtrack: {}, bySkill: {} })
+function subCount(id: string): number { return treeAgg.value.bySubtrack?.[id] || 0 }
+function skillCount(sub: string, name: string): number { return treeAgg.value.bySkill?.[`${sub}|${name}`] || 0 }
+function stSkillCount(st: SubTrack): number { return st.levels.reduce((n, l) => n + l.skills.length, 0) }
+function stMustCount(st: SubTrack): number { return st.levels.reduce((n, l) => n + l.skills.filter(s => s.must).length, 0) }
+
+function setMode(m: 'tech' | 'tree') {
+  browseMode.value = m
+  // 切回技术筛选时清空技能树选择，避免「技术筛选」仍附带赛道/技能点限定而出人意料地收窄结果
+  if (m === 'tech') { treeSubtrack.value = ''; treeSkill.value = '' }
+}
+function pickSubtrack(id: string) { page.value = 1; treeSubtrack.value = id; treeSkill.value = '' }
+function clearSubtrack() { page.value = 1; treeSubtrack.value = ''; treeSkill.value = '' }
+function pickSkill(name: string) { page.value = 1; treeSkill.value = treeSkill.value === name ? '' : name }
+
+// 服务端分页：题库扩到 2600+ 道后不能再整库下发，只取当前页
+// 技能树模式通过在 query 里带 subtrack/skill 实现精确挂载筛选（空值表示不限）
+const { data: bankRes, pending } = await useFetch(() => '/api/interview/' + activeTrack.value, {
+  query: { type: qTab, tech: techFilter, q: qDebounced, page, pageSize: PAGE_SIZE, subtrack: treeSubtrack, skill: treeSkill },
+  watch: [activeTrack, treeSubtrack, treeSkill]
 })
 const bank = computed(() => bankRes.value?.bank || null)
 const items = computed<any[]>(() => bank.value?.items || [])
@@ -215,6 +311,9 @@ function loadTrack(t: string) {
   if (activeTrack.value === t) return
   page.value = 1
   techFilter.value = ''
+  // 赛道 id 是方向内的，切方向必须清空技能树选择，否则会残留上一个方向的赛道筛选
+  treeSubtrack.value = ''
+  treeSkill.value = ''
   activeTrack.value = t
 }
 function setTech(t: string) { page.value = 1; techFilter.value = t }

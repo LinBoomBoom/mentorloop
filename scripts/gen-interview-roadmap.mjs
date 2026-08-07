@@ -198,7 +198,8 @@ async function main() {
   }
 
   const seed = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'seed-content.json'), 'utf8'))
-  const insertStmt = db.prepare('INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,difficulty,tech,weight) VALUES (?,?,?,?,?,?,?,?,?)')
+  // 技能树归属：subtrack=赛道id（st.id），skill=技能点名（f.name）。供 /interview 按技能树浏览精确挂载。
+  const insertStmt = db.prepare('INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,difficulty,tech,weight,subtrack,skill) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
 
   // 路线图→题目映射（用于前端联动）
   const qaMap = new Map()
@@ -212,7 +213,8 @@ async function main() {
   function applyToSeed(track, item) {
     const obj = seed.interview[track]
     const arr = item.type === 'special' ? obj.special : obj.hot
-    arr.push({ id: item.id, q: item.q, keywords: item.keywords, a: item.a, tech: item.tech, difficulty: item.difficulty })
+    // 写入技能树归属：item.subtrack=赛道id、item.skill=技能点名，由 worker 注入
+    arr.push({ id: item.id, q: item.q, keywords: item.keywords, a: item.a, tech: item.tech, difficulty: item.difficulty, subtrack: item.subtrack || null, skill: item.skill || null })
   }
 
   let done = 0, skipped = 0, failed = 0, genTotal = 0, flushCount = 0
@@ -332,8 +334,9 @@ ${TECH_MAP[f.track].map(r => r.tech).join('、')}
             const weight = isHard ? 5 : 3
             // 把技能名塞进关键词，便于现有搜索/筛选命中
             const kws = x.keywords.includes(f.name) ? x.keywords : [...x.keywords, f.name].slice(0, 8)
-            insertStmt.run(id, f.track, type, x.q, x.a, JSON.stringify(kws), difficulty, tech, weight)
-            applyToSeed(f.track, { id, q: x.q, a: x.a, keywords: kws, type, tech, difficulty })
+            // 技能树归属：subtrack=赛道id，skill=技能点名
+            insertStmt.run(id, f.track, type, x.q, x.a, JSON.stringify(kws), difficulty, tech, weight, f.subtrackId, f.name)
+            applyToSeed(f.track, { id, q: x.q, a: x.a, keywords: kws, type, tech, difficulty, subtrack: f.subtrackId, skill: f.name })
             recordMap(f, id)
             written++
           })
@@ -379,16 +382,22 @@ ${TECH_MAP[f.track].map(r => r.tech).join('、')}
 // 对账：DB 中有、种子没有的 rq- 题，补进种子
 function reconcileSeedFromDb(seed) {
   const db2 = new Database(path.join(ROOT, 'data', 'devmentor.db'), { readonly: true })
-  const rows = db2.prepare("SELECT id,track,type,q,a,keywords,difficulty,tech FROM interview_questions WHERE id LIKE 'rq-%'").all()
+  const rows = db2.prepare("SELECT id,track,type,q,a,keywords,difficulty,tech,subtrack,skill FROM interview_questions WHERE id LIKE 'rq-%'").all()
   let added = 0
   for (const r of rows) {
     const obj = seed.interview[r.track]
     if (!obj) continue
     const arr = r.type === 'special' ? obj.special : obj.hot
-    if (arr.some(x => x.id === r.id)) continue
+    const exist = arr.find(x => x.id === r.id)
     let kws = []
     try { kws = JSON.parse(r.keywords || '[]') } catch {}
-    arr.push({ id: r.id, q: r.q, keywords: kws, a: r.a, tech: r.tech, difficulty: r.difficulty })
+    if (exist) {
+      // DB 已有该题（如重跑时已存在），同步归属字段，避免种子丢失 subtrack/skill
+      exist.subtrack = r.subtrack || null
+      exist.skill = r.skill || null
+      continue
+    }
+    arr.push({ id: r.id, q: r.q, keywords: kws, a: r.a, tech: r.tech, difficulty: r.difficulty, subtrack: r.subtrack || null, skill: r.skill || null })
     added++
   }
   db2.close()

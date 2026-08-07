@@ -589,6 +589,51 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       )`)
       db.exec('CREATE INDEX IF NOT EXISTS idx_aianswer_created ON ai_answer_cache(created_at)')
     }
+  },
+  {
+    version: 16,
+    name: 'interview-skill-tree',
+    up: (db) => {
+      // 技能树归属：赛道 subtrack（对应路线图 subTrack.id）+ 技能点 skill（技能名），
+      // 供 /interview 的「按技能树浏览」模式做 赛道 → 技能点 → 题目 的分类导航。
+      //
+      // 归属只对路线图题（rq-）成立：它们由 gen-interview-roadmap.mjs 以技能点为数据源生成，
+      // 归属信息随生成写入种子。老课程题无 section_id 也无法可靠反推技能点，一律留空，
+      // 继续通过「按技术筛选」（tech 32 子类）访问——两套维度各司其职，不做猜测性归类。
+      if (!colExists(db, 'interview_questions', 'subtrack')) {
+        db.prepare('ALTER TABLE interview_questions ADD COLUMN subtrack TEXT').run()
+      }
+      if (!colExists(db, 'interview_questions', 'skill')) {
+        db.prepare('ALTER TABLE interview_questions ADD COLUMN skill TEXT').run()
+      }
+      db.exec('CREATE INDEX IF NOT EXISTS idx_iq_subtrack ON interview_questions(track, subtrack)')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_iq_skill ON interview_questions(track, skill)')
+      // 新库此时表还是空的（迁移早于 seed），直接跳过：归属已内置在 seedIfEmpty 的插入里
+      if ((db.prepare('SELECT COUNT(*) c FROM interview_questions').get() as any).c === 0) return
+      // 存量库以种子为真源回填（幂等，只改不一致的行）
+      try {
+        const file = path.join(process.cwd(), 'data', 'seed-content.json')
+        if (!fs.existsSync(file)) return
+        const seed = JSON.parse(fs.readFileSync(file, 'utf-8'))
+        const upd = db.prepare(
+          `UPDATE interview_questions SET subtrack=?, skill=?
+           WHERE id=? AND (subtrack IS NOT ? OR skill IS NOT ?)`
+        )
+        const tx = db.transaction(() => {
+          for (const bank of Object.values(seed.interview || {}) as any[]) {
+            for (const list of [bank.hot, bank.special]) {
+              for (const q of list || []) {
+                if (!q || (!q.subtrack && !q.skill)) continue
+                const st = q.subtrack || null
+                const sk = q.skill || null
+                upd.run(st, sk, q.id, st, sk)
+              }
+            }
+          }
+        })
+        tx()
+      } catch { /* 种子缺失或损坏时跳过，不阻塞启动 */ }
+    }
   }
 ]
 
@@ -628,7 +673,7 @@ function seedIfEmpty(db: any) {
   const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
   // 题型 / 权重 / 难度必须在插入时写死，原因见下方 insQ.run 处注释
   const insQ = db.prepare(
-    'INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,weight,difficulty,tech) VALUES (?,?,?,?,?,?,?,?,?)'
+    'INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,weight,difficulty,tech,subtrack,skill) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
   )
   const insSet = db.prepare('INSERT OR IGNORE INTO exam_sets (id,name,track,level,duration,vip_only) VALUES (?,?,?,?,?,?)')
   const insC = db.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,explain,multi) VALUES (?,?,?,?,?,?,?,?)')
@@ -657,7 +702,7 @@ function seedIfEmpty(db: any) {
         const kw = JSON.stringify(q.keywords || [])
         const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'normal')
         const weight = typeof q.weight === 'number' ? q.weight : (type === 'special' ? 5 : 3)
-        insQ.run(q.id, track, type, q.q, q.a, kw, weight, difficulty, q.tech || classifyTech(track, q.q, kw))
+        insQ.run(q.id, track, type, q.q, q.a, kw, weight, difficulty, q.tech || classifyTech(track, q.q, kw), q.subtrack || null, q.skill || null)
       }
     })
     content.examSets.forEach((set: any) => {
