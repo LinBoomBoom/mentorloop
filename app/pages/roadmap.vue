@@ -244,22 +244,40 @@
             </div>
           </div>
 
-          <!-- 推荐学习（技能 → 课程章节映射）-->
+          <!-- 推荐学习：细分赛道用官方权威资料，主流赛道用内部课程章节 -->
           <div class="mb-4">
             <div class="flex items-center justify-between mb-2">
               <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="book" :size="15" style="color:#ff5e7e" /> 推荐学习</span>
+            </div>
+
+            <!-- 细分赛道：本站无体系化课程，直接引导官方文档 -->
+            <template v-if="selected.official && selected.official.length">
+              <p class="text-xs text-muted mb-2 leading-snug">本站暂未提供该细分赛道的体系化课程，以下为官方权威学习资料：</p>
+              <div class="space-y-1.5">
+                <a v-for="res in selected.official" :key="res.url" :href="res.url" target="_blank" rel="noopener noreferrer"
+                   class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
+                  <div class="font-medium text-ink truncate flex items-center gap-1.5">
+                    <Icon name="globe" :size="13" class="text-brand-coral shrink-0" />{{ res.title }}
+                  </div>
+                  <div v-if="res.note" class="text-[11px] text-muted mt-0.5 leading-snug">{{ res.note }}</div>
+                </a>
+              </div>
+            </template>
+
+            <!-- 主流赛道：技能 → 课程章节映射 -->
+            <template v-else>
               <span v-if="learnLoading" class="text-xs text-muted">匹配中…</span>
-            </div>
-            <a-empty v-if="!learnLoading && !learnSections.length" description="暂无匹配章节" :image="undefined" class="py-4">
-              <template #description><span class="text-xs text-muted">该技能暂未匹配到课程章节。</span></template>
-            </a-empty>
-            <div v-else class="space-y-1.5">
-              <NuxtLink v-for="sec in learnSections" :key="sec.id" :to="`/learn/${sec.moduleId}/${sec.chapterId}/${sec.id}`"
-                        class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
-                <div class="font-medium text-ink truncate">{{ sec.title }}</div>
-                <div class="text-[11px] text-muted truncate">{{ sec.chapterTitle }}</div>
-              </NuxtLink>
-            </div>
+              <a-empty v-else-if="!learnSections.length" description="暂无匹配章节" :image="undefined" class="py-4">
+                <template #description><span class="text-xs text-muted">该技能暂未匹配到课程章节。</span></template>
+              </a-empty>
+              <div v-else class="space-y-1.5">
+                <NuxtLink v-for="sec in learnSections" :key="sec.id" :to="`/learn/${sec.moduleId}/${sec.chapterId}/${sec.id}`"
+                          class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
+                  <div class="font-medium text-ink truncate">{{ sec.title }}</div>
+                  <div class="text-[11px] text-muted truncate">{{ sec.chapterTitle }}</div>
+                </NuxtLink>
+              </div>
+            </template>
           </div>
 
           <div class="text-xs text-muted">
@@ -289,6 +307,18 @@
               <div class="text-xl font-extrabold mt-1 tabular-nums">{{ selected.counts[lv] }}</div>
             </div>
           </div>
+          <template v-if="selected.official && selected.official.length">
+            <a-divider>官方学习资料</a-divider>
+            <div class="space-y-1.5">
+              <a v-for="res in selected.official" :key="res.url" :href="res.url" target="_blank" rel="noopener noreferrer"
+                 class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
+                <div class="font-medium text-ink truncate flex items-center gap-1.5">
+                  <Icon name="globe" :size="13" class="text-brand-coral shrink-0" />{{ res.title }}
+                </div>
+                <div v-if="res.note" class="text-[11px] text-muted mt-0.5 leading-snug">{{ res.note }}</div>
+              </a>
+            </div>
+          </template>
           <div class="text-xs text-muted mt-3">技术方向：<span class="text-ink">{{ selected.direction }}</span></div>
         </div>
 
@@ -306,7 +336,7 @@
 </template>
 
 <script setup lang="ts">
-import { roadmap, levelColor, levelLabel, buildTreeData, buildBoardView, globalStats, type LevelKey, type SkillNode, type LevelGroup, type SubTrack, type Direction } from '~/data/skillRoadmap'
+import { roadmap, levelColor, levelLabel, buildTreeData, buildBoardView, globalStats, OFFICIAL_RESOURCES, type LevelKey, type SkillNode, type LevelGroup, type SubTrack, type Direction } from '~/data/skillRoadmap'
 import { useMarkdown } from '~/composables/useMarkdown'
 
 const { isDark } = useTheme()
@@ -389,7 +419,7 @@ const drawerTitle = computed(() => {
 })
 function openNode(meta: any) { selected.value = meta }
 function openSkill(s: SkillNode, lv: LevelGroup, st: SubTrack, d: Direction) {
-  selected.value = { kind: 'skill', name: s.name, desc: s.desc, must: s.must, level: lv.level, levelTitle: levelLabel[lv.level], subtrack: st.name, subtrackId: st.id, direction: d.name, track: d.id }
+  selected.value = { kind: 'skill', name: s.name, desc: s.desc, must: s.must, level: lv.level, levelTitle: levelLabel[lv.level], subtrack: st.name, subtrackId: st.id, direction: d.name, track: d.id, official: OFFICIAL_RESOURCES[st.id] || [] }
 }
 
 // ---- 技能点 → 相关面试题（联动题库）----
@@ -445,7 +475,8 @@ watch(selected, async (sel) => {
   if (relatedAbort) { relatedAbort.abort(); relatedAbort = null }
   learnSections.value = []
   if (sel && sel.kind === 'skill' && sel.track && sel.name) {
-    loadLearn()
+    // 细分赛道（有官方资料）不调用内部章节匹配，避免出现「鸿蒙→Vue」这类错配
+    if (!sel.official || !sel.official.length) loadLearn()
     relatedLoading.value = true
     const ac = new AbortController()
     relatedAbort = ac
