@@ -48,6 +48,19 @@ class DeepseekClient implements LlmClient {
       throw new Error(`LLM 请求失败 ${res.status}: ${txt.slice(0, 200)}`)
     }
     const data = await res.json()
+    // 缓存命中统计：仅 Deepseek 在 usage 中返回 prompt_cache_*_tokens，缺失则跳过（不报错、不影响主流程）
+    const usage = data?.usage
+    if (usage) {
+      const hit = Number(usage.prompt_cache_hit_tokens) || 0
+      const miss = Number(usage.prompt_cache_miss_tokens) || 0
+      cacheStats.calls++
+      cacheStats.hit += hit
+      cacheStats.miss += miss
+      const total = hit + miss
+      const ratio = total ? ((hit / total) * 100).toFixed(1) : '0.0'
+      // 单行结构化日志，便于在服务器输出中 grep `[LLM][cache]` 量化命中率
+      console.log(`[LLM][cache] model=${this.model} hit=${hit} miss=${miss} hitRatio=${ratio}%`)
+    }
     return data?.choices?.[0]?.message?.content?.trim() || ''
   }
 }
@@ -59,4 +72,21 @@ export function getLlm(): LlmClient {
 }
 export function llmEnabled(): boolean {
   return !!process.env.DEEPSEEK_API_KEY
+}
+
+/* ---------------- 缓存命中统计（诊断用） ----------------
+ * Deepseek 默认开启上下文缓存（前缀精确 token 匹配）。本模块在 chat() 内解析
+ * usage.prompt_cache_hit_tokens / prompt_cache_miss_tokens，累加进程内统计并打一行日志，
+ * 便于量化「命中率」与验证结构优化（如把动态内容移出 system 提示词）的实际效果。
+ * 不改变 chat() 返回类型，调用方无感；getLlmCacheStats() 供运维/调试读取累计值。
+ */
+const cacheStats = { calls: 0, hit: 0, miss: 0 }
+export function getLlmCacheStats() {
+  const total = cacheStats.hit + cacheStats.miss
+  return {
+    calls: cacheStats.calls,
+    hitTokens: cacheStats.hit,
+    missTokens: cacheStats.miss,
+    hitRatio: total ? ((cacheStats.hit / total) * 100).toFixed(1) : '0.0'
+  }
 }

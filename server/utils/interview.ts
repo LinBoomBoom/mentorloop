@@ -102,8 +102,16 @@ function stripFences(text: string): string {
 }
 function clamp(n: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, n)) }
 
+const systemPromptCache = new Map<string, string>()
+const SYSTEM_PROMPT_CACHE_CAP = 256 // 防止 goal 为自由文本导致键值无限增长
 function systemPrompt(track: string, level: string, goal: string): string {
-  return `你是一位资深${trackName(track)}${levelName(level)}技术面试官，正在对候选人进行模拟技术面试。
+  // 记忆化：相同 (track,level,goal) 返回字节级一致的 system 字符串，
+  // 确保 Deepseek 前缀缓存键稳定（同组合跨用户复用）。goal 多为空，组合空间很小。
+  const key = `${track}|${level}|${goal}`
+  const cached = systemPromptCache.get(key)
+  if (cached) return cached
+  if (systemPromptCache.size >= SYSTEM_PROMPT_CACHE_CAP) systemPromptCache.clear()
+  const p = `你是一位资深${trackName(track)}${levelName(level)}技术面试官，正在对候选人进行模拟技术面试。
 面试规则：
 - 每次只问一道题，等待候选人回答。
 - 候选人回答后，先给出该回答的评分（score，0-10 整数）与简短改进建议（feedback，中文 2-3 句；字符串内如需举例请用单引号 ' 或《》，不要用双引号）。
@@ -116,6 +124,8 @@ ${goal ? '候选人目标岗位/方向：' + goal + '。' : ''}
 **JSON 格式铁律**：所有字符串值（feedback、analysis、nextQuestion 等）内严禁出现未转义的双引号；如需引用请使用单引号 ' 或中文书名号《》。任何值内的双引号都会导致 JSON 解析失败。
 始终用中文。严格只输出如下 JSON（不要任何额外文字、不要代码块标记）：
 {"evaluation":{"score":<0-10整数>,"feedback":"<中文>"},"analysis":"<上一题答案解析，中文>","nextQuestion":"<下一题，非空；结束时为空串>","isLast":<true/false>,"overall":"<仅结束轮填写>","overallScore":<仅结束轮填写 0-100整数>}`
+  systemPromptCache.set(key, p)
+  return p
 }
 
 // BUG-6：原自由生成的首题在 Deepseek 下高度收敛到「自我介绍」，导致每天首次打开题目几乎相同。

@@ -572,6 +572,23 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       try { db.exec('ALTER TABLE interview_questions ADD COLUMN section_id TEXT') } catch { /* 列已存在则忽略 */ }
       try { db.exec('CREATE INDEX IF NOT EXISTS idx_iq_section ON interview_questions(section_id)') } catch { /* 列已存在则忽略 */ }
     }
+  },
+  {
+    version: 15,
+    name: 'ai-answer-cache',
+    up: (db) => {
+      // LLM 成本优化：题库未命中的用户提问，其 AI 解答按「归一化问题 + 方向」哈希跨用户缓存（TTL 由业务层判定，默认 7 天）。
+      // 热门问题（如「Vue 响应式原理」）被多人提问时复用同一答案，避免反复调 LLM 烧 token。
+      db.exec(`CREATE TABLE IF NOT EXISTS ai_answer_cache (
+        q_hash TEXT PRIMARY KEY,
+        track TEXT,
+        answer TEXT NOT NULL,
+        enhanced TEXT,
+        model TEXT,
+        created_at INTEGER
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_aianswer_created ON ai_answer_cache(created_at)')
+    }
   }
 ]
 

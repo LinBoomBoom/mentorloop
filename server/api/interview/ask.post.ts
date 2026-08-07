@@ -1,3 +1,5 @@
+import crypto from 'node:crypto'
+
 // 提问式问答：先在本地面试题库做高置信度匹配；未命中则走大模型开放式解答。
 // 关键点：匹配必须要求「题目与提问在主题上高度重合」，否则宁可交给 LLM，
 // 绝不允许「问 A 答 B」的答非所问；同时默认检索方向补上 ai（之前漏搜导致 AI 类问题乱匹配）。
@@ -51,6 +53,20 @@ export default defineEventHandler(async (event) => {
   // 未命中题库 → 走大模型开放式解答（仅当用户已配置 LLM 密钥）
   if (llmEnabled()) {
     try {
+      // 跨用户 AI 答案缓存：题库未命中的提问按「方向 + 归一化问题」哈希复用答案（TTL 7 天），
+      // 热门问题（如「Vue 响应式原理」）被多人提问时只烧一次 LLM，直接降本。
+      const AI_ANSWER_TTL = 7 * 86400000
+      const qHash = crypto.createHash('sha256').update(`${track || 'all'}|${qNorm}`).digest('hex')
+      const cached = sqlite.prepare('SELECT answer, enhanced FROM ai_answer_cache WHERE q_hash=? AND created_at>?').get(qHash, Date.now() - AI_ANSWER_TTL) as any
+      if (cached && cached.answer) {
+        let enh = { title: '', tags: [] as string[] }
+        try { const p = JSON.parse(cached.enhanced || '{}'); if (p && typeof p === 'object') { enh = { title: String(p.title || ''), tags: Array.isArray(p.tags) ? p.tags.map((x: any) => String(x).trim()).filter(Boolean).slice(0, 6) : [] } } } catch { /* 容错 */ }
+        const ans = cached.answer
+        // 仍收录到该用户「待补充池」（不影响主响应），但不再消耗 LLM
+        collectUserQuestion({ userId: user.id, track: track || undefined, raw: question.trim(), enhancedTitle: enh.title, enhancedTags: enh.tags, aiAnswer: ans })
+        return json(event, 200, { matched: false, answer: ans, source: 'ai-cache', track: track || undefined, collected: true })
+      }
+
       const trackHint = track ? `用户指定的技术方向为「${track}」。` : ''
       const sys = `你是资深技术面试官与导师。用户提出一个技术面试相关问题，请基于你的知识给出准确、结构化的中文解答，包含核心要点，必要时给出简短代码示例。若问题与编程 / 技术面试无关或你确实无法回答，请诚实说明，不要编造内容。`
       const userMsg = `${trackHint}问题：${question}`
@@ -81,6 +97,11 @@ export default defineEventHandler(async (event) => {
       } catch { /* 容错：下方兜底 */ }
       if (!enhancedTitle) enhancedTitle = question.trim().slice(0, 80)
       if (ans) {
+        // 写入跨用户答案缓存（失败仅告警，不阻断主流程）
+        try {
+          sqlite.prepare('INSERT OR REPLACE INTO ai_answer_cache (q_hash, track, answer, enhanced, model, created_at) VALUES (?,?,?,?,?,?)')
+            .run(qHash, track || null, ans, JSON.stringify({ title: enhancedTitle, tags: enhancedTags }), process.env.LLM_MODEL || 'deepseek-chat', Date.now())
+        } catch { /* 缓存写入失败不影响主流程 */ }
         const collected = collectUserQuestion({
           userId: user.id,
           track: track || undefined,
