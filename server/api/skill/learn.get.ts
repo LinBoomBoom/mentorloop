@@ -1,6 +1,3 @@
-import { json } from '../../utils/db'
-import { mapSkillToSections, mapSkillToNicheChapters } from '../../utils/skillMastery'
-
 // GET /api/skill/learn?track=frontend&skill=...&subtrack=fe-harmony
 // 细分赛道（已有体系化课程）走确定性前缀匹配；其余走模糊匹配。
 export default defineEventHandler((event) => {

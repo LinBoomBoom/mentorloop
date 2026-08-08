@@ -1,6 +1,3 @@
-import { getUser, json } from '../../utils/db'
-import { setMark } from '../../utils/skillMastery'
-
 // POST /api/skill/mastery —— 显式标记/取消「已掌握」（免费核心闭环钩子）
 // body: { skillKey, track, subtrackId, skillName, marked }
 export default defineEventHandler(async (event) => {

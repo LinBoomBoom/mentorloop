@@ -1,5 +1,4 @@
-import { getUser, json } from '../../utils/db'
-import { recordExamSkill, recordWrongItem, skillKey } from '../../utils/skillMastery'
+// 注：getUser/json/recordExamSkill/recordWrongItem/skillKey 均来自 server/utils 自动注入，严禁显式 import（Nitro 虚拟化会解析错位）
 
 // POST /api/exam/practice —— 按技能自测（P1b）结果回写：
 // 累加该技能的「模拟自测」掌握度信号，并把答错的题沉淀进错题本（供 SRS 复习）。

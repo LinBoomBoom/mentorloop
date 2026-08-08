@@ -1,7 +1,5 @@
-import { getUser, json } from '../utils/db'
-import { listWrongItems } from '../utils/skillMastery'
-
 // GET /api/wrong?due=1 —— 错题本（跨卷/练习错题 + SRS 到期过滤）
+// 注：getUser/json/listWrongItems 均来自 server/utils 自动注入，严禁显式 import（Nitro 虚拟化会解析错位）
 export default defineEventHandler((event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })

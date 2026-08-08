@@ -1,7 +1,5 @@
-import { getUser, json } from '../utils/db'
-import { actWrongItem } from '../utils/skillMastery'
-
 // POST /api/wrong —— 错题本操作：review（SRS 排期下次）/ dismiss（移除）
+// 注：getUser/json/actWrongItem 均来自 server/utils 自动注入，严禁显式 import（Nitro 虚拟化会解析错位）
 // body: { id, action }
 export default defineEventHandler(async (event) => {
   const user = getUser(event)

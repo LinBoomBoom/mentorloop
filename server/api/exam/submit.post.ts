@@ -78,6 +78,26 @@ export default defineEventHandler(async (event) => {
   } catch (e: any) {
     return json(event, 500, { error: '交卷写入失败，请稍后重试' })
   }
+  // 错题本回写：答错的选择题沉淀进 user_wrong_items（source='exam'），供 /wrong SRS 复习。
+  // 放在事务成功之后、幂等分支已提前 return，不会重复计数；失败不影响交卷主流程。
+  try {
+    for (const c of choiceReview) {
+      if (c.right) continue
+      const fmt = (idxArr: number[]) => (idxArr || []).map(i => {
+        const letter = String.fromCharCode(65 + i)
+        const text = c.options?.[i] != null ? `${letter}. ${c.options[i]}` : letter
+        return text
+      }).join('；')
+      recordWrongItem(user.id, {
+        source: 'exam',
+        itemId: c.id,
+        track: set.track,
+        q: c.q,
+        userAnswer: fmt(c.userAnswer) || '（未作答）',
+        answer: (fmt(c.answer) || '') + (c.explain ? `\n\n解析：${c.explain}` : '')
+      })
+    }
+  } catch { /* 错题本写入失败不阻塞交卷 */ }
   const record = {
     id, userId: user.id, setId: set.id, setName: set.name, track: set.track,
     score: choiceScore, correct, total: choiceRows.length, weakPoints, level, advice, usedSeconds: finalUsedSeconds,
