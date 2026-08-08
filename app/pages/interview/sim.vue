@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-4xl mx-auto">
-    <h1 class="text-2xl font-extrabold mb-1">AI 深度模拟面试</h1>
+    <h1 class="page-title mb-1">AI 深度模拟面试</h1>
     <p class="text-muted text-sm mb-5">多轮实战问答 + 逐题评分反馈，还原真实面试节奏。共 {{ maxTurns }} 题，结束后给出综合评估。</p>
 
     <!-- 未登录 / 非 VIP 门禁 -->

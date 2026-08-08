@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-1">
-      <h1 class="text-2xl font-extrabold">待补充题库</h1>
+      <h1 class="page-title">待补充题库</h1>
       <p class="text-muted text-sm mt-1">收录自用户提问中「题库未命中」的问题，已由大模型做语义化增强。审核通过即回流进正式面试题库并自动关联最相关章节；无收录价值的直接驳回。</p>
     </div>
 

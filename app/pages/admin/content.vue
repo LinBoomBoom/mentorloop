@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-2xl font-extrabold mb-1">内容管理</h1>
+    <h1 class="page-title mb-1">内容管理</h1>
     <p class="text-muted mb-5">模块 / 章节 / 小节 的增删改查。小节内容请遵循六段式（首行 <code>&gt; 时效</code> 标记）。</p>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">

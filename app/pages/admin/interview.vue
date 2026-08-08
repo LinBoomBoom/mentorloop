@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex items-center justify-between mb-1">
-      <h1 class="text-2xl font-extrabold">面试题库</h1>
+      <h1 class="page-title">面试题库</h1>
       <a-button type="primary" @click="openNew">+ 新建题目</a-button>
     </div>
     <p class="text-muted mb-4">面试题增删改查。关键词以英文逗号分隔。</p>

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-2xl font-extrabold mb-1">面试题库 &amp; AI 陪练</h1>
+    <h1 class="page-title mb-1">面试题库 &amp; AI 陪练</h1>
     <p class="text-muted text-sm mb-5">高频必刷题 + 特殊场景题，按技术方向精确定位；也能直接提问让 AI 帮你梳理思路。</p>
 
     <NuxtLink to="/interview/sim" class="block mb-6">
@@ -68,19 +68,19 @@
     <!-- 方向切换 -->
     <div class="flex gap-2 mb-4 flex-wrap mt-3">
       <button v-for="t in tracks" :key="t.id" @click="loadTrack(t.id)"
-              class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
-              :class="activeTrack === t.id ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ t.name }}</button>
+              class="chip-tab"
+              :class="activeTrack === t.id ? 'chip-tab-active' : ''">{{ t.name }}</button>
     </div>
 
     <!-- 浏览模式：按技术子类筛选（全库）/ 按技能路线图导航（路线图专属题） -->
     <div class="flex gap-2 mb-4 flex-wrap items-center">
       <span class="text-xs text-muted mr-1">浏览方式：</span>
-      <button @click="setMode('tech')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition border"
-              :class="browseMode === 'tech' ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">
+      <button @click="setMode('tech')" class="chip-tab chip-tab-sm"
+              :class="browseMode === 'tech' ? 'chip-tab-active' : ''">
         <Icon name="search" :size="14" class="inline -mt-0.5" /> 按技术筛选
       </button>
-      <button @click="setMode('tree')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition border"
-              :class="browseMode === 'tree' ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">
+      <button @click="setMode('tree')" class="chip-tab chip-tab-sm"
+              :class="browseMode === 'tree' ? 'chip-tab-active' : ''">
         <Icon name="target" :size="14" class="inline -mt-0.5" /> 按技能树
       </button>
     </div>
@@ -121,8 +121,8 @@
             <span class="text-[11px] font-bold px-2 py-1 rounded-md shrink-0 mt-0.5"
                   :style="{ background: levelColor[lv.level] + '1a', color: levelColor[lv.level] }">{{ levelLabel[lv.level] }}</span>
             <button v-for="s in lv.skills" :key="s.name" @click="pickSkill(s.name)"
-                    class="px-2.5 py-1 rounded-lg text-xs font-medium transition border"
-                    :class="treeSkill === s.name ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">
+                    class="chip-tab chip-tab-sm"
+                    :class="treeSkill === s.name ? 'chip-tab-active' : ''">
               <span v-if="s.must" class="text-brand-gold">★</span>{{ s.name }}
               <span class="opacity-60 ml-0.5">{{ skillCount(treeSubtrack, s.name) }}</span>
             </button>
@@ -133,23 +133,23 @@
       <!-- 技术二级筛选：由服务端按当前方向 + 搜索词归纳，带命中数 -->
       <div v-else-if="techOptions.length" class="flex gap-2 mb-4 flex-wrap items-center">
         <span class="text-xs text-muted mr-1">技术：</span>
-        <button @click="setTech('')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
-                :class="!techFilter ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">全部</button>
+        <button @click="setTech('')" class="chip-tab chip-tab-sm"
+                :class="!techFilter ? 'chip-tab-active' : ''">全部</button>
         <button v-for="t in techOptions" :key="t.tech" @click="setTech(techFilter === t.tech ? '' : t.tech)"
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
-                :class="techFilter === t.tech ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ t.tech }} <span class="opacity-60">{{ t.count }}</span></button>
+                class="chip-tab chip-tab-sm"
+                :class="techFilter === t.tech ? 'chip-tab-active' : ''">{{ t.tech }} <span class="opacity-60">{{ t.count }}</span></button>
       </div>
 
       <!-- 题目区：技能树模式需先选定赛道，避免一上来就平铺全量题目淹没导航 -->
       <template v-if="browseMode === 'tech' || treeSubtrack">
       <!-- 题型切换 -->
       <div class="flex gap-2 mb-4 flex-wrap">
-        <button @click="setTab('hot')" class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
-                :class="qTab === 'hot' ? 'border-brand-gold/50 text-brand-gold bg-brand-gold/5' : 'border-line text-sub'">
+        <button @click="setTab('hot')" class="chip-tab"
+                :class="qTab === 'hot' ? 'chip-tab-active !bg-amber-600' : ''">
           <Icon name="star" :size="15" class="inline -mt-0.5" /> 高频必刷题（{{ counts.hot }}）
         </button>
-        <button @click="setTab('special')" class="px-4 py-2 rounded-xl text-sm font-semibold transition border"
-                :class="qTab === 'special' ? 'border-brand-pink/50 text-brand-pink bg-brand-pink/5' : 'border-line text-sub'">
+        <button @click="setTab('special')" class="chip-tab"
+                :class="qTab === 'special' ? 'chip-tab-active !bg-orange-600' : ''">
           <Icon name="bolt" :size="15" class="inline -mt-0.5" /> 特殊场景题（{{ counts.special }}）
         </button>
       </div>

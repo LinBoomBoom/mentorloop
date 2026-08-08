@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-2xl font-extrabold mb-1">内推资源库</h1>
+    <h1 class="page-title mb-1">内推资源库</h1>
     <p class="text-muted mb-5">维护内推岗位，并处理学员的内推申请（H4 管理端）。</p>
 
     <div class="flex gap-2 mb-5">

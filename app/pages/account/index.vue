@@ -2,7 +2,7 @@
   <!-- 用 flex 列容器 + gap 统一控距：antd 的 .ant-card 运行时会重置 margin，
        写在卡片上的 mb-5 会被覆盖导致贴死；容器 gap 是布局属性，不受子元素 margin 影响 -->
   <div class="max-w-2xl mx-auto flex flex-col gap-5">
-    <h1 class="text-2xl font-extrabold">个人中心</h1>
+    <h1 class="page-title">个人中心</h1>
 
     <a-card v-if="!isAuthed" class="text-center py-8">
       <p class="text-muted">请先登录后查看个人中心</p>

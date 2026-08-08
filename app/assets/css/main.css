@@ -124,6 +124,45 @@ body {
   }
   .btn-ghost:hover { @apply border-brand-coral/50 text-brand-coral bg-brand-coral/5; }
   .btn-block { @apply w-full; }
+  /* 尺寸变体：全站按钮只允许这三种高度，杜绝各页手写 px/py 漂移导致大小不一 */
+  .btn-sm { @apply px-3.5 py-1.5 text-xs rounded-lg gap-1.5; }
+  .btn-lg { @apply px-6 py-3 text-base rounded-2xl; }
+  /* 次级按钮（曾出现裸 .btn 无任何底色，视觉上像「坏掉的按钮」）：柔和灰底，hover 转品牌色 */
+  .btn-soft { @apply bg-ink/5 text-ink; }
+  .btn-soft:hover { @apply bg-brand-coral/10 text-brand-coral; }
+  .btn-soft:disabled { @apply opacity-50 cursor-not-allowed; }
+
+  /* 可点选筛选 chip（tab 式）：统一替代各页散落的 px-3.5 py-1.5 rounded-full/rounded-lg 手写按钮。
+     选中态全站唯一规范 = 实心珊瑚底白字（原先有的页面用描边、有的用实底，互相不一致）。 */
+  .chip-tab {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-medium text-sub transition select-none;
+  }
+  .chip-tab:hover:not(.chip-tab-active):not(:disabled) { @apply border-brand-coral/40 text-brand-coral; }
+  .chip-tab:disabled { @apply opacity-50 cursor-not-allowed; }
+  .chip-tab.chip-tab-active { @apply border-transparent bg-brand-coral text-white shadow-sm; }
+  /* 小号变体（难度筛选、浏览方式等次级筛选） */
+  .chip-tab-sm { @apply px-3 py-1 text-xs; }
+
+  /* 页面标题：品牌渐变竖条 + 紧凑字距。全站页头统一出处，替代各页手写的 text-2xl font-extrabold，
+     让标题与正文形成明确的字体层级（原先全站一种字重排到底，毫无层次）。 */
+  .page-title {
+    @apply relative pl-3.5 text-[26px] leading-tight font-extrabold tracking-tight text-ink;
+  }
+  .page-title::before {
+    content: '';
+    @apply absolute left-0 top-[0.3em] bottom-[0.26em] w-[5px] rounded-full;
+    background: linear-gradient(180deg, var(--brand1), var(--brand2) 60%, var(--brand3));
+  }
+
+  /* 卡片顶部品牌渐变饰条：重点/联动卡片用，打破「全站卡片都是同一块白底」的雷同感 */
+  .card-accent { position: relative; overflow: hidden; }
+  .card-accent::before {
+    content: '';
+    @apply absolute left-0 right-0 top-0 h-[3px];
+    background: linear-gradient(90deg, var(--brand1), var(--brand2) 55%, var(--brand3));
+  }
+  /* 卡片顶部方向色条（learn/exam 列表卡用，颜色由 :style 按方向注入，此处的 rounded 与其配套） */
+  .card-rail { @apply h-1.5 rounded-t-lg; }
 
   .input {
     @apply w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink outline-none transition;

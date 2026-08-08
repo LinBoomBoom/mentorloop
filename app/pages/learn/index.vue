@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-2xl font-extrabold mb-1">学习中心</h1>
+    <h1 class="page-title mb-1">学习中心</h1>
     <p class="text-muted text-sm mb-6">选择方向，按章节系统学习，完成打卡解锁下一章。</p>
 
     <NuxtLink to="/learn/path" class="block mb-6">
@@ -22,7 +22,9 @@
 
     <div v-else class="grid md:grid-cols-3 gap-5 stagger">
       <NuxtLink v-for="m in modules" :key="m.id" :to="`/learn/${m.id}`" class="block">
-        <a-card class="hover:-translate-y-1 transition cursor-pointer group reveal" :body-style="{ padding: '24px' }">
+        <a-card class="hover:-translate-y-1 transition cursor-pointer group reveal !overflow-hidden" :body-style="{ padding: '24px' }">
+          <!-- 方向色顶条：打破全站白卡雷同，一眼区分方向 -->
+          <div class="card-rail -mx-6 -mt-6 mb-4" :style="{ background: `linear-gradient(90deg, ${m.color}, ${m.color}55)` }"></div>
           <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white mb-4 shadow-soft" :style="{ background: m.color }">
             <Icon name="layers" :size="24" />
           </div>

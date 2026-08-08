@@ -3,7 +3,7 @@
     <!-- 页头 -->
     <div class="flex flex-wrap items-end justify-between gap-4 mb-7">
       <div>
-        <h1 class="text-[26px] font-extrabold leading-tight">模拟答卷</h1>
+        <h1 class="page-title">模拟答卷</h1>
         <p class="text-muted text-sm mt-1">限时实战，交卷即出判分、薄弱点诊断与复盘建议。</p>
       </div>
       <NuxtLink to="/learn"><a-button><Icon name="book" :size="17" /> 回到学习</a-button></NuxtLink>
@@ -18,26 +18,28 @@
       <!-- 筛选：按方向 + 难度，避免 23 套试卷混排难找 -->
       <div class="flex flex-wrap gap-2 mb-3">
         <button v-for="t in TRACKS" :key="t.id" @click="filterTrack = t.id"
-                class="px-3.5 py-1.5 rounded-full text-sm font-semibold border transition"
-                :class="filterTrack === t.id ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ t.name }}</button>
+                class="chip-tab"
+                :class="filterTrack === t.id ? 'chip-tab-active' : ''">{{ t.name }}</button>
       </div>
       <div class="flex flex-wrap gap-2 mb-5">
         <button v-for="l in LEVELS" :key="l.id" @click="filterLevel = l.id"
-                class="px-3 py-1 rounded-full text-xs font-semibold border transition"
-                :class="filterLevel === l.id ? 'border-brand-coral/50 text-brand-coral bg-brand-coral/5' : 'border-line text-sub'">{{ l.name }}</button>
+                class="chip-tab chip-tab-sm"
+                :class="filterLevel === l.id ? 'chip-tab-active' : ''">{{ l.name }}</button>
       </div>
 
       <a-card v-if="shownSets.length === 0" class="text-center mb-9" :body-style="{ padding: '32px' }">
         <span class="text-muted text-sm">没有符合条件的试卷，换个筛选试试～</span>
       </a-card>
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger mb-9">
-        <a-card v-for="s in shownSets" :key="s.id" class="reveal hover:border-brand-coral/30 transition-colors" :body-style="{ padding: '20px' }">
+        <a-card v-for="s in shownSets" :key="s.id" class="reveal hover:border-brand-coral/30 transition-colors !overflow-hidden" :body-style="{ padding: '20px' }">
+          <!-- 方向色顶条：与学习中心卡片同一视觉语言 -->
+          <div class="card-rail -mx-5 -mt-5 mb-3" :style="{ background: `linear-gradient(90deg, ${trackMeta[s.track]?.color}, ${trackMeta[s.track]?.color}55)` }"></div>
           <div class="flex items-start justify-between gap-3 mb-2">
             <h4 class="font-extrabold text-[17px] leading-snug">{{ s.name }}</h4>
             <Icon v-if="s.vipOnly" name="crown" :size="16" class="text-amber-500 shrink-0 mt-0.5" title="VIP 专属" />
           </div>
           <div class="flex flex-wrap items-center gap-2 mb-3">
-            <a-tag class="!bg-ink/5 !text-sub" :bordered="false">{{ trackMeta[s.track]?.name || s.track }}</a-tag>
+            <a-tag :style="{ background: trackMeta[s.track]?.bg, color: trackMeta[s.track]?.color, borderColor: 'transparent' }">{{ trackMeta[s.track]?.name || s.track }}</a-tag>
             <a-tag class="!bg-ink/5 !text-sub" :bordered="false">{{ s.level }}</a-tag>
           </div>
           <p class="text-xs text-muted mb-4 flex-1">

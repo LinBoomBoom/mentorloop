@@ -1,7 +1,7 @@
 <template>
   <div class="max-w-3xl mx-auto">
     <div class="mb-1">
-      <h1 class="text-2xl font-extrabold">AI 个性化学习路径</h1>
+      <h1 class="page-title">AI 个性化学习路径</h1>
     </div>
     <p class="text-muted text-sm mb-4">基于你模拟考试的薄弱点，由大模型定制的有序进阶路线。切换方向可动态生成对应路径。</p>
 
@@ -10,8 +10,8 @@
       <button
         v-for="t in TRACKS"
         :key="t"
-        class="px-3.5 py-1.5 rounded-full text-sm font-medium transition disabled:opacity-50 flex items-center gap-1.5"
-        :class="selectedTrack === t ? 'bg-brand-coral text-white shadow-sm' : 'bg-ink/5 text-sub hover:bg-ink/10'"
+        class="chip-tab"
+        :class="selectedTrack === t ? 'chip-tab-active' : ''"
         :disabled="pendingTrack === t"
         @click="selectTrack(t)"
       ><Icon v-if="pendingTrack === t" name="spinner" :size="14" class="animate-spin" /><span>{{ trackName(t) }}</span></button>
@@ -52,8 +52,8 @@
         </div>
         <p class="text-sm text-muted mb-3">光看路径不够——用 AI 教学把它变成真本事：针对「{{ trackName(plan.track) }}」方向做模拟面试，或就路径里的卡点向 AI 提问。</p>
         <div class="flex flex-wrap gap-2">
-          <NuxtLink :to="`/interview/sim?track=${plan.track}`" class="btn btn-primary text-sm"><Icon name="chat" :size="15" /> AI 模拟面试（{{ trackName(plan.track) }}）</NuxtLink>
-          <NuxtLink :to="`/interview?askTrack=${plan.track}`" class="btn text-sm"><Icon name="send" :size="15" /> 向 AI 提问答疑</NuxtLink>
+          <NuxtLink :to="`/interview/sim?track=${plan.track}`" class="btn btn-primary"><Icon name="chat" :size="15" /> AI 模拟面试（{{ trackName(plan.track) }}）</NuxtLink>
+          <NuxtLink :to="`/interview?askTrack=${plan.track}`" class="btn btn-soft"><Icon name="send" :size="15" /> 向 AI 提问答疑</NuxtLink>
         </div>
       </div>
 

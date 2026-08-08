@@ -2,7 +2,7 @@
   <div>
     <!-- 标题 -->
     <div class="mb-5">
-      <h1 class="text-2xl font-extrabold flex items-center gap-2">
+      <h1 class="page-title flex items-center gap-2">
         <Icon name="compass" :size="24" style="color:#ff5e7e" />
         技能路线图
       </h1>
@@ -72,10 +72,10 @@
     <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
       <div class="flex flex-wrap gap-2">
         <button v-for="t in tabs" :key="t.id" type="button" @click="activeDir = t.id"
-                class="px-3.5 py-2 rounded-xl text-sm font-semibold transition border"
+                class="chip-tab"
                 :style="activeDir === t.id
-                  ? { background: t.color + '14', color: t.color, borderColor: t.color + '66' }
-                  : { borderColor: 'rgb(var(--line))', color: 'rgb(var(--sub))' }">
+                  ? { background: tabsSolid[t.id] || t.color, color: '#fff', borderColor: 'transparent' }
+                  : {}">
           <span class="inline-flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full" :style="{ background: t.color }"></span>{{ t.name }}
           </span>
@@ -343,6 +343,8 @@ const auth = useAuthStore()
 const { request } = useApi()
 
 const tabs = [{ id: 'all', name: '全部', color: '#ff5e7e' }, ...roadmap.map(d => ({ id: d.id, name: d.name, color: d.color }))]
+// 选中态实底用的加深色：teal/amber 500 级配白字对比度不足，降到 600 级保证可读
+const tabsSolid: Record<string, string> = { all: '#e11d48', frontend: '#e11d48', backend: '#0d9488', devops: '#d97706', ai: '#7c3aed' }
 const activeDir = ref('all')
 const view = ref<'tree' | 'board'>('tree')
 const kw = ref('')

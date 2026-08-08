@@ -38,7 +38,7 @@
           </div>
 
           <div class="text-xs text-muted mb-1">{{ chapter?.title }}</div>
-          <h1 class="text-2xl font-extrabold">{{ section.title }}</h1>
+          <h1 class="page-title">{{ section.title }}</h1>
 
       <a-card class="mt-5" :body-style="{ padding: '24px' }">
         <div class="flex items-start gap-3 mb-5 p-4 rounded-xl" style="background:linear-gradient(120deg,rgba(255,94,126,.1),rgba(255,194,75,.1))">

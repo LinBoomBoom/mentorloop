@@ -175,7 +175,8 @@
         <div v-for="i in 3" :key="i" class="card h-40 shimmer"></div>
       </div>
       <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <NuxtLink v-for="m in modules" :key="m.id" :to="`/learn/${m.id}`" class="card p-6 hover:-translate-y-1 transition reveal group">
+        <NuxtLink v-for="m in modules" :key="m.id" :to="`/learn/${m.id}`" class="card p-6 overflow-hidden hover:-translate-y-1 transition reveal group">
+          <div class="h-1.5 -mx-6 -mt-6 mb-4" :style="{ background: `linear-gradient(90deg, ${m.color}, ${m.color}55)` }"></div>
           <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" :style="{background:m.color+'1a',color:m.color}"><Icon :name="m.icon" :size="24"/></div>
           <h3 class="font-bold text-lg">{{ m.name }}</h3>
           <p class="text-sm text-muted mt-1 line-clamp-2">{{ m.desc }}</p>
@@ -221,7 +222,8 @@
         <div v-for="i in 3" :key="i" class="card h-32 shimmer"></div>
       </div>
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <NuxtLink v-for="s in sets" :key="s.id" :to="`/exam/sets/${s.id}`" class="card p-6 hover:-translate-y-1 transition reveal">
+        <NuxtLink v-for="s in sets" :key="s.id" :to="`/exam/sets/${s.id}`" class="card p-6 overflow-hidden hover:-translate-y-1 transition reveal">
+          <div class="h-1.5 -mx-6 -mt-6 mb-4" :style="{ background: `linear-gradient(90deg, ${trackMeta[s.track]?.color || '#94a3b8'}, ${(trackMeta[s.track]?.color || '#94a3b8')}55)` }"></div>
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="trackBadge(s.track)">{{ trackName(s.track) }}</span>
             <span v-if="s.vipOnly" class="text-xs text-amber-500 font-semibold">VIP</span>

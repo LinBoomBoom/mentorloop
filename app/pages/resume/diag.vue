@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-3xl mx-auto">
-    <h1 class="text-2xl font-extrabold mb-1">AI 简历诊断</h1>
+    <h1 class="page-title mb-1">AI 简历诊断</h1>
     <p class="text-muted text-sm mb-5">粘贴或上传你的简历，AI 从结构、亮点、短板、改进方向给出专业诊断。支持中文简历。</p>
 
     <!-- 未登录 / 非 VIP 门禁 -->

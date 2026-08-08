@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-3xl mx-auto">
-    <h1 class="text-2xl font-extrabold mb-1">服务条款</h1>
+    <h1 class="page-title mb-1">服务条款</h1>
     <p class="text-sm text-muted mb-6">最后更新日期：2026 年 8 月 3 日　生效日期：2026 年 8 月 3 日</p>
 
     <article class="card p-7 sm:p-9 leading-relaxed">

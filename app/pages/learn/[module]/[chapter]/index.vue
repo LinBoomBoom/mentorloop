@@ -6,7 +6,7 @@
 
     <a-card v-if="!chapter"><a-skeleton active :paragraph="{ rows: 4 }" /></a-card>
     <template v-else>
-      <h1 class="text-2xl font-extrabold">{{ chapter.title }}</h1>
+      <h1 class="page-title">{{ chapter.title }}</h1>
       <p class="text-muted text-sm mt-1 mb-4">{{ chapter.goal }}</p>
       <a-card :body-style="{ padding: '24px' }">
         <div class="space-y-3">

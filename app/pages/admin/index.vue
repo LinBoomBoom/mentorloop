@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-2xl font-extrabold mb-1">数据看板</h1>
+    <h1 class="page-title mb-1">数据看板</h1>
     <p class="text-muted mb-6">平台核心指标一览（实时读取生产库）。</p>
 
     <div v-if="loading" class="text-muted">加载中…</div>

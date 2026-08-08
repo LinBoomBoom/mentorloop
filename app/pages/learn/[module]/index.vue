@@ -10,7 +10,7 @@
     <template v-else>
       <div class="lg:grid lg:grid-cols-[1fr_264px] lg:gap-6 items-start">
       <div>
-      <h1 class="text-2xl font-extrabold">{{ module.name }}</h1>
+      <h1 class="page-title">{{ module.name }}</h1>
       <p class="text-muted text-sm mt-1 mb-4">{{ module.desc }}</p>
 
       <a-input v-model:value="q" class="mb-5 max-w-md" placeholder="搜索本节标题，如：事件循环、Flex…" aria-label="搜索本节小节">

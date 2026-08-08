@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex items-center justify-between mb-1">
-      <h1 class="text-2xl font-extrabold">用户体系</h1>
+      <h1 class="page-title">用户体系</h1>
       <a-button type="primary" @click="showCreate = !showCreate">+ 新建用户</a-button>
     </div>
     <p class="text-muted mb-5">用户列表、角色、VIP 与封禁管理。封禁后该账号将无法登录。</p>

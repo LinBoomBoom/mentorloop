@@ -1,7 +1,7 @@
 <template>
   <div class="max-w-3xl mx-auto">
     <div class="mb-5">
-      <h1 class="text-2xl font-extrabold flex items-center gap-2">
+      <h1 class="page-title flex items-center gap-2">
         <Icon name="target" :size="24" style="color:#ff5e7e" /> 按技能自测
       </h1>
       <p class="text-muted text-sm mt-1.5">挑选一个技能点，针对性刷它对应的面试题。答完会回写你的「技能掌握度」，答错的题自动进入错题本做间隔复习。</p>

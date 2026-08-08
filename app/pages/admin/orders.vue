@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-2xl font-extrabold mb-1">订单 / 订阅</h1>
+    <h1 class="page-title mb-1">订单 / 订阅</h1>
     <p class="text-muted mb-5">付费订单与会员订阅记录（只读）。</p>
 
     <h3 class="font-bold mb-2">订单（{{ orders.length }}）</h3>

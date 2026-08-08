@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex items-center justify-between mb-1">
-      <h1 class="text-2xl font-extrabold">试卷题库</h1>
+      <h1 class="page-title">试卷题库</h1>
       <a-button type="primary" @click="openNew">+ 新建试卷</a-button>
     </div>
     <p class="text-muted mb-5">试卷与选择题 / 笔试题的增删改查。选择题选项与答案以英文逗号分隔。</p>
