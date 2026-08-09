@@ -16,10 +16,10 @@
       <!-- 统计 + 过滤 -->
       <div class="flex items-center justify-between mb-4">
         <div class="text-sm">
-          <span class="font-bold tabular-nums">{{ items.length }}</span> 道错题
-          <span class="text-muted">· 待复习 <span class="font-bold text-amber-500 tabular-nums">{{ dueCount }}</span></span>
+          <span class="font-bold tabular-nums">{{ total }}</span> 道错题
+          <span class="text-muted">· 待复习 <span class="font-bold text-amber-500 tabular-nums">{{ dueTotal }}</span></span>
         </div>
-        <a-switch v-model:checked="dueOnly" @change="load">
+        <a-switch v-model:checked="dueOnly" @change="load(true)">
           <template #checkedChildren>仅待复习</template>
           <template #unCheckedChildren>全部</template>
         </a-switch>
@@ -28,29 +28,35 @@
       <div v-if="loading" class="text-center text-muted py-16">加载中…</div>
       <a-empty v-else-if="!items.length" :description="dueOnly ? '近期没有待复习的错题' : '还没有错题，去刷几道题吧'" class="py-16" />
 
-      <div v-else class="space-y-3">
-        <div v-for="it in items" :key="it.id" class="rounded-2xl border border-line bg-surface p-4">
-          <div class="flex items-start gap-2">
-            <Icon name="alertTriangle" :size="16" class="mt-0.5 shrink-0 text-rose-500" />
-            <div class="flex-1 min-w-0">
-              <div class="text-[14px] leading-snug text-ink font-medium">{{ it.q }}</div>
-              <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface border border-line text-muted">{{ it.source === 'exam' ? '模拟考试' : it.source === 'practice' ? '技能自测' : it.source }}</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400">错 {{ it.wrong_count }} 次</span>
-                <span v-if="!it.due" class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">已排期</span>
-                <span v-if="it.skill_key" class="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-coral/10 text-brand-coral truncate max-w-[160px]">{{ it.skill_key.split('::').slice(1).join(' · ') }}</span>
-              </div>
+      <div v-else>
+        <div class="space-y-3">
+          <div v-for="it in items" :key="it.id" class="rounded-2xl border border-line bg-surface p-4">
+            <div class="flex items-start gap-2">
+              <Icon name="alertTriangle" :size="16" class="mt-0.5 shrink-0 text-rose-500" />
+              <div class="flex-1 min-w-0">
+                <div class="text-[14px] leading-snug text-ink font-medium">{{ it.q }}</div>
+                <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface border border-line text-muted">{{ it.source === 'exam' ? '模拟考试' : it.source === 'practice' ? '技能自测' : it.source }}</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400">错 {{ it.wrong_count }} 次</span>
+                  <span v-if="!it.due" class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">已排期</span>
+                  <span v-if="it.skill_key" class="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-coral/10 text-brand-coral truncate max-w-[160px]">{{ it.skill_key.split('::').slice(1).join(' · ') }}</span>
+                </div>
 
-              <div v-if="revealed[it.id]" class="mt-3 rounded-r-lg border-l-2 border-brand-coral/60 bg-brand-coral/[.04] p-3 text-[13px] prose-dm" v-html="md(it.answer || '（无参考答案）')"></div>
+                <div v-if="revealed[it.id]" class="mt-3 rounded-r-lg border-l-2 border-brand-coral/60 bg-brand-coral/[.04] p-3 text-[13px] prose-dm" v-html="md(it.answer || '（无参考答案）')"></div>
 
-              <div class="flex items-center gap-2 mt-3">
-                <a-button v-if="!revealed[it.id]" size="small" @click="revealed[it.id] = true">显示答案</a-button>
-                <a-button v-if="revealed[it.id] && it.due" size="small" type="primary" :loading="acting[it.id]" @click="review(it)">复习并排期下次</a-button>
-                <a-button v-if="revealed[it.id] && !it.due" size="small" @click="revealed[it.id] = false">收起答案</a-button>
-                <a-button size="small" danger :loading="acting[it.id]" @click="dismiss(it)">移除</a-button>
+                <div class="flex items-center gap-2 mt-3">
+                  <a-button v-if="!revealed[it.id]" size="small" @click="revealed[it.id] = true">显示答案</a-button>
+                  <a-button v-if="revealed[it.id] && it.due" size="small" type="primary" :loading="acting[it.id]" @click="review(it)">复习并排期下次</a-button>
+                  <a-button v-if="revealed[it.id] && !it.due" size="small" @click="revealed[it.id] = false">收起答案</a-button>
+                  <a-button size="small" danger :loading="acting[it.id]" @click="dismiss(it)">移除</a-button>
+                </div>
               </div>
             </div>
           </div>
+        </div>
+
+        <div v-if="total > pageSize" class="mt-5 flex justify-center">
+          <a-pagination v-model:current="page" :pageSize="pageSize" :total="total" show-less-items @change="load" />
         </div>
       </div>
     </template>
@@ -70,14 +76,19 @@ const loading = ref(false)
 const dueOnly = ref(false)
 const revealed = ref<Record<string, boolean>>({})
 const acting = ref<Record<string, boolean>>({})
+const page = ref(1)
+const pageSize = 20
+const total = ref(0)
+const dueTotal = ref(0)
 
-const dueCount = computed(() => items.value.filter(i => i.due).length)
-
-async function load() {
+async function load(resetPage = false) {
+  if (resetPage) page.value = 1
   loading.value = true
   try {
-    const r: any = await request('/api/wrong' + (dueOnly.value ? '?due=1' : ''))
+    const r: any = await request('/api/wrong' + (dueOnly.value ? '?due=1&' : '?') + 'page=' + page.value)
     items.value = r.items || []
+    total.value = r.total || 0
+    dueTotal.value = r.dueTotal || 0
   } catch (e: any) {
     message.error(e.message || '加载失败')
   } finally { loading.value = false }
@@ -91,6 +102,8 @@ async function review(it: any) {
     revealed.value[it.id] = false
     message.success('已排期下次复习')
     if (dueOnly.value) items.value = items.value.filter(x => x.id !== it.id)
+    dueTotal.value = Math.max(0, dueTotal.value - 1)
+    total.value = Math.max(0, total.value - 1)
   } catch (e: any) {
     message.error(e.message || '操作失败')
   } finally { acting.value = { ...acting.value, [it.id]: false } }
@@ -100,6 +113,8 @@ async function dismiss(it: any) {
   try {
     await request('/api/wrong', { method: 'POST', body: { id: it.id, action: 'dismiss' } })
     items.value = items.value.filter(x => x.id !== it.id)
+    if (it.due) dueTotal.value = Math.max(0, dueTotal.value - 1)
+    total.value = Math.max(0, total.value - 1)
     message.success('已移除')
   } catch (e: any) {
     message.error(e.message || '操作失败')

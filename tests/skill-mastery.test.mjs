@@ -15,6 +15,7 @@ const {
   recordExamSkill,
   recordWrongItem,
   listWrongItems,
+  listWrongItemsPaginated,
   actWrongItem
 } = await import('../server/utils/skillMastery.ts')
 const { sqlite } = await import('../server/utils/db.ts')
@@ -115,5 +116,36 @@ describe('错题本 + SRS（临时库）', () => {
     const r = actWrongItem(uid, list[0].id, 'dismiss')
     expect(r.removed).toBe(true)
     expect(listWrongItems(uid, false).length).toBe(0)
+  })
+})
+
+describe('错题本分页 listWrongItemsPaginated（临时库）', () => {
+  const uid = 'u_paginate'
+  ensureUser(uid)
+  // 造 25 条错题（超过一页 20）
+  for (let i = 0; i < 25; i++) {
+    recordWrongItem(uid, { source: 'exam', itemId: 'p' + i, q: '题' + i, answer: '答' + i })
+  }
+
+  it('默认每页 20，返回 total/dueTotal', () => {
+    const r = listWrongItemsPaginated(uid, false, 1, 20)
+    expect(r.pageSize).toBe(20)
+    expect(r.total).toBe(25)
+    expect(r.dueTotal).toBe(25)
+    expect(r.items.length).toBe(20)
+  })
+
+  it('第二页返回剩余 5 条', () => {
+    const r = listWrongItemsPaginated(uid, false, 2, 20)
+    expect(r.items.length).toBe(5)
+    expect(r.page).toBe(2)
+  })
+
+  it('dueOnly 过滤掉已排期项', () => {
+    const all = listWrongItemsPaginated(uid, false, 1, 100)
+    actWrongItem(uid, all.items[0].id, 'review') // 第一条不再 due
+    const due = listWrongItemsPaginated(uid, true, 1, 100)
+    expect(due.total).toBe(24)
+    expect(due.items.every(x => x.due)).toBe(true)
   })
 })

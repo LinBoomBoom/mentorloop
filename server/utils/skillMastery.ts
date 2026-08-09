@@ -267,6 +267,23 @@ export function listWrongItems(userId: string, dueOnly: boolean) {
     .map(r => ({ ...r, due: r.next_review_at == null || r.next_review_at <= now }))
 }
 
+// 分页版：默认每页 20，返回 { items, total, dueTotal, page, pageSize }
+// 保持 listWrongItems 数组签名不变（单测依赖），分页走此函数。
+export function listWrongItemsPaginated(userId: string, dueOnly: boolean, page = 1, pageSize = 20) {
+  const now = Date.now()
+  const rows = sqlite.prepare(
+    `SELECT * FROM user_wrong_items WHERE user_id=? ORDER BY wrong_count DESC, created_at DESC`
+  ).all(userId) as any[]
+  const filtered = rows
+    .filter(r => !dueOnly || r.next_review_at == null || r.next_review_at <= now)
+    .map(r => ({ ...r, due: r.next_review_at == null || r.next_review_at <= now }))
+  const total = filtered.length
+  const dueTotal = filtered.filter(r => r.due).length
+  const start = Math.max(0, (page - 1) * pageSize)
+  const items = filtered.slice(start, start + pageSize)
+  return { items, total, dueTotal, page, pageSize }
+}
+
 // action: 'review' 排期下次复习（SRS，按错误次数递增间隔）；'dismiss' 移除该项
 export function actWrongItem(userId: string, id: string, action: string) {
   const row = sqlite.prepare('SELECT * FROM user_wrong_items WHERE id=? AND user_id=?').get(id, userId) as any
