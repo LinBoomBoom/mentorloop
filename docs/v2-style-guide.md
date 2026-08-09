@@ -30,7 +30,7 @@ V2 在 V1 之上补三件事，把"知识点"升级为"知识网络"：
 | `版本` | 否 | 自由文本 | 所锚定版本，如 `React 19`、`K8s 1.31`；纯原理类可省略 |
 | `来源` | 是 | `官方` / `RFC` / `论文` / `标准` | 事实锚定类型 |
 
-**风险怎么定**：trunk 章默认 `低`，branch 章默认 `中`；版本迭代快的章（React/Vue/Node/构建工具/Spring/NoSQL/K8s/IaC）强制 `高`。该规则固化在 `skilltree.config.mjs` 的 `HIGH_RISK_CHAPTERS` 与 `riskOf()`。
+**风险怎么定**：trunk 章默认 `低`，branch 章默认 `中`；版本迭代快的章（React/Vue/Node/构建工具/Spring/NoSQL/K8s/IaC）强制 `高`。该规则固化在 `scripts/skilltree.config.mjs` 的 `HIGH_RISK_CHAPTERS` 与 `riskOf()`。
 
 **批量补标**：`npm run charter:fix -- --fresh`（幂等，已有标签的节自动跳过）。
 
@@ -72,7 +72,7 @@ V2 在 V1 之上补三件事，把"知识点"升级为"知识网络"：
 
 ## 三、质量纪律
 
-- **不破坏 V1**：六段式六段必须完整保留，V2 块一律追加在后。校验脚本 `v2_validate.mjs` 同时检查 V1 六段式与 V2 标记。
+- **不破坏 V1**：六段式六段必须完整保留，V2 块一律追加在后。校验脚本 `scripts/v2_validate.mjs` 同时检查 V1 六段式与 V2 标记。
 - **互链要真相关**：每一条 `doc:` 链接都要能回答"为什么放这条"——是前置、对比还是后续。
 - **深度要递进**：「进阶」不重复「核心知识点」已说的；「专家」给可查证出处，不空谈。
 - **图示服务理解**：图只为讲清结构/时序，不为装饰；复杂图用 ASCII，避免外部图片依赖。
@@ -85,4 +85,4 @@ V2 在 V1 之上补三件事，把"知识点"升级为"知识网络"：
 
 ## 五、校验
 
-`node v2_validate.mjs` 输出：V1 六段式达标率、含 `### 进阶`/`### 专家` 的 section 数、含 `doc:` 互链的 section 数、含 ASCII 图的 section 数，以及示例互链是否指向真实存在的 sectionId。
+`node scripts/v2_validate.mjs` 输出：V1 六段式达标率、含 `### 进阶`/`### 专家` 的 section 数、含 `doc:` 互链的 section 数、含 ASCII 图的 section 数，以及示例互链是否指向真实存在的 sectionId。

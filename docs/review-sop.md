@@ -1,7 +1,7 @@
 # 季度复审与废弃降级 SOP
 
 > 操作化宪章 **第五条（修剪与退役）** 与 **第六条（复审节奏）**，把"原则"变成"可执行的四步法 + 三级退役路径 + 留痕模板"。
-> 配套工具：`review_queue.mjs`（生成复审队列）、`v2_validate.mjs`（合规校验）、`npm run audit:tree`（健康度仪表）。
+> 配套工具：`scripts/review_queue.mjs`（生成复审队列）、`scripts/v2_validate.mjs`（合规校验）、`npm run audit:tree`（健康度仪表）。
 > 纪律红线：**零 schema 漂移**——所有保鲜动作只在 markdown 内容内改 `> 时效` 块的「核验」日期与事实，不新增 seed 字段、不改注入器、app 无需改动。
 
 ---
@@ -26,13 +26,13 @@
 ### Step 1 · 健康度快照
 ```bash
 npm run audit:tree      # 红线：V1 100% / 失效链 0 / trunk ≥ 40%
-node v2_validate.mjs    # 时效覆盖率 / 风险分布 / 格式错误 / 超期节点
+node scripts/v2_validate.mjs    # 时效覆盖率 / 风险分布 / 格式错误 / 超期节点
 ```
 记录三项指标，作为本季基线。
 
 ### Step 2 · 拉复审队列
 ```bash
-node review_queue.mjs   # 输出超期 + 临期(30天)节点，按紧急度排序
+node scripts/review_queue.mjs   # 输出超期 + 临期(30天)节点，按紧急度排序
 ```
 - **超期节点**：立即进入复审，优先于一切新增内容。
 - **临期节点**：排进本季复审计划，按风险（高→中→低）+ 剩余天数排序。
@@ -102,7 +102,7 @@ node review_queue.mjs   # 输出超期 + 临期(30天)节点，按紧急度排�
 | 工具 | 用途 | 幂等 |
 |---|---|---|
 | `npm run audit:tree` | 健康度仪表（三红线 + 8 指标） | 只读 |
-| `node v2_validate.mjs` | 合规校验（含时效覆盖率/超期） | 只读 |
-| `node review_queue.mjs` | 生成复审队列（超期 + 临期 30 天） | 只读 |
+| `node scripts/v2_validate.mjs` | 合规校验（含时效覆盖率/超期） | 只读 |
+| `node scripts/review_queue.mjs` | 生成复审队列（超期 + 临期 30 天） | 只读 |
 | `npm run charter:fix` | 机械性合宪化（章名归一、时效打标） | 幂等，可重跑 |
-| `charter_island.mjs` / `charter_ai_bridge.mjs` | 孤岛治理、跨模块桥接 | 幂等 |
+| `scripts/charter_island.mjs` / `scripts/charter_ai_bridge.mjs` | 孤岛治理、跨模块桥接 | 幂等 |

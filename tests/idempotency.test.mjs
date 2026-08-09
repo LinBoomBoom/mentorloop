@@ -37,12 +37,12 @@ test('enhance_opc5_devsecops.mjs 幂等：注入一次后重复跑不再改动',
   fs.writeFileSync(seedPath, JSON.stringify(s, null, 2))
   const before = hash(seedPath)
 
-  const r1 = runOn(seedPath, 'enhance_opc5_devsecops.mjs')
+  const r1 = runOn(seedPath, 'scripts/enhance_opc5_devsecops.mjs')
   expect(r1.status).toBe(0)
   const afterFirst = hash(seedPath)
   expect(afterFirst).not.toBe(before) // 首次确实写入了 DevSecOps 小节
 
-  const r2 = runOn(seedPath, 'enhance_opc5_devsecops.mjs')
+  const r2 = runOn(seedPath, 'scripts/enhance_opc5_devsecops.mjs')
   expect(r2.status).toBe(0)
   const afterSecond = hash(seedPath)
   expect(afterSecond).toBe(afterFirst) // 第二次为 no-op
@@ -70,12 +70,12 @@ test('bridge_opc8.mjs 幂等：补链一次后重复跑不再改动', () => {
   fs.writeFileSync(seedPath, JSON.stringify(s, null, 2))
   const before = hash(seedPath)
 
-  const r1 = runOn(seedPath, 'bridge_opc8.mjs')
+  const r1 = runOn(seedPath, 'scripts/bridge_opc8.mjs')
   expect(r1.status).toBe(0)
   const afterFirst = hash(seedPath)
   expect(afterFirst).not.toBe(before) // 首次确实补回了互链
 
-  const r2 = runOn(seedPath, 'bridge_opc8.mjs')
+  const r2 = runOn(seedPath, 'scripts/bridge_opc8.mjs')
   expect(r2.status).toBe(0)
   const afterSecond = hash(seedPath)
   expect(afterSecond).toBe(afterFirst) // 第二次为 no-op
@@ -107,12 +107,12 @@ test('enrich_depth_89.mjs 幂等：深度块写入一次后重复跑不再改动
   fs.writeFileSync(seedPath, JSON.stringify(s, null, 2))
   const before = hash(seedPath)
 
-  const r1 = runOn(seedPath, 'enrich_depth_89.mjs')
+  const r1 = runOn(seedPath, 'scripts/enrich_depth_89.mjs')
   expect(r1.status).toBe(0)
   const afterFirst = hash(seedPath)
   expect(afterFirst).not.toBe(before) // 首次确实写入了深度块
 
-  const r2 = runOn(seedPath, 'enrich_depth_89.mjs')
+  const r2 = runOn(seedPath, 'scripts/enrich_depth_89.mjs')
   expect(r2.status).toBe(0)
   const afterSecond = hash(seedPath)
   expect(afterSecond).toBe(afterFirst) // 第二次为 no-op

@@ -9,7 +9,7 @@ function runScript(file) {
 }
 
 test('skilltree_audit.mjs 通过（exit 0，宪章三红线全过）', () => {
-  const r = runScript('skilltree_audit.mjs')
+  const r = runScript('scripts/skilltree_audit.mjs')
   if (r.status !== 0) {
     console.error('audit 输出:\n', r.stdout, r.stderr)
   }
@@ -17,7 +17,7 @@ test('skilltree_audit.mjs 通过（exit 0，宪章三红线全过）', () => {
 })
 
 test('v2_validate.mjs 通过（exit 0，V2 六段式/时效校验无误）', () => {
-  const r = runScript('v2_validate.mjs')
+  const r = runScript('scripts/v2_validate.mjs')
   if (r.status !== 0) {
     console.error('v2_validate 输出:\n', r.stdout, r.stderr)
   }

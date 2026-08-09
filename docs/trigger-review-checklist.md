@@ -1,7 +1,7 @@
 # 大版本 / RFC / 大会驱动的复审清单（宪章第六.1条操作化）
 
 > 操作化宪章 **第六条 6.1（触发式复审）**：监听到下列事件后 **2 周内** 完成相关节点复审。
-> 配套工具：`trigger_watchlist.mjs`（自动生成"触发源 → 复审范围"映射表）。
+> 配套工具：`scripts/trigger_watchlist.mjs`（自动生成"触发源 → 复审范围"映射表）。
 
 ---
 
@@ -15,7 +15,7 @@
 
 ## 1. 触发源 → 复审范围映射
 
-运行 `node trigger_watchlist.mjs` 自动生成下表（基于现有 43 章）。当某事件命中，复审对应章全部 section。
+运行 `node scripts/trigger_watchlist.mjs` 自动生成下表（基于现有 43 章）。当某事件命中，复审对应章全部 section。
 
 | 触发源 | 关注对象（章） | 失效信号 |
 |---|---|---|
@@ -53,10 +53,10 @@
 ## 3. 事件发生后 2 周内动作清单
 
 ```
-1. 识别命中触发源 → 跑 `node trigger_watchlist.mjs` 取得复审章列表
+1. 识别命中触发源 → 跑 `node scripts/trigger_watchlist.mjs` 取得复审章列表
 2. 对每章：逐节重新核验官方源 → 事实有变则更新内容
 3. 更新每节 `> 时效` 块「核验」日期为当天；版本号变更的更新「版本=」
-4. 跑 `npm run audit:tree` + `node v2_validate.mjs` 确认无退化
+4. 跑 `npm run audit:tree` + `node scripts/v2_validate.mjs` 确认无退化
 5. 在 docs/skill-tree-roadmap.md 更新记录追加：触发源 / 复审章 / 变更摘要
 ```
 
@@ -64,5 +64,5 @@
 
 ## 4. 配套工具
 
-- `trigger_watchlist.mjs`：生成"触发源 → 复审章"映射（基于现有章节主题映射，手工维护触发源↔章关系，零 schema 漂移）。
-- 与 `review_queue.mjs`（时效到期队列）、`v2_validate.mjs`（合规校验）组成"事件 + 日历"双轨复审工具链。
+- `scripts/trigger_watchlist.mjs`：生成"触发源 → 复审章"映射（基于现有章节主题映射，手工维护触发源↔章关系，零 schema 漂移）。
+- 与 `scripts/review_queue.mjs`（时效到期队列）、`scripts/v2_validate.mjs`（合规校验）组成"事件 + 日历"双轨复审工具链。

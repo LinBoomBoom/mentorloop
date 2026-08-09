@@ -83,7 +83,7 @@
 ## 4. 红线与宪章影响
 
 - 本评估**不新增任何 trunk 章**：trunk 占比维持 **57.1%**（≥40% 安全）。
-- 若后续执行 A（新建 op-c8 branch）：branch 占比上升、trunk 占比微降，仍过线；触达宪章 2.4 分层表与 `skilltree.config.mjs` 的 `LAYER_MAP` 同步更新。
+- 若后续执行 A（新建 op-c8 branch）：branch 占比上升、trunk 占比微降，仍过线；触达宪章 2.4 分层表与 `scripts/skilltree.config.mjs` 的 `LAYER_MAP` 同步更新。
 - 不触碰三条红线（V1 100% / 失效互链 0 / trunk ≥40%）。
 
 ---

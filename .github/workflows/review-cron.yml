@@ -29,11 +29,11 @@ jobs:
             echo ""
             echo "## 1. 复审队列（超期 / 临期）"
             echo ""
-            node review_queue.mjs
+            node scripts/review_queue.mjs
             echo ""
             echo "## 2. 触发式复审范围映射"
             echo ""
-            node trigger_watchlist.mjs
+            node scripts/trigger_watchlist.mjs
           } > review-report.md
           cat review-report.md
 
