@@ -13,6 +13,8 @@
     "audit:links": "node scripts/charter_links.mjs",
     "review:queue": "node scripts/review_queue.mjs",
     "review:watch": "node scripts/trigger_watchlist.mjs",
+    "leaf:register": "node scripts/leaf_register.mjs",
+    "leaf:inject": "node scripts/inject_any.mjs",
     "charter:fix": "node scripts/charter_fix.mjs",
     "charter:island": "node scripts/charter_island.mjs",
     "charter:bridge": "node scripts/charter_ai_bridge.mjs",

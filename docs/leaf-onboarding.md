@@ -1,7 +1,7 @@
 # 叶子登记与挂枝规则（宪章第三条操作化）
 
 > 操作化宪章 **第三条（准入）** 与 **第八条（变更纪律）**，回答一个问题：**当我要新增一个具体工具 / 版本 / 配置 / 技巧（叶子），怎么登记、挂到哪、写什么、标什么时效**。
-> 配套脚手架：`leaf_register.mjs`（生成合规草稿，降低登记门槛）。
+> 配套脚手架：`scripts/leaf_register.mjs`（生成合规草稿，降低登记门槛）。
 
 ---
 
@@ -94,10 +94,10 @@
 ## 7. 登记脚手架用法
 
 ```bash
-node leaf_register.mjs \
+node scripts/leaf_register.mjs \
   --module devops --parent op-c8 \
   --title "Backstage 软件目录与脚手架" \
   --source 官方 --risk 高 --version "Backstage 1.x"
 ```
 
-脚本输出一段合规草稿（时效块 + 六段式骨架 + 互链提示），复制进 `docs/` 审稿稿，经 `inject_any.mjs` 注入对应章即可。全程**零 schema 漂移**——只在 markdown 内容内工作。
+脚本输出一段合规草稿（时效块 + 六段式骨架 + 互链提示），复制进 `docs/` 审稿稿，经 `scripts/inject_any.mjs` 注入对应章即可。全程**零 schema 漂移**——只在 markdown 内容内工作。

@@ -88,7 +88,7 @@
 | F4 | 全局：面包屑、目录抽屉、返回顶部、阅读模式 | P2 | 1d | 待做 |
 
 ### G. 管理后台 CRUD 与用户体系（用户核心需求）
-> 现状：仅 `create_admin.mjs` 脚本造 admin；无任何 admin API / 页面；内容是 `scripts/_reseed.mjs` 一次性重灌，非运营可维护。
+> 现状：admin 账户由 seed/初始化创建（`create_admin.mjs` 已废弃移除）；内容仍由 `scripts/_reseed.mjs` 一次性重灌，非运营可维护。
 | 编号 | 问题/动作 | 优先级 | 预估 | 状态 |
 |---|---|---|---|---|
 | G1 | 后台框架：admin 路由守卫 + 侧边布局 | P1 | 1d | 待做 |
