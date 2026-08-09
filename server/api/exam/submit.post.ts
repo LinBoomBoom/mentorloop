@@ -83,7 +83,9 @@ export default defineEventHandler(async (event) => {
   try {
     for (const c of choiceReview) {
       if (c.right) continue
-      const fmt = (idxArr: number[]) => (idxArr || []).map(i => {
+      const idxArr = Array.isArray(c.userAnswer) ? c.userAnswer : (typeof c.userAnswer === 'number' ? [c.userAnswer] : [])
+      const ansArr = Array.isArray(c.answer) ? c.answer : (typeof c.answer === 'number' ? [c.answer] : [])
+      const fmt = (arr: number[]) => arr.map(i => {
         const letter = String.fromCharCode(65 + i)
         const text = c.options?.[i] != null ? `${letter}. ${c.options[i]}` : letter
         return text
@@ -93,11 +95,13 @@ export default defineEventHandler(async (event) => {
         itemId: c.id,
         track: set.track,
         q: c.q,
-        userAnswer: fmt(c.userAnswer) || '（未作答）',
-        answer: (fmt(c.answer) || '') + (c.explain ? `\n\n解析：${c.explain}` : '')
+        userAnswer: fmt(idxArr) || '（未作答）',
+        answer: (fmt(ansArr) || '') + (c.explain ? `\n\n解析：${c.explain}` : '')
       })
     }
-  } catch { /* 错题本写入失败不阻塞交卷 */ }
+  } catch (e: any) {
+    console.error('[wrong] 交卷错题本回写失败（不阻塞交卷）:', e?.message || e)
+  }
   const record = {
     id, userId: user.id, setId: set.id, setName: set.name, track: set.track,
     score: choiceScore, correct, total: choiceRows.length, weakPoints, level, advice, usedSeconds: finalUsedSeconds,

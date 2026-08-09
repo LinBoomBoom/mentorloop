@@ -35,7 +35,7 @@
             <div class="flex-1 min-w-0">
               <div class="text-[14px] leading-snug text-ink font-medium">{{ it.q }}</div>
               <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface border border-line text-muted">{{ it.source === 'practice' ? '技能自测' : it.source }}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface border border-line text-muted">{{ it.source === 'exam' ? '模拟考试' : it.source === 'practice' ? '技能自测' : it.source }}</span>
                 <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400">错 {{ it.wrong_count }} 次</span>
                 <span v-if="!it.due" class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">已排期</span>
                 <span v-if="it.skill_key" class="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-coral/10 text-brand-coral truncate max-w-[160px]">{{ it.skill_key.split('::').slice(1).join(' · ') }}</span>
