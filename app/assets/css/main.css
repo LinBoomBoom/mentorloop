@@ -75,6 +75,11 @@ aside nav a { color: rgb(var(--sub)) !important; }
 aside nav a:hover { color: rgb(var(--ink)) !important; background-color: rgb(var(--ink) / .05) !important; }
 aside nav a.router-link-active,
 aside nav a.bg-brand-coral { color: #fff !important; background-color: rgb(var(--brand-coral)) !important; }
+/* 侧栏用户卡片头像、footer 链接等明确声明了 text-white/text-brand-coral/text-muted 的 a 标签，
+   也要强制保持原色，不被 antd cssinjs 的 .hash a { color: brand } 覆盖。 */
+aside a.text-white { color: #fff !important; }
+aside a.text-brand-coral { color: rgb(var(--brand-coral)) !important; }
+aside a.text-muted { color: rgb(var(--muted)) !important; }
 
 /* 极光动态背景（首页/登录页） */
 .aura {

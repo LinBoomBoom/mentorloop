@@ -29,8 +29,8 @@
       <!-- 用户卡片 -->
       <div class="px-4 pb-5">
         <div v-if="auth.isLoggedIn" class="card p-4 flex items-center gap-3">
-          <NuxtLink to="/account" class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0"
-               :style="{ background: avatarBg }">
+          <NuxtLink to="/account" class="w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0"
+               :style="{ background: avatarBg, color: '#fff' }">
             {{ avatarText }}
           </NuxtLink>
           <NuxtLink to="/account" class="min-w-0 flex-1">
@@ -57,8 +57,8 @@
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <ThemeToggle />
-          <NuxtLink v-if="!auth.isLoggedIn" to="/login" class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs brand-gradient"><Icon name="user" :size="16"/></NuxtLink>
-          <button v-else class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs" :style="{ background: avatarBg }">
+          <NuxtLink v-if="!auth.isLoggedIn" to="/login" class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs brand-gradient" style="color:#fff"><Icon name="user" :size="16"/></NuxtLink>
+          <button v-else class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs" :style="{ background: avatarBg, color: '#fff' }">
             {{ avatarText }}
           </button>
         </div>
