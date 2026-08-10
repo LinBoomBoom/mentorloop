@@ -92,11 +92,11 @@
       <h3 class="section-title mb-3">一、选择题（{{ set.choices.length }}）</h3>
       <div class="space-y-3 mb-8">
         <a-card v-for="(c, idx) in set.choices" :key="c.id" :body-style="{ padding: '20px' }">
-          <div class="flex items-start gap-3 mb-3">
+          <div class="flex items-center gap-3 mb-3">
             <a-tag shrink-0 :class="c.multi ? '!bg-violet-500/10 !text-violet-600' : '!bg-brand-coral/10 !text-brand-coral'" :bordered="false">
               {{ c.multi ? '多选' : '单选' }}
             </a-tag>
-            <p class="text-sm font-semibold leading-relaxed flex-1">
+            <p class="text-sm font-semibold leading-relaxed flex-1 line-clamp-2 md:line-clamp-none">
               <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ c.q }}
             </p>
             <a-tag shrink-0 class="!py-0.5 !text-[10px]" :bordered="false">{{ c.tag }}</a-tag>
