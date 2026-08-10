@@ -61,7 +61,7 @@
           <div class="flex items-center gap-4">
             <div class="text-4xl font-extrabold" :class="scoreColor">{{ result.score }}</div>
             <div class="flex-1 h-3 rounded-full bg-ink/10 overflow-hidden">
-              <div class="h-full rounded-full" :style="{ width: result.score + '%', background: 'linear-gradient(90deg,#ff5e7e,#ffc24b)' }"></div>
+              <div class="h-full rounded-full" :style="{ width: result.score + '%', background: 'linear-gradient(90deg,#e11d48,#be185d)' }"></div>
             </div>
           </div>
           <p v-if="result.summary" class="text-sm text-muted mt-3 whitespace-pre-line">{{ result.summary }}</p>

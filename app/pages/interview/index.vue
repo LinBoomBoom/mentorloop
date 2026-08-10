@@ -123,7 +123,7 @@
             <button v-for="s in lv.skills" :key="s.name" @click="pickSkill(s.name)"
                     class="chip-tab chip-tab-sm"
                     :class="treeSkill === s.name ? 'chip-tab-active' : ''">
-              <span v-if="s.must" class="text-brand-gold">★</span>{{ s.name }}
+              <span v-if="s.must" class="text-amber-600">★</span>{{ s.name }}
               <span class="opacity-60 ml-0.5">{{ skillCount(treeSubtrack, s.name) }}</span>
             </button>
           </div>
@@ -167,7 +167,7 @@
         <div class="space-y-2">
           <a-card v-for="item in items" :key="item.id" class="overflow-hidden" :body-style="{ padding: '0' }">
             <button class="w-full text-left p-4 flex items-start gap-3 hover:bg-ink/[.03] transition" @click="toggle(item.id)" :aria-expanded="openSet.has(item.id)">
-              <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5" :class="qTab === 'hot' ? 'bg-brand-gold/10 text-brand-gold' : 'bg-brand-pink/10 text-brand-pink'">{{ qTab === 'hot' ? 'Q' : 'S' }}</span>
+              <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5" :class="qTab === 'hot' ? 'bg-amber-500/15 text-amber-600' : 'bg-brand-coral/10 text-brand-coral'">{{ qTab === 'hot' ? 'Q' : 'S' }}</span>
               <span class="font-medium text-sm flex-1 min-w-0 pr-1 leading-snug">{{ item.q }}</span>
               <a-tag class="hidden sm:inline-block shrink-0 !text-[10px] !bg-ink/5 !text-sub" :bordered="false">{{ item.tech }}</a-tag>
               <a-tag v-if="item.skill" class="hidden md:inline-block shrink-0 !text-[10px] !bg-brand-coral/10 !text-brand-coral" :bordered="false">{{ item.skill }}</a-tag>
@@ -297,7 +297,7 @@ const askErr = ref('')
 // 难度三档展示：常规/较难/困难（medium 为原被塌缩掉的「较难」中间档）
 const DIFF_META: Record<string, { label: string; cls: string }> = {
   hard: { label: '困难', cls: '!bg-red-500/10 !text-red-500' },
-  medium: { label: '较难', cls: '!bg-brand-gold/10 !text-brand-gold' },
+  medium: { label: '较难', cls: '!bg-amber-500/15 !text-amber-600' },
   normal: { label: '常规', cls: '!bg-brand-coral/10 !text-brand-coral' }
 }
 function diffMeta(d: string) { return DIFF_META[d] || DIFF_META.normal }

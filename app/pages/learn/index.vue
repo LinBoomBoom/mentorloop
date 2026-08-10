@@ -31,7 +31,7 @@
           <h3 class="font-bold text-lg">{{ m.name }}</h3>
           <p class="text-sm text-muted mt-1.5 line-clamp-2 min-h-[40px]">{{ m.desc }}</p>
           <div class="flex gap-2 mt-4 text-xs">
-            <a-tag :style="{ background: m.color + '1a', color: m.color, borderColor: 'transparent' }">{{ m.chapterCount }} 章</a-tag>
+            <a-tag :style="{ background: m.color + '1a', color: 'rgb(var(--ink))', borderColor: 'transparent' }">{{ m.chapterCount }} 章</a-tag>
             <a-tag class="!bg-ink/5 !text-sub" :bordered="false">{{ m.sectionCount }} 节</a-tag>
           </div>
         </a-card>

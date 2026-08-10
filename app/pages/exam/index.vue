@@ -39,7 +39,7 @@
             <Icon v-if="s.vipOnly" name="crown" :size="16" class="text-amber-500 shrink-0 mt-0.5" title="VIP 专属" />
           </div>
           <div class="flex flex-wrap items-center gap-2 mb-3">
-            <a-tag :style="{ background: trackMeta[s.track]?.bg, color: trackMeta[s.track]?.color, borderColor: 'transparent' }">{{ trackMeta[s.track]?.name || s.track }}</a-tag>
+            <a-tag :style="{ background: trackMeta[s.track]?.bg, color: 'rgb(var(--ink))', borderColor: 'transparent' }">{{ trackMeta[s.track]?.name || s.track }}</a-tag>
             <a-tag class="!bg-ink/5 !text-sub" :bordered="false">{{ s.level }}</a-tag>
           </div>
           <p class="text-xs text-muted mb-4 flex-1">

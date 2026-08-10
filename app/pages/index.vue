@@ -1,20 +1,19 @@
 <template>
   <div>
-    <!-- 英雄区（公开，始终可见） -->
+    <!-- 英雄区（公开，始终可见）：护眼奶油底 + 红/柔紫/粉极光光斑，轻盈年轻 -->
     <section class="relative overflow-hidden rounded-3xl card !p-0 mb-7">
       <div class="aura !absolute"><div class="blob"></div></div>
-      <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent z-[5]"></div>
-      <div class="relative z-10 p-8 md:p-12 text-white brand-gradient">
-        <span class="inline-flex items-center gap-2 text-sm font-semibold bg-white/20 backdrop-blur px-3 py-1.5 rounded-full">🌱 学习 & 面试一体化导师</span>
-        <h1 class="text-[34px] md:text-[46px] font-extrabold leading-tight mt-5 max-w-2xl">把「学」与「面」<br/>练成一条线</h1>
-        <p class="mt-4 text-white/90 text-[15px] md:text-base max-w-xl leading-relaxed">
+      <div class="relative z-10 p-8 md:p-12">
+        <span class="inline-flex items-center gap-2 text-sm font-semibold bg-brand-coral/10 text-brand-coral px-3 py-1.5 rounded-full">🌱 学习 & 面试一体化导师</span>
+        <h1 class="text-[34px] md:text-[46px] font-extrabold leading-[1.15] mt-5 max-w-2xl text-ink">把「学」与「面」<br/>练成一条线</h1>
+        <p class="mt-4 text-sub text-[15px] md:text-base max-w-xl leading-relaxed">
           前端 / 后端 / 运维 / AI 工程四方向系统学习路径，配套高频面试题、模拟答卷与 AI 复盘。
           无需登录即可浏览全部课程与题库，注册后开启打卡与智能复盘。
         </p>
         <div class="mt-7 flex flex-wrap gap-3">
-          <NuxtLink to="/learn" class="btn !bg-white !text-brand-coral hover:!bg-white/90 !font-bold"><Icon name="book" :size="18"/> 免费开始学习</NuxtLink>
-          <NuxtLink v-if="!auth.isLoggedIn" to="/login" class="btn !border-white/40 !text-white hover:!bg-white/10"><Icon name="user" :size="18"/> 登录 / 注册</NuxtLink>
-          <NuxtLink v-else to="/exam" class="btn !border-white/40 !text-white hover:!bg-white/10"><Icon name="clipboard" :size="18"/> 去模拟答卷</NuxtLink>
+          <NuxtLink to="/learn" class="btn btn-primary"><Icon name="book" :size="18"/> 免费开始学习</NuxtLink>
+          <NuxtLink v-if="!auth.isLoggedIn" to="/login" class="btn btn-ghost"><Icon name="user" :size="18"/> 登录 / 注册</NuxtLink>
+          <NuxtLink v-else to="/exam" class="btn btn-ghost"><Icon name="clipboard" :size="18"/> 去模拟答卷</NuxtLink>
         </div>
       </div>
     </section>
@@ -40,7 +39,7 @@
                   </div>
                   <div class="h-2 rounded-full bg-ink/10 overflow-hidden">
                     <!-- 用直角小段而非 rounded-full：百分比很低时不会缩成一个圆点 -->
-                    <div class="h-full rounded-[2px] transition-all duration-700"
+                    <div class="h-full rounded-[2px] transition-[width] duration-700"
                          :style="{ width: m.percent + '%', minWidth: m.percent > 0 ? '6px' : '0', background: m.color }"></div>
                   </div>
                 </div>

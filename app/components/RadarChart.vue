@@ -18,7 +18,7 @@
                 :r="hover === i ? 5.5 : 4"
                 :fill="d.verified === false ? 'rgb(var(--surface))' : (d.color || color)"
                 :stroke="d.color || color" stroke-width="2"
-                class="transition-all cursor-pointer"
+                class="transition-[r,fill] cursor-pointer"
                 @mouseenter="hover = i" @mouseleave="hover = null" />
 
         <!-- 轴标签：名称 + 分值，分值才是用户真正要看的 -->

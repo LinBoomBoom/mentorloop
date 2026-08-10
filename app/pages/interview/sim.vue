@@ -75,7 +75,7 @@
             </div>
           </div>
           <div v-else class="flex gap-3 flex-row-reverse">
-            <div class="w-9 h-9 rounded-lg bg-brand-gold/15 text-brand-gold flex items-center justify-center shrink-0 mt-0.5"><Icon name="user" :size="16" /></div>
+            <div class="w-9 h-9 rounded-lg bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0 mt-0.5"><Icon name="user" :size="16" /></div>
             <div class="rounded-2xl rounded-tr-sm bg-brand-coral/10 px-4 py-3 text-sm whitespace-pre-line max-w-[85%]">{{ m.content }}</div>
           </div>
         </template>
@@ -83,7 +83,7 @@
 
       <!-- 结束总结 -->
       <div v-if="phase === 'done'" class="px-5 py-4 border-t border-line bg-emerald-500/[.04]">
-        <div class="flex items-center gap-2 font-bold mb-2"><Icon name="trophy" :size="18" class="text-brand-gold" /> 面试完成 · 综合评分 {{ finalScore }}/100</div>
+        <div class="flex items-center gap-2 font-bold mb-2"><Icon name="trophy" :size="18" class="text-amber-600" /> 面试完成 · 综合评分 {{ finalScore }}/100</div>
         <p class="text-sm whitespace-pre-line">{{ summary }}</p>
         <a-button class="mt-4" @click="reset">再来一场</a-button>
       </div>

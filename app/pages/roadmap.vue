@@ -47,14 +47,14 @@
           <span class="font-bold tabular-nums">{{ masterySummary.pct }}%</span>
         </div>
         <div class="h-2 rounded-full bg-surface overflow-hidden">
-          <div class="h-full rounded-full transition-all" :style="{ width: masterySummary.pct + '%', background: 'var(--brand)' }"></div>
+          <div class="h-full rounded-full transition-[width]" :style="{ width: masterySummary.pct + '%', background: 'var(--brand)' }"></div>
         </div>
         <div class="flex justify-between text-xs pt-1">
           <span class="text-muted">必会硬门槛完成率</span>
           <span class="font-bold tabular-nums text-amber-500">{{ masterySummary.mustPct }}%</span>
         </div>
         <div class="h-2 rounded-full bg-surface overflow-hidden">
-          <div class="h-full rounded-full transition-all" :style="{ width: masterySummary.mustPct + '%', background: '#f59e0b' }"></div>
+          <div class="h-full rounded-full transition-[width]" :style="{ width: masterySummary.mustPct + '%', background: '#f59e0b' }"></div>
         </div>
       </div>
       <!-- 分方向 -->

@@ -7,10 +7,11 @@ export const trackMeta: Record<string, { name: string; color: string; bg: string
   ai:       { name: 'AI 工程', color: '#8b5cf6', bg: 'rgba(139,92,246,.14)' } // 与 ai 模块主色一致
 }
 
-// 返回 Tailwind 令牌类，确保全站方向徽标配色统一且随明暗主题自适应
+// 方向徽标：彩色淡底保留分类信号，文字改 ink 近黑，确保小号文字达 WCAG AA（UI 重设计 ②）
+// 保留 bg-track-* 淡底作为分类色信号；text-ink 解决「中明度方向色作小号文字对比度不足」问题。
 export const trackBadge = (t: string) => ({
-  frontend: 'bg-track-fe/12 text-track-fe',
-  backend:  'bg-track-be/12 text-track-be',
-  devops:   'bg-track-op/12 text-track-op',
-  ai:       'bg-track-ai/12 text-track-ai'
-}[t] || 'bg-ink/10 text-sub')
+  frontend: 'bg-track-fe/12 text-ink',
+  backend:  'bg-track-be/12 text-ink',
+  devops:   'bg-track-op/12 text-ink',
+  ai:       'bg-track-ai/12 text-ink'
+}[t] || 'bg-ink/10 text-ink')

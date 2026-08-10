@@ -75,5 +75,5 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.brand-gradient-text { background: linear-gradient(120deg, #ff5e7e, #ff8a5c 55%, #ffc24b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand-gradient-text { background: linear-gradient(120deg, #e11d48, #be185d); -webkit-background-clip: text; background-clip: text; color: transparent; }
 </style>

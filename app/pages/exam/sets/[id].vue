@@ -65,7 +65,7 @@
           <div>
             <h1 class="text-xl font-extrabold">{{ set.name }}</h1>
             <p class="text-xs text-muted mt-1 flex items-center gap-3">
-              <a-tag :style="{ color: meta.color, background: meta.bg, borderColor: 'transparent' }">{{ meta.name }}</a-tag>
+              <a-tag :style="{ background: meta.bg, color: 'rgb(var(--ink))', borderColor: 'transparent' }">{{ meta.name }}</a-tag>
               <span>{{ set.level }}</span>
               <span class="flex items-center gap-1"><Icon name="layers" :size="13" /> 选择 {{ set.choices.length }}</span>
               <span class="flex items-center gap-1"><Icon name="pencil" :size="13" /> 笔试 {{ set.written.length }}</span>
@@ -93,7 +93,7 @@
       <div class="space-y-3 mb-8">
         <a-card v-for="(c, idx) in set.choices" :key="c.id" :body-style="{ padding: '20px' }">
           <div class="flex items-start gap-3 mb-3">
-            <a-tag shrink-0 :class="c.multi ? '!bg-brand-pink/10 !text-brand-pink' : '!bg-brand-coral/10 !text-brand-coral'" :bordered="false">
+            <a-tag shrink-0 :class="c.multi ? '!bg-violet-500/10 !text-violet-600' : '!bg-brand-coral/10 !text-brand-coral'" :bordered="false">
               {{ c.multi ? '多选' : '单选' }}
             </a-tag>
             <p class="text-sm font-semibold leading-relaxed flex-1">
@@ -106,10 +106,10 @@
                     @click="selectChoice(c, i)"
                     class="text-left px-3.5 py-2.5 rounded-xl border text-sm transition flex items-center gap-2.5"
                     :class="isSel(c, i)
-                      ? (c.multi ? 'border-brand-pink/50 bg-brand-pink/5 text-brand-pink' : 'border-brand-coral/50 bg-brand-coral/5 text-brand-coral')
+                      ? (c.multi ? 'border-violet-500/50 bg-violet-500/5 text-violet-600' : 'border-brand-coral/50 bg-brand-coral/5 text-brand-coral')
                       : 'border-line text-sub hover:border-ink/20 hover:bg-ink/5'">
               <span class="w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-xs font-bold"
-                    :class="isSel(c, i) ? (c.multi ? 'bg-brand-pink text-white' : 'bg-brand-coral text-white') : 'bg-ink/10 text-muted'">{{ optLabel(i) }}</span>
+                    :class="isSel(c, i) ? (c.multi ? 'bg-violet-600 text-white' : 'bg-brand-coral text-white') : 'bg-ink/10 text-muted'">{{ optLabel(i) }}</span>
               <span class="flex-1 min-w-0 break-words">{{ opt }}</span>
             </button>
           </div>
@@ -141,7 +141,7 @@
           <div class="flex-1 text-center sm:text-left">
             <div class="flex items-center justify-center sm:justify-start gap-2 mb-1">
               <span class="text-2xl font-extrabold gradient-text">{{ record.level }}</span>
-              <a-tag :style="{ color: meta.color, background: meta.bg, borderColor: 'transparent' }">{{ meta.name }}</a-tag>
+              <a-tag :style="{ background: meta.bg, color: 'rgb(var(--ink))', borderColor: 'transparent' }">{{ meta.name }}</a-tag>
               <a-tag>{{ record.setName }}</a-tag>
             </div>
             <p class="text-sm text-sub leading-relaxed max-w-xl">{{ record.advice }}</p>
@@ -158,7 +158,7 @@
 
       <!-- 薄弱点 -->
       <a-card v-if="record.weakPoints.length" class="mb-5" :body-style="{ padding: '20px' }">
-        <h3 class="section-title mb-3 flex items-center gap-2"><Icon name="target" :size="17" class="text-brand-gold" /> 薄弱知识点</h3>
+        <h3 class="section-title mb-3 flex items-center gap-2"><Icon name="target" :size="17" class="text-amber-600" /> 薄弱知识点</h3>
         <div class="flex flex-wrap gap-2">
           <a-tag v-for="w in record.weakPoints" :key="w.tag" class="!bg-rose-500/10 !text-rose-500" :bordered="false">
             {{ w.tag }} · 错 {{ w.count }}

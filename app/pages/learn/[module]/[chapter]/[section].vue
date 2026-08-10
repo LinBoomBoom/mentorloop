@@ -85,7 +85,7 @@
                实心按钮外观 + 复选框图标 + 内嵌说明文案，而不是一个和正文同色的小圆点 -->
           <button type="button" role="checkbox" :aria-checked="done"
                   :aria-label="done ? '取消标记已掌握本节' : '标记已掌握本节'"
-                  class="mark-done group flex items-center gap-3 select-none text-left rounded-xl border-2 px-4 py-2.5 transition-all duration-200"
+                  class="mark-done group flex items-center gap-3 select-none text-left rounded-xl border-2 px-4 py-2.5 transition duration-200"
                   :class="done
                     ? 'border-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/15'
                     : 'border-brand-coral bg-brand-coral/[0.07] hover:bg-brand-coral/15 hover:-translate-y-0.5 shadow-[0_6px_18px_-10px_rgba(255,94,126,.9)]'"

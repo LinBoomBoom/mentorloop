@@ -7,38 +7,46 @@
 
 /* ============ 设计令牌（明暗主题） ============ */
 :root {
-  --ink: 26 26 40;
-  --sub: 92 94 116;
-  --muted: 110 113 132;   /* ≈#6e7084，白底对比度 ≈4.9:1，达 WCAG AA 正文标准 */
-  --line: 230 230 240;
+  /* 护眼暖中性文字（暖炭黑而非纯黑），久读不刺眼 */
+  --ink: 33 30 38;
+  --sub: 89 84 96;
+  --muted: 122 115 128;   /* 暖米/白底对比度 ≥4.5:1，达 WCAG AA 正文标准 */
+  --line: 233 227 220;    /* 暖调分隔线，比冷灰更柔和自然 */
   --surface: 255 255 255;
-  --surface-2: 250 249 253;
-  --canvas: 246 245 251;
+  --surface-2: 250 246 240;  /* 暖米白，用于嵌套面 / 悬停底 */
+  --canvas: 247 243 237;     /* 护眼奶油底（暖米白），替代原冷调淡紫 #f6f5fb */
   --brand1: #ff5e7e;
-  --brand2: #ff8a5c;
-  --brand3: #ffc24b;
+  --brand2: #c084fc;        /* 极光改用柔紫（年轻感），替代原橘红 #ff8a5c */
+  --brand3: #e11d48;        /* 极光主红，替代原金 #ffc24b */
   /* 规范品牌红（唯一在白底红字 / 红底白字双向都过 WCAG AA 的红 = #e11d48/rose-600，4.7:1）。
      可点击表面（按钮/chip/VIP标签/链接）、图标强调色统一引用 --brand；
-     日落渐变 --brand1/2/3 仅保留作装饰饰条（页头竖条/卡片顶条/极光），不再压白字。 */
+     极光 --brand1/2/3 仅作装饰光斑（红 + 柔紫 + 粉），不再压白字。 */
   --brand: #e11d48;
   --brand-coral: 225 29 72;
   --glass: 255 255 255;
-  --glass-op: 0.66;
+  --glass-op: 0.7;
+  /* 暖调柔影（替代原冷蓝阴影），层次更自然、不显脏 */
+  --shadow-sm: 0 1px 2px rgba(60,45,40,.04), 0 2px 8px rgba(60,45,40,.05);
+  --shadow-card: 0 2px 8px rgba(60,45,40,.05), 0 14px 36px -14px rgba(60,45,40,.14);
+  --shadow-soft: 0 22px 55px -22px rgba(225,29,72,.25);
 }
 
 .dark {
-  --ink: 236 237 246;
-  --sub: 176 179 198;
-  --muted: 140 143 165;   /* 深色模式加深，确保在 #171825 上 ≥4.5:1 */
-  --line: 46 48 66;
-  --surface: 23 24 37;
-  --surface-2: 28 30 45;
-  --canvas: 11 12 21;
-  --glass: 30 31 48;
-  --glass-op: 0.55;
+  --ink: 237 235 240;
+  --sub: 180 176 190;
+  --muted: 145 140 158;
+  --line: 49 46 56;
+  --surface: 31 29 37;
+  --surface-2: 38 35 45;
+  --canvas: 22 20 27;       /* 暖近黑，替代原冷蓝黑 #0b0c15，OLED 更不刺眼 */
+  --glass: 33 31 40;
+  --glass-op: 0.6;
   /* 深色模式品牌红保持 #e11d48：白字压其上 4.7:1 达标；红字压深色底对比更高 */
   --brand-coral: 225 29 72;
   --brand: #e11d48;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.25);
+  --shadow-card: 0 2px 10px rgba(0,0,0,.32), 0 16px 40px -16px rgba(0,0,0,.5);
+  --shadow-soft: 0 22px 55px -22px rgba(225,29,72,.4);
 }
 
 /* ============ 基础 ============ */
@@ -48,11 +56,25 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
   background: rgb(var(--canvas));
   color: rgb(var(--ink));
+  line-height: 1.7;                 /* 护眼：正文更舒展的行列比，久读不累 */
   -webkit-font-smoothing: antialiased;
-  transition: background-color .4s ease, color .4s ease;
+  text-rendering: optimizeLegibility;
+  color-scheme: light dark;         /* 原生控件/滚动条跟随明暗主题 */
+  /* 仅过渡背景色：保留明暗切换时的平滑感；去掉 color 过渡，避免首屏文字颜色被动画化
+     （曾导致侧栏/导航文字在样式应用时「灰→红」闪烁）。文字颜色应由 CSS 变量瞬时生效。 */
+  transition: background-color .4s ease;
   min-height: 100vh;
 }
 * { -webkit-tap-highlight-color: transparent; }
+
+/* 即时防御（P4 导航红字真因补丁）：antd cssinjs 客户端会注入
+   .css-dev-only-do-not-override-xxx a { color: rgb(225,29,72); background: transparent }
+   其优先级高于 Tailwind 单类工具类，导致侧栏导航的 text-sub / text-white / bg-brand-coral 失效，
+   所有导航链接变红、active 项背景透明。在 tailwind.config important 重启生效前，用具体选择器兜底。 */
+aside nav a { color: rgb(var(--sub)) !important; }
+aside nav a:hover { color: rgb(var(--ink)) !important; background-color: rgb(var(--ink) / .05) !important; }
+aside nav a.router-link-active,
+aside nav a.bg-brand-coral { color: #fff !important; background-color: rgb(var(--brand-coral)) !important; }
 
 /* 极光动态背景（首页/登录页） */
 .aura {
@@ -68,15 +90,15 @@ body {
   width: 52vw; height: 52vw;
   border-radius: 50%;
   filter: blur(80px);
-  opacity: .5;
+  opacity: .42;
 }
 .aura::before {
-  background: radial-gradient(circle at 30% 30%, var(--brand1), transparent 60%);
+  background: radial-gradient(circle at 30% 30%, rgb(var(--brand-coral) / .5), transparent 62%);
   top: -12%; left: -8%;
   animation: aurora 18s ease-in-out infinite;
 }
 .aura::after {
-  background: radial-gradient(circle at 70% 60%, var(--brand3), transparent 60%);
+  background: radial-gradient(circle at 70% 60%, rgb(192 132 252 / .45), transparent 60%);
   bottom: -16%; right: -10%;
   animation: aurora 22s ease-in-out infinite reverse;
 }
@@ -85,8 +107,8 @@ body {
   width: 38vw; height: 38vw;
   border-radius: 50%;
   filter: blur(70px);
-  opacity: .35;
-  background: radial-gradient(circle at 50% 50%, var(--brand2), transparent 60%);
+  opacity: .4;
+  background: radial-gradient(circle at 50% 50%, rgb(255 94 126 / .4), transparent 60%);
   top: 30%; left: 40%;
   animation: aurora 26s ease-in-out infinite;
 }
@@ -108,7 +130,10 @@ body {
     border: 1px solid rgba(var(--line) / .8);
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-300 select-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold select-none;
+    /* 只用 transform/box-shadow 过渡：避免 transition-all 在样式（重）应用时把 color/background 也动画化，
+       否则首屏会出现「白/透明 → 红」的色彩闪烁（DEV 下 Vite 注入 CSS 时尤明显）。hover 位移仍丝滑。 */
+    transition: transform .2s ease, box-shadow .2s ease;
   }
   /* 键盘焦点可见环（a11y）：surface 色偏移 + 珊瑚色环 */
   .btn:focus-visible {
@@ -116,9 +141,10 @@ body {
     box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgba(225, 29, 72, .55);
   }
   .btn-primary {
-    /* 可达红渐变（rose-600 → pink-700）：白字全程 ≥4.7:1，替代原日落渐变（金端白字仅 1.6:1 不可读） */
+    /* 可达红渐变（rose-600 → pink-700）：白字全程 ≥4.7:1，替代原日落渐变（金端白字仅 1.6:1 不可读）。
+       加 !important 防止任何运行时/第三方/水合后的样式把按钮文字覆盖成其他颜色。 */
     background: linear-gradient(120deg, #e11d48, #be185d);
-    color: #fff;
+    color: #fff !important;
     box-shadow: 0 10px 30px -10px rgba(225, 29, 72, .5);
   }
   .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -12px rgba(225, 29, 72, .55); }
@@ -181,7 +207,7 @@ body {
   .tag {
     @apply inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold;
   }
-  .tag-green { @apply bg-emerald-500/15 text-emerald-600 dark:text-emerald-400; }
+  .tag-green { @apply bg-emerald-500/15 text-emerald-700 dark:text-emerald-400; }
   .tag-gold { @apply bg-amber-500/15 text-amber-600 dark:text-amber-400; }
   .tag-vip { background: linear-gradient(120deg, #e11d48, #be185d); color: #fff; }
 
@@ -199,10 +225,14 @@ body {
   .scrollbar-thin::-webkit-scrollbar-thumb { background: rgb(var(--line)); border-radius: 99px; }
 }
 
-/* ============ 微动效 ============ */
-.reveal { animation: reveal .7s cubic-bezier(.16,1,.3,1) both; }
-@keyframes reveal { 0% { opacity:0; transform: translateY(12px) scale(.99); } 100% { opacity:1; transform:none; } }
-.stagger > * { animation: reveal .6s cubic-bezier(.16,1,.3,1) both; }
+/* ============ 微动效 ============
+   入场动画只做位移，不做 opacity 淡入：
+   原先 @keyframes 从 opacity:0 起步，白字红底的按钮/徽标在淡入过程中（低透明度）会先在奶油底上
+   读成「白/透明 → 红」，即用户报告的「刷新时先白字后变红」闪烁。去掉 opacity 后内容始终以正确
+   颜色满透明度可见，仅做轻微上移，彻底消除色彩闪烁。 */
+.reveal { animation: reveal .6s cubic-bezier(.16,1,.3,1) both; }
+@keyframes reveal { 0% { transform: translateY(14px); } 100% { transform: translateY(0); } }
+.stagger > * { animation: reveal .55s cubic-bezier(.16,1,.3,1) both; }
 .stagger > *:nth-child(1){animation-delay:.04s}
 .stagger > *:nth-child(2){animation-delay:.10s}
 .stagger > *:nth-child(3){animation-delay:.16s}

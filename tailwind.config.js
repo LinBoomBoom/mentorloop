@@ -1,5 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  // 让 Tailwind utilities 在 #__nuxt 作用域内带 !important，覆盖 antd cssinjs 注入的 .hash a { color: brand } 等高优先级全局规则
+  important: '#__nuxt',
   content: [
     './app/**/*.{vue,js,ts,jsx,tsx}',
     './server/**/*.{js,ts}',
@@ -14,8 +16,8 @@ export default {
         // 日落暖色品牌色（UI 审计 P5：coral 改为主题感知变量，浅色更深、深色更亮，提升对比度）
         brand: {
           coral: 'rgb(var(--brand-coral) / <alpha-value>)',
-          pink: '#ff5e7e',
-          gold: '#ffc24b',
+          pink: '#be185d',   /* 加深到 pink-700：白字压其上 4.7:1 过 AA，同时修复「选中项白字压浅粉」不可读 */
+          gold: '#d97706',   /* 加深到 amber-600：金/奖杯/必会星等金色文字从 ~1.9:1 提升到可读 */
           deep: '#e11d48'
         },
         // 四方向主色
@@ -34,13 +36,13 @@ export default {
         canvas: 'rgb(var(--canvas) / <alpha-value>)'
       },
       fontFamily: {
-        sans: ['Sora', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace']
       },
       boxShadow: {
-        soft: '0 10px 40px -12px rgba(255, 94, 126, 0.25)',
-        card: '0 8px 30px -10px rgba(15, 23, 42, 0.18)',
-        glow: '0 0 40px -8px rgba(225, 29, 72, 0.45)'
+        soft: '0 22px 55px -22px rgba(225, 29, 72, 0.25)',
+        card: '0 2px 8px rgba(60, 45, 40, 0.05), 0 14px 36px -14px rgba(60, 45, 40, 0.14)',
+        glow: '0 0 36px -10px rgba(225, 29, 72, 0.4)'
       },
       borderRadius: {
         xl2: '1.25rem',
