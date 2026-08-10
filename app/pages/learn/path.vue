@@ -72,7 +72,7 @@
 
       <div v-for="(m, i) in plan.plan.milestones" :key="i" class="card p-5 reveal">
         <div class="flex items-center gap-3 mb-3">
-          <span class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-coral to-brand-gold text-white flex items-center justify-center text-sm font-bold shrink-0">{{ i + 1 }}</span>
+          <span class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-coral to-brand-pink text-white flex items-center justify-center text-sm font-bold shrink-0">{{ i + 1 }}</span>
           <h3 class="font-bold">{{ m.title }}</h3>
         </div>
         <p v-if="m.focus" class="text-xs text-muted mb-3">聚焦：{{ m.focus }}</p>

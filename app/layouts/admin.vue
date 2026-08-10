@@ -61,7 +61,7 @@ watch(() => auth.loaded, (loaded) => {
 }
 .dark .nav-item { color: #cbd5e1; }
 .nav-item:hover { background: rgba(255,94,126,.08); }
-.nav-item.active { background: linear-gradient(120deg, rgba(255,94,126,.16), rgba(255,138,92,.16)); color: #ff5e7e; }
+.nav-item.active { background: linear-gradient(120deg, rgba(255,94,126,.16), rgba(255,138,92,.16)); color: var(--brand); }
 .admin-foot { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line, #e5e7eb); padding-top: 10px; }
 .dark .admin-foot { border-color: #1e293b; }
 .admin-main { flex: 1; padding: 28px 32px; max-width: 1100px; width: 100%; }

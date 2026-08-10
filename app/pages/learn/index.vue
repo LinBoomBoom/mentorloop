@@ -20,7 +20,7 @@
       <a-card v-for="i in 3" :key="i"><a-skeleton active :paragraph="{ rows: 4 }" /></a-card>
     </div>
 
-    <div v-else class="grid md:grid-cols-3 gap-5 stagger">
+    <div v-else class="grid md:grid-cols-3 gap-5 stagger items-start">
       <NuxtLink v-for="m in modules" :key="m.id" :to="`/learn/${m.id}`" class="block">
         <a-card class="hover:-translate-y-1 transition cursor-pointer group reveal !overflow-hidden" :body-style="{ padding: '24px' }">
           <!-- 方向色顶条：打破全站白卡雷同，一眼区分方向 -->

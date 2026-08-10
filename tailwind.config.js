@@ -14,9 +14,9 @@ export default {
         // 日落暖色品牌色（UI 审计 P5：coral 改为主题感知变量，浅色更深、深色更亮，提升对比度）
         brand: {
           coral: 'rgb(var(--brand-coral) / <alpha-value>)',
-          pink: '#ff8a5c',
+          pink: '#ff5e7e',
           gold: '#ffc24b',
-          deep: '#ff4d6d'
+          deep: '#e11d48'
         },
         // 四方向主色
         track: {
@@ -40,7 +40,7 @@ export default {
       boxShadow: {
         soft: '0 10px 40px -12px rgba(255, 94, 126, 0.25)',
         card: '0 8px 30px -10px rgba(15, 23, 42, 0.18)',
-        glow: '0 0 40px -8px rgba(255, 138, 92, 0.5)'
+        glow: '0 0 40px -8px rgba(225, 29, 72, 0.45)'
       },
       borderRadius: {
         xl2: '1.25rem',

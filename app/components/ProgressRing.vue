@@ -18,7 +18,7 @@ const props = defineProps({
   value: { type: Number, default: 0 },
   size: { type: Number, default: 120 },
   stroke: { type: Number, default: 10 },
-  color: { type: String, default: '#ff5e7e' },
+  color: { type: String, default: '#e11d48' },
   label: { type: String, default: '' }
 })
 const r = computed(() => (props.size - props.stroke) / 2)

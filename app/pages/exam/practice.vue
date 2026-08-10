@@ -2,7 +2,7 @@
   <div class="max-w-3xl mx-auto">
     <div class="mb-5">
       <h1 class="page-title flex items-center gap-2">
-        <Icon name="target" :size="24" style="color:#ff5e7e" /> 按技能自测
+        <Icon name="target" :size="24" style="color:var(--brand)" /> 按技能自测
       </h1>
       <p class="text-muted text-sm mt-1.5">挑选一个技能点，针对性刷它对应的面试题。答完会回写你的「技能掌握度」，答错的题自动进入错题本做间隔复习。</p>
     </div>
@@ -82,7 +82,7 @@
       <!-- 结果 -->
       <a-card v-if="result" class="mt-5" :body-style="{ padding: '20px' }">
         <div class="flex items-center gap-3">
-          <div class="text-3xl font-extrabold" :style="{ color: result.correct >= result.total * 0.6 ? '#10b981' : '#ff5e7e' }">{{ Math.round(result.correct / result.total * 100) }}%</div>
+          <div class="text-3xl font-extrabold" :style="{ color: result.correct >= result.total * 0.6 ? '#10b981' : 'var(--brand)' }">{{ Math.round(result.correct / result.total * 100) }}%</div>
           <div class="text-sm">
             <div class="font-bold">自测完成</div>
             <div class="text-muted">答对 {{ result.correct }} / {{ result.total }}；{{ result.total - result.correct }} 题进入错题本</div>

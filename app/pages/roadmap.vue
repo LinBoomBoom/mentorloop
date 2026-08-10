@@ -3,7 +3,7 @@
     <!-- 标题 -->
     <div class="mb-5">
       <h1 class="page-title flex items-center gap-2">
-        <Icon name="compass" :size="24" style="color:#ff5e7e" />
+        <Icon name="compass" :size="24" style="color:var(--brand)" />
         技能路线图
       </h1>
       <p class="text-muted text-sm mt-1.5">
@@ -24,7 +24,7 @@
       </a-card>
       <a-card :body-style="{ padding: '14px 16px' }">
         <div class="text-xs text-muted">技能点总数</div>
-        <div class="text-2xl font-extrabold mt-1 tabular-nums" style="color:#ff5e7e">{{ totalSkills }}</div>
+        <div class="text-2xl font-extrabold mt-1 tabular-nums" style="color:var(--brand)">{{ totalSkills }}</div>
       </a-card>
       <a-card :body-style="{ padding: '14px 16px' }">
         <div class="text-xs text-muted">必会硬门槛</div>
@@ -36,7 +36,7 @@
     <a-card v-if="masterySummary.loggedIn" class="mb-5" :body-style="{ padding: '16px' }">
       <div class="flex items-center justify-between mb-3">
         <span class="text-sm font-bold flex items-center gap-1.5">
-          <Icon name="check" :size="16" style="color:#ff5e7e" /> 我的掌握度
+          <Icon name="check" :size="16" style="color:var(--brand)" /> 我的掌握度
         </span>
         <span class="text-xs text-muted">已掌握 {{ masterySummary.mastered }}/{{ masterySummary.total }} · 必会 {{ masterySummary.mustMastered }}/{{ masterySummary.mustTotal }}</span>
       </div>
@@ -47,7 +47,7 @@
           <span class="font-bold tabular-nums">{{ masterySummary.pct }}%</span>
         </div>
         <div class="h-2 rounded-full bg-surface overflow-hidden">
-          <div class="h-full rounded-full transition-all" :style="{ width: masterySummary.pct + '%', background: '#ff5e7e' }"></div>
+          <div class="h-full rounded-full transition-all" :style="{ width: masterySummary.pct + '%', background: 'var(--brand)' }"></div>
         </div>
         <div class="flex justify-between text-xs pt-1">
           <span class="text-muted">必会硬门槛完成率</span>
@@ -186,7 +186,7 @@
           <div class="mb-3">
             <div class="flex items-center justify-between mb-2">
               <span class="text-sm font-bold flex items-center gap-1.5">
-                <Icon name="code" :size="15" style="color:#ff5e7e" /> 相关面试题
+                <Icon name="code" :size="15" style="color:var(--brand)" /> 相关面试题
                 <span v-if="relatedLoading" class="text-xs text-muted font-normal">加载中…</span>
                 <span v-else-if="relatedCount >= 0" class="text-xs text-muted font-normal">{{ relatedCount }} 道</span>
               </span>
@@ -247,7 +247,7 @@
           <!-- 推荐学习：优先展示本站真实章节（细分赛道确定性匹配，主流赛道模糊匹配）-->
           <div class="mb-4">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="book" :size="15" style="color:#ff5e7e" /> 推荐学习</span>
+              <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="book" :size="15" style="color:var(--brand)" /> 推荐学习</span>
               <span v-if="learnLoading" class="text-xs text-muted font-normal">匹配中…</span>
             </div>
             <a-empty v-if="!learnLoading && !learnSections.length" description="暂无匹配章节" :image="undefined" class="py-4">
@@ -265,7 +265,7 @@
           <!-- 延伸阅读：官方权威资料（细分赛道为主，主流赛道无）-->
           <div v-if="selected.official && selected.official.length" class="mb-4">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="globe" :size="15" style="color:#ff5e7e" /> 延伸阅读（官方）</span>
+              <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="globe" :size="15" style="color:var(--brand)" /> 延伸阅读（官方）</span>
             </div>
             <div class="space-y-1.5">
               <a v-for="res in selected.official" :key="res.url" :href="res.url" target="_blank" rel="noopener noreferrer"
@@ -342,7 +342,7 @@ const { md } = useMarkdown()
 const auth = useAuthStore()
 const { request } = useApi()
 
-const tabs = [{ id: 'all', name: '全部', color: '#ff5e7e' }, ...roadmap.map(d => ({ id: d.id, name: d.name, color: d.color }))]
+const tabs = [{ id: 'all', name: '全部', color: 'var(--brand)' }, ...roadmap.map(d => ({ id: d.id, name: d.name, color: d.color }))]
 // 选中态实底用的加深色：teal/amber 500 级配白字对比度不足，降到 600 级保证可读
 const tabsSolid: Record<string, string> = { all: '#e11d48', frontend: '#e11d48', backend: '#0d9488', devops: '#d97706', ai: '#7c3aed' }
 const activeDir = ref('all')
@@ -374,7 +374,7 @@ const statusDotColor: Record<MStatus, string> = {
   new: '#cbd5e1',
   learning: '#3b82f6',
   familiar: '#14b8a6',
-  mastered: '#ff5e7e'
+  mastered: 'var(--brand)'
 }
 const masterySummary = computed(() => {
   const map = masteryMap.value

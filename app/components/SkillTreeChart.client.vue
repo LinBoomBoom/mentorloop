@@ -54,7 +54,7 @@ function buildOption() {
         let s = `<b>${p.name}</b>`
         if (m.stance) s += `<br/><span style="color:${props.dark ? '#94a3b8' : '#64748b'}">${m.stance}</span>`
         if (m.desc) s += `<br/>${m.desc}`
-        if (m.must) s += `<br/><span style="color:#ff5e7e">★ 该等级必会项</span>`
+        if (m.must) s += `<br/><span style="color:var(--brand)">★ 该等级必会项</span>`
         return s
       }
     },

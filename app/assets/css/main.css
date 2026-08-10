@@ -17,9 +17,11 @@
   --brand1: #ff5e7e;
   --brand2: #ff8a5c;
   --brand3: #ffc24b;
-  /* 品牌珊瑚（文字/图标/底色 tint 统一来源）：浅色用 #ff4d6d（约 3.5:1，达大字号 AA 且明显优于原 2.9:1）；
-     渐变与高饱和底色仍用 --brand1(#ff5e7e) 保持活力。 */
-  --brand-coral: 255 77 109;
+  /* 规范品牌红（唯一在白底红字 / 红底白字双向都过 WCAG AA 的红 = #e11d48/rose-600，4.7:1）。
+     可点击表面（按钮/chip/VIP标签/链接）、图标强调色统一引用 --brand；
+     日落渐变 --brand1/2/3 仅保留作装饰饰条（页头竖条/卡片顶条/极光），不再压白字。 */
+  --brand: #e11d48;
+  --brand-coral: 225 29 72;
   --glass: 255 255 255;
   --glass-op: 0.66;
 }
@@ -34,8 +36,9 @@
   --canvas: 11 12 21;
   --glass: 30 31 48;
   --glass-op: 0.55;
-  /* 深色模式更明亮的珊瑚，确保深色底 ≥4.5:1（浅色在 :root 定义） */
-  --brand-coral: 255 122 150;
+  /* 深色模式品牌红保持 #e11d48：白字压其上 4.7:1 达标；红字压深色底对比更高 */
+  --brand-coral: 225 29 72;
+  --brand: #e11d48;
 }
 
 /* ============ 基础 ============ */
@@ -110,14 +113,15 @@ body {
   /* 键盘焦点可见环（a11y）：surface 色偏移 + 珊瑚色环 */
   .btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgba(255, 94, 126, .55);
+    box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgba(225, 29, 72, .55);
   }
   .btn-primary {
-    background: linear-gradient(120deg, var(--brand1), var(--brand2) 55%, var(--brand3));
+    /* 可达红渐变（rose-600 → pink-700）：白字全程 ≥4.7:1，替代原日落渐变（金端白字仅 1.6:1 不可读） */
+    background: linear-gradient(120deg, #e11d48, #be185d);
     color: #fff;
-    box-shadow: 0 10px 30px -10px rgba(255, 94, 126, .55);
+    box-shadow: 0 10px 30px -10px rgba(225, 29, 72, .5);
   }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -12px rgba(255, 94, 126, .6); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -12px rgba(225, 29, 72, .55); }
   .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
   .btn-ghost {
     @apply border border-line bg-surface/40 text-ink;
@@ -151,7 +155,7 @@ body {
   .page-title::before {
     content: '';
     @apply absolute left-0 top-[0.3em] bottom-[0.26em] w-[5px] rounded-full;
-    background: linear-gradient(180deg, var(--brand1), var(--brand2) 60%, var(--brand3));
+    background: linear-gradient(180deg, #e11d48, #be185d);
   }
 
   /* 卡片顶部品牌渐变饰条：重点/联动卡片用，打破「全站卡片都是同一块白底」的雷同感 */
@@ -159,7 +163,7 @@ body {
   .card-accent::before {
     content: '';
     @apply absolute left-0 right-0 top-0 h-[3px];
-    background: linear-gradient(90deg, var(--brand1), var(--brand2) 55%, var(--brand3));
+    background: linear-gradient(90deg, #e11d48, #be185d);
   }
   /* 卡片顶部方向色条（learn/exam 列表卡用，颜色由 :style 按方向注入，此处的 rounded 与其配套） */
   .card-rail { @apply h-1.5 rounded-t-lg; }
@@ -179,14 +183,16 @@ body {
   }
   .tag-green { @apply bg-emerald-500/15 text-emerald-600 dark:text-emerald-400; }
   .tag-gold { @apply bg-amber-500/15 text-amber-600 dark:text-amber-400; }
-  .tag-vip { background: linear-gradient(120deg, var(--brand1), var(--brand3)); color: #fff; }
+  .tag-vip { background: linear-gradient(120deg, #e11d48, #be185d); color: #fff; }
 
   .gradient-text {
-    background: linear-gradient(120deg, var(--brand1), var(--brand2) 50%, var(--brand3));
+    background: linear-gradient(120deg, #e11d48, #be185d);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  /* 品牌渐变唯一来源（UI 审计 P2-4）：替换各页硬编码的 linear-gradient */
-  .brand-gradient { background: linear-gradient(120deg, var(--brand1), var(--brand2) 55%, var(--brand3)); }
+  /* 品牌渐变唯一来源（UI 审计 P2-4）：替换各页硬编码的 linear-gradient。
+     统一为可达红渐变（rose-600 → pink-700），与 .btn-primary 同一套色，移除原日落渐变中的橙/金，
+     避免「橘红」在 logo 文字、英雄区/卡片背景、页头竖条等处大面积出现（用户反馈难看）。 */
+  .brand-gradient { background: linear-gradient(120deg, #e11d48, #be185d); }
   .section-title { @apply text-lg font-bold text-ink; }
   .hairline { @apply border-t border-line; }
   .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -232,7 +238,7 @@ body {
 .prose-dm hr { @apply border-0 border-t border-line my-4; }
 /* 知识图谱内链（宪章「可导航」）：让 doc: 互链真正可点击 */
 .prose-dm .doc-link { @apply font-medium text-brand-coral underline decoration-brand-coral/30 underline-offset-2 transition-colors; }
-.prose-dm .doc-link:hover { @apply decoration-brand-coral text-brand-deep; }
+.prose-dm .doc-link:hover { @apply decoration-brand-coral text-brand-coral; }
 
 /* markdown 表格（V1 六段式内的对比/规格表）：桌面端正常表格布局，移动端窄屏可横向滚动避免溢出 */
 .prose-dm table { @apply w-full border-collapse text-[14px] my-3; }
@@ -262,7 +268,7 @@ main :where([class*="gap-"], [class*="space-y-"]) > :where(*) + :where(*) { marg
 /* 「标记已掌握」按钮的键盘焦点环（它现在是页面主行动按钮，必须可见） */
 .mark-done:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgba(255, 94, 126, .55);
+  box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgba(225, 29, 72, .55);
 }
 
 /* BUG-5：antd-vue button 在 block/带图标时偶发文字不垂直居中；强制 inline-flex 确保图标与文字居中对齐 */

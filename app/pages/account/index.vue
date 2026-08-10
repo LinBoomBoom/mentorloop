@@ -20,7 +20,7 @@
             <div class="text-lg font-bold truncate">{{ currentUser?.nickname || '学员' }}</div>
             <div class="text-sm text-muted truncate">{{ currentUser?.email || currentUser?.phone || '—' }}</div>
           </div>
-          <a-tag v-if="isVip" color="#ff5e7e" class="ml-auto !px-3 !text-sm">👑 VIP</a-tag>
+          <a-tag v-if="isVip" color="var(--brand)" class="ml-auto !px-3 !text-sm">👑 VIP</a-tag>
           <a-tag v-else class="ml-auto" color="default">免费用户</a-tag>
         </div>
       </a-card>
@@ -103,7 +103,7 @@ useSeoMeta({ title: '个人中心 · MentorLoop', ogUrl: safeOgUrl() })
 
 const avatarText = computed(() => (currentUser.value?.nickname || '学').slice(0, 1).toUpperCase())
 const avatarBg = computed(() => isVip.value
-  ? 'linear-gradient(120deg,#ff5e7e,#ff8a5c 55%,#ffc24b)'
+  ? '#e11d48'
   : 'linear-gradient(120deg,#94a3b8,#64748b)')
 
 const { data: plansRes } = await useFetch('/api/vip/plans')

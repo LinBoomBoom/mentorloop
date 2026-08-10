@@ -13,7 +13,7 @@
 <script setup lang="ts">
 import { App, ConfigProvider, StyleProvider, theme as antdTheme } from 'ant-design-vue'
 
-// 品牌主题令牌：主色取品牌珊瑚 #ff5e7e，成功/警告/错误对齐既有语义色。
+// 品牌主题令牌：主色统一为可达品牌红 #e11d48（rose-600，白字/红字双向过 WCAG AA），成功/警告/错误对齐既有语义色。
 const isDark = ref(false)
 function syncDark() {
   if (import.meta.client) {
@@ -28,8 +28,8 @@ onMounted(() => {
 
 const theme = computed(() => ({
   token: {
-    colorPrimary: '#ff5e7e',
-    colorInfo: '#ff5e7e',
+    colorPrimary: '#e11d48',
+    colorInfo: '#e11d48',
     colorSuccess: '#10b981',
     colorWarning: '#f59e0b',
     colorError: '#ef4444',

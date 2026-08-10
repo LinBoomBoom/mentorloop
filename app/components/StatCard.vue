@@ -19,6 +19,6 @@ defineProps({
   value: [String, Number],
   sub: String,
   icon: String,
-  color: { type: String, default: '#ff5e7e' }
+  color: { type: String, default: '#e11d48' }
 })
 </script>

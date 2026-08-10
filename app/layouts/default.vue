@@ -124,7 +124,7 @@ const isActive = (item) => route.path === item.to || (item.to !== '/' && route.p
 
 const avatarText = computed(() => (auth.user?.nickname || '学').slice(0, 1).toUpperCase())
 const avatarBg = computed(() => auth.isVip
-  ? 'linear-gradient(120deg,#ff5e7e,#ff8a5c 55%,#ffc24b)'
+  ? '#e11d48'
   : 'linear-gradient(120deg,#94a3b8,#64748b)')
 
 function logout() {

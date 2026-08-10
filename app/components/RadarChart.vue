@@ -10,7 +10,7 @@
         <line v-for="(d, i) in data" :key="'l' + i" x1="0" y1="0" :x2="axisPt(i).x" :y2="axisPt(i).y"
               stroke="rgb(var(--line))" stroke-width="1" />
 
-        <polygon :points="polyPoints" fill="rgba(255,94,126,.18)" :stroke="color" stroke-width="2" stroke-linejoin="round" />
+        <polygon :points="polyPoints" fill="rgba(225,29,72,.18)" :stroke="color" stroke-width="2" stroke-linejoin="round" />
 
         <!-- 顶点：未经答卷验证的方向画空心点，一眼区分「学过」与「练过」 -->
         <circle v-for="(d, i) in data" :key="'p' + i"
@@ -48,7 +48,7 @@
 type Axis = { axis: string; value: number; hint?: string; color?: string; verified?: boolean }
 const props = defineProps({
   data: { type: Array as () => Axis[], default: () => [] },
-  color: { type: String, default: '#ff5e7e' }
+  color: { type: String, default: '#e11d48' }
 })
 const RADIUS = 86
 const levels = [0.25, 0.5, 0.75, 1]

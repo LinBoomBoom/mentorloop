@@ -16,8 +16,8 @@
         <div class="flex items-center gap-2">
           <Icon name="crown" :size="20" class="text-brand-coral" />
           <span class="text-lg font-extrabold">VIP 会员</span>
-          <a-tag v-if="status.subscription" color="#ff5e7e">{{ planName(status.subscription.planId) }}</a-tag>
-          <a-tag v-else color="#ff5e7e">VIP Lv.{{ status.vip?.level || '—' }}</a-tag>
+          <a-tag v-if="status.subscription" color="var(--brand)">{{ planName(status.subscription.planId) }}</a-tag>
+          <a-tag v-else color="var(--brand)">VIP Lv.{{ status.vip?.level || '—' }}</a-tag>
         </div>
         <div class="text-sm text-muted">有效期至 <b class="text-ink">{{ fmtExpire(status.subscription?.expireAt ?? status.vip?.expireAt) }}</b></div>
       </div>
@@ -44,7 +44,7 @@
       <a-card v-for="p in plans" :key="p.id" hoverable class="flex flex-col"
               :class="p.popular ? '!border-brand-coral/40 ring-2 ring-brand-coral/40' : ''"
               :body-style="{ flex:'1 1 auto', display:'flex', flexDirection:'column', padding:'28px' }">
-        <a-tag v-if="p.popular" color="#ff5e7e" class="absolute -top-3 left-7 !px-3 z-10">最受欢迎</a-tag>
+        <a-tag v-if="p.popular" color="var(--brand)" class="absolute -top-3 left-7 !px-3 z-10">最受欢迎</a-tag>
         <h3 class="text-xl font-extrabold">{{ p.name }}</h3>
         <div class="mt-3 flex items-end gap-1">
           <span class="text-4xl font-extrabold gradient-text">¥{{ p.price }}</span>

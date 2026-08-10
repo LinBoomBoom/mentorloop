@@ -166,9 +166,9 @@
       <div v-else :class="pending ? 'opacity-60 transition-opacity' : 'transition-opacity'">
         <div class="space-y-2">
           <a-card v-for="item in items" :key="item.id" class="overflow-hidden" :body-style="{ padding: '0' }">
-            <button class="w-full text-left p-4 flex items-center gap-3 hover:bg-ink/[.03] transition" @click="toggle(item.id)" :aria-expanded="openSet.has(item.id)">
-              <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0" :class="qTab === 'hot' ? 'bg-brand-gold/10 text-brand-gold' : 'bg-brand-pink/10 text-brand-pink'">{{ qTab === 'hot' ? 'Q' : 'S' }}</span>
-              <span class="font-medium text-sm flex-1 pr-2 leading-snug">{{ item.q }}</span>
+            <button class="w-full text-left p-4 flex items-start gap-3 hover:bg-ink/[.03] transition" @click="toggle(item.id)" :aria-expanded="openSet.has(item.id)">
+              <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5" :class="qTab === 'hot' ? 'bg-brand-gold/10 text-brand-gold' : 'bg-brand-pink/10 text-brand-pink'">{{ qTab === 'hot' ? 'Q' : 'S' }}</span>
+              <span class="font-medium text-sm flex-1 min-w-0 pr-1 leading-snug">{{ item.q }}</span>
               <a-tag class="hidden sm:inline-block shrink-0 !text-[10px] !bg-ink/5 !text-sub" :bordered="false">{{ item.tech }}</a-tag>
               <a-tag v-if="item.skill" class="hidden md:inline-block shrink-0 !text-[10px] !bg-brand-coral/10 !text-brand-coral" :bordered="false">{{ item.skill }}</a-tag>
               <a-tag class="shrink-0 !text-[10px]" :class="diffMeta(item.difficulty).cls" :bordered="false">{{ diffMeta(item.difficulty).label }}</a-tag>

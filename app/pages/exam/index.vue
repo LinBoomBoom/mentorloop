@@ -30,12 +30,12 @@
       <a-card v-if="shownSets.length === 0" class="text-center mb-9" :body-style="{ padding: '32px' }">
         <span class="text-muted text-sm">没有符合条件的试卷，换个筛选试试～</span>
       </a-card>
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger mb-9">
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger mb-9 items-start">
         <a-card v-for="s in shownSets" :key="s.id" class="reveal hover:border-brand-coral/30 transition-colors !overflow-hidden" :body-style="{ padding: '20px' }">
           <!-- 方向色顶条：与学习中心卡片同一视觉语言 -->
           <div class="card-rail -mx-5 -mt-5 mb-3" :style="{ background: `linear-gradient(90deg, ${trackMeta[s.track]?.color}, ${trackMeta[s.track]?.color}55)` }"></div>
           <div class="flex items-start justify-between gap-3 mb-2">
-            <h4 class="font-extrabold text-[17px] leading-snug">{{ s.name }}</h4>
+            <h4 class="font-extrabold text-[17px] leading-snug line-clamp-2">{{ s.name }}</h4>
             <Icon v-if="s.vipOnly" name="crown" :size="16" class="text-amber-500 shrink-0 mt-0.5" title="VIP 专属" />
           </div>
           <div class="flex flex-wrap items-center gap-2 mb-3">

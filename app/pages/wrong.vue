@@ -2,7 +2,7 @@
   <div class="max-w-3xl mx-auto">
     <div class="mb-5">
       <h1 class="page-title flex items-center gap-2">
-        <Icon name="alertTriangle" :size="24" style="color:#ff5e7e" /> 错题本
+        <Icon name="alertTriangle" :size="24" style="color:var(--brand)" /> 错题本
       </h1>
       <p class="text-muted text-sm mt-1.5">跨题库练习与技能自测的错题都会沉淀到这里，按间隔复习（SRS）帮你真正记住。复习后会自动排期下一次。</p>
     </div>

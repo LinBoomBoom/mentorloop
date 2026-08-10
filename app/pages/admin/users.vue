@@ -47,7 +47,7 @@
               <div class="text-xs text-muted">{{ u.email || u.username }}</div>
             </td>
             <td class="p-3">
-              <a-tag :color="u.role === 'admin' ? '#ff5e7e' : ''">{{ u.role }}</a-tag>
+              <a-tag :color="u.role === 'admin' ? 'var(--brand)' : ''">{{ u.role }}</a-tag>
             </td>
             <td class="p-3">
               <a-tag v-if="u.vip?.active" color="gold">Lv.{{ u.vip.level }}</a-tag>
