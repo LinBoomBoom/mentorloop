@@ -174,7 +174,7 @@
       <div v-if="!modules.length" class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div v-for="i in 3" :key="i" class="card h-40 shimmer"></div>
       </div>
-      <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+      <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <NuxtLink v-for="m in modules" :key="m.id" :to="`/learn/${m.id}`" class="card p-6 overflow-hidden hover:-translate-y-1 transition reveal group">
           <div class="h-1.5 -mx-6 -mt-6 mb-4" :style="{ background: `linear-gradient(90deg, ${m.color}, ${m.color}55)` }"></div>
           <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" :style="{background:m.color+'1a',color:m.color}"><Icon :name="m.icon" :size="24"/></div>
@@ -196,7 +196,7 @@
       <div v-if="!featuredQuestions.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div v-for="i in 4" :key="i" class="card h-24 shimmer"></div>
       </div>
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div v-for="q in featuredQuestions" :key="q.id" class="card p-5 reveal">
           <div class="flex items-start gap-3">
             <Icon name="chat" :size="18" class="text-brand-coral mt-0.5 shrink-0"/>
@@ -221,7 +221,7 @@
       <div v-if="!sets.length" class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div v-for="i in 3" :key="i" class="card h-32 shimmer"></div>
       </div>
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <NuxtLink v-for="s in sets" :key="s.id" :to="`/exam/sets/${s.id}`" class="card p-6 overflow-hidden hover:-translate-y-1 transition reveal">
           <div class="h-1.5 -mx-6 -mt-6 mb-4" :style="{ background: `linear-gradient(90deg, ${trackMeta[s.track]?.color || '#94a3b8'}, ${(trackMeta[s.track]?.color || '#94a3b8')}55)` }"></div>
           <div class="flex items-center justify-between mb-2">

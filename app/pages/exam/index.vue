@@ -30,7 +30,7 @@
       <a-card v-if="shownSets.length === 0" class="text-center mb-9" :body-style="{ padding: '32px' }">
         <span class="text-muted text-sm">没有符合条件的试卷，换个筛选试试～</span>
       </a-card>
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger mb-9 items-start">
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger mb-9">
         <a-card v-for="s in shownSets" :key="s.id" class="reveal hover:border-brand-coral/30 transition-colors !overflow-hidden" :body-style="{ padding: '20px' }">
           <!-- 方向色顶条：与学习中心卡片同一视觉语言 -->
           <div class="card-rail -mx-5 -mt-5 mb-3" :style="{ background: `linear-gradient(90deg, ${trackMeta[s.track]?.color}, ${trackMeta[s.track]?.color}55)` }"></div>

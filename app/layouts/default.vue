@@ -19,7 +19,7 @@
       <nav class="flex-1 px-4 space-y-1 mt-2">
         <NuxtLink v-for="item in nav" :key="item.to" :to="item.to"
                   class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200"
-                  :class="isActive(item) ? 'bg-brand-coral/12 text-brand-coral' : 'text-sub hover:bg-ink/5 hover:text-ink'">
+                  :class="isActive(item) ? 'bg-brand-coral text-white shadow-sm' : 'text-sub hover:bg-ink/5 hover:text-ink'">
           <Icon :name="item.icon" :size="19" />
           <span>{{ item.label }}</span>
           <span v-if="item.to === '/vip' && !auth.isVip" class="ml-auto tag !py-0.5 tag-vip text-[10px] !px-2">VIP</span>

@@ -145,11 +145,11 @@
       <!-- 题型切换 -->
       <div class="flex gap-2 mb-4 flex-wrap">
         <button @click="setTab('hot')" class="chip-tab"
-                :class="qTab === 'hot' ? 'chip-tab-active !bg-amber-600' : ''">
+                :class="qTab === 'hot' ? 'chip-tab-active' : ''">
           <Icon name="star" :size="15" class="inline -mt-0.5" /> 高频必刷题（{{ counts.hot }}）
         </button>
         <button @click="setTab('special')" class="chip-tab"
-                :class="qTab === 'special' ? 'chip-tab-active !bg-orange-600' : ''">
+                :class="qTab === 'special' ? 'chip-tab-active' : ''">
           <Icon name="bolt" :size="15" class="inline -mt-0.5" /> 特殊场景题（{{ counts.special }}）
         </button>
       </div>
