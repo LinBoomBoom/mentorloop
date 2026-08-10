@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-[calc(100vh-180px)] flex flex-col justify-center py-6">
-    <div class="max-w-xl mx-auto w-full">
+  <div>
+    <div class="max-w-xl w-full">
       <!-- 返回链接 -->
       <NuxtLink to="/vip" class="inline-flex items-center gap-1.5 text-sm text-sub hover:text-brand-coral transition mb-5">
         <Icon name="arrowLeft" :size="16" /> 返回会员中心
