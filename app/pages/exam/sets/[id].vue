@@ -232,6 +232,21 @@
       </template>
     </div>
 
+    <!-- 离开后超时：本次作答已结束，绝不静默自动交卷，由用户决定是否重新作答 -->
+    <div v-else-if="phase === 'expired'" class="reveal">
+      <a-card class="text-center" :body-style="{ padding: '40px' }">
+        <Icon name="clock" :size="48" class="text-muted mx-auto mb-4" />
+        <h2 class="text-lg font-extrabold mb-2">本次作答已结束</h2>
+        <p class="text-sm text-muted mb-6 max-w-md mx-auto leading-relaxed">
+          你已离开答卷页面，本次模拟作答的计时已结束，不会自动交卷。可重新进入本卷开始一次新的作答。
+        </p>
+        <div class="flex items-center justify-center gap-3">
+          <NuxtLink to="/exam"><a-button>返回试卷列表</a-button></NuxtLink>
+          <a-button type="primary" @click="retake"><Icon name="refresh" :size="16" /> 重新作答</a-button>
+        </div>
+      </a-card>
+    </div>
+
     <!-- 兜底：任何未命中上述状态的异常态都不应整页空白，给出错误与重试入口 -->
     <a-card v-else class="text-center" :body-style="{ padding: '40px' }">
       <Icon name="alertTriangle" :size="48" class="text-muted mx-auto mb-4" />
@@ -364,6 +379,12 @@ function initTimer() {
   } else {
     timeLeft.value = total
   }
+  // 关键修复：若打开页面时计时已耗尽（例如中途离开作答页，原 attempt 已超时），
+  // 绝不在后台静默自动交卷出答案，而是进入 expired 态，由用户决定是否重新作答。
+  if (timeLeft.value <= 0) {
+    phase.value = 'expired'
+    return
+  }
   timer = setInterval(() => {
     timeLeft.value--
     if (timeLeft.value <= 0) { stopTimer(); submit() }
@@ -407,6 +428,22 @@ function retake() {
   if (import.meta.client) window.location.reload()
 }
 
+// 离开答卷页（关闭标签页 / 浏览器关闭 / SPA 路由跳转）时作废当前 active attempt，
+// 使倒计时随离开而「注销」，再次进入即为全新计时，不会被后台静默自动交卷。
+// 用 sendBeacon 保证在页面卸载瞬间也能可靠发出（fetch 在 unload 时会被中断）。
+function abandonAttempt() {
+  if (!attemptId.value || phase.value !== 'take' || submitting.value) return
+  const url = '/api/exam/attempt/abandon'
+  const payload = JSON.stringify({ attemptId: attemptId.value })
+  try {
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }))
+    } else if (import.meta.client) {
+      fetch(url, { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' }, keepalive: true }).catch(() => {})
+    }
+  } catch (e) { /* 注销失败不应阻断用户离开 */ }
+}
+
 // 公开试卷：SSR 加载（预览题目），无需登录即可浏览
 const mounted = ref(false)
 const { data: setRes, error: fetchError, refresh } = await useFetch(() => '/api/exam/sets/' + route.params.id)
@@ -447,6 +484,19 @@ onMounted(async () => {
   }
   // 首屏 hydration 完成后再启动倒计时，避免计时器读数进入 SSR 快照
   if (phase.value === 'take' && dur.value) initTimer()
+  // 关闭标签页 / 浏览器关闭：随页面卸载注销 attempt
+  if (import.meta.client) {
+    window.addEventListener('pagehide', abandonAttempt)
+    window.addEventListener('beforeunload', abandonAttempt)
+  }
 })
-onBeforeUnmount(stopTimer)
+onBeforeUnmount(() => {
+  stopTimer()
+  // SPA 路由跳转离开答卷页（如点「返回试卷列表」）也会触发：注销当前 attempt
+  abandonAttempt()
+  if (import.meta.client) {
+    window.removeEventListener('pagehide', abandonAttempt)
+    window.removeEventListener('beforeunload', abandonAttempt)
+  }
+})
 </script>
