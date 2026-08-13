@@ -171,162 +171,239 @@
       <a-empty v-else description="没有匹配的技能，换个关键词试试" class="py-16" />
     </div>
 
-    <!-- 详情抽屉 -->
-    <a-drawer :open="!!selected" :title="drawerTitle" placement="right" :width="380" @close="selected = null">
+    <!-- ═════════════ 详情抽屉（内联 style 版 —— 抗 antd cssinjs 覆盖） ═════════════ -->
+    <a-drawer :open="!!selected" placement="right" :width="420" :closable="false" @close="selected = null"
+              class="skill-detail-drawer" :body-style="{ padding: '0', overflowY: 'auto' }">
       <template v-if="selected">
-        <div v-if="selected.kind === 'skill'">
-          <div class="flex flex-wrap gap-2 mb-3">
-            <span class="text-xs font-semibold px-2 py-1 rounded-full" :style="{ background: levelColor[selected.level] + '1a', color: levelColor[selected.level] }">{{ selected.levelTitle }}</span>
-            <span v-if="selected.must" class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">★ 必会</span>
+        <!-- ===== 技能点详情 ===== -->
+        <div v-if="selected.kind === 'skill'" style="position:relative">
+          <!-- Header：渐变饰条 + 标题 + 关闭按钮 + 元标签 + 描述 -->
+          <div style="position:relative">
+            <div style="height:3px;background:linear-gradient(90deg,#e11d48,#be185d)"></div>
+            <button type="button" style="position:absolute;top:12px;right:14px;z-index:10;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;cursor:pointer;color:#737373;transition:all .15s"
+                    @click="selected = null" @mouseenter="$event.currentTarget.style.color='#e11d48'" @mouseleave="$event.currentTarget.style.color='#737373'"
+                    aria-label="关闭">
+              <Icon name="x" :size="16" />
+            </button>
+            <div style="padding:20px 20px 16px">
+              <h2 style="font-size:19px;font-weight:800;color:#171717;line-height:1.25;margin:0;padding-right:32px;letter-spacing:-.01em">{{ selected.name }}</h2>
+              <!-- 元标签行 -->
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px">
+                <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;border:1px solid"
+                      :style="{ borderColor: levelColor[selected.level] + '45', background: levelColor[selected.level] + '0e', color: levelColor[selected.level] }">
+                  <span style="width:6px;height:6px;border-radius:50%;display:inline-block" :style="{ background: levelColor[selected.level] }"></span>{{ selected.levelTitle }}
+                </span>
+                <span v-if="selected.must" style="display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:#fffbeb;color:#b45309;border:1px solid rgba(251,191,36,.7)">
+                  <span style="font-size:10px">★</span> 必会
+                </span>
+                <span style="font-size:11px;color:#a3a3a3;margin-left:4px">{{ selected.subtrack }}</span>
+              </div>
+              <!-- 描述信息框 -->
+              <div v-if="selected.desc" style="margin-top:12px;border-radius:10px;padding:10px 14px;background:#fafafa;border:1px solid rgba(229,229,229,.7);line-height:1.65">
+                <p style="font-size:13px;color:#525252;margin:0">{{ selected.desc }}</p>
+              </div>
+            </div>
           </div>
-          <p class="text-sm text-ink leading-relaxed">{{ selected.desc || '（暂无详细说明）' }}</p>
-          <a-divider />
 
-          <!-- 相关面试题（按技能名联动题库） -->
-          <div class="mb-3">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-bold flex items-center gap-1.5">
-                <Icon name="code" :size="15" style="color:var(--brand)" /> 相关面试题
-                <span v-if="relatedLoading" class="text-xs text-muted font-normal">加载中…</span>
-                <span v-else-if="relatedCount >= 0" class="text-xs text-muted font-normal">{{ relatedCount }} 道</span>
-              </span>
-              <a-button v-if="selected.track && selected.subtrackId && selected.name" type="link" size="small" class="!px-0"
-                        :href="`/interview?mode=tree&track=${selected.track}&subtrack=${selected.subtrackId}&skill=${encodeURIComponent(selected.name)}`">去题库练习 →</a-button>
+          <!-- 分隔线 -->
+          <div style="margin:0 20px;height:1px;background:rgba(229,229,229,.5)"></div>
+
+          <!-- 面试题区：编号卡片列表 -->
+          <div style="padding:20px 20px 12px">
+            <!-- 区头 -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(225,29,72,.1)"><Icon name="code" :size="12" style="color:#e11d48"/></span>
+                <span style="font-size:13.5px;font-weight:700;color:#171717">相关面试题</span>
+                <span v-if="relatedCount >= 0" style="font-size:11px;color:#a3a3a3;font-weight:500">{{ relatedCount }} 道</span>
+              </div>
+              <a-button v-if="selected.track && selected.subtrackId && selected.name" type="link" size="small" style="padding:0 4px !important;font-size:12px !important;font-weight:600 !important"
+                        :href="`/interview?mode=tree&track=${selected.track}&subtrack=${selected.subtrackId}&skill=${encodeURIComponent(selected.name)}`">
+                去题库练习 <span style="opacity:.6">→</span>
+              </a-button>
             </div>
 
-            <a-empty v-if="!relatedLoading && relatedQuestions.length === 0" description="暂无相关面试题" :image="undefined" class="py-6">
-              <template #description><span class="text-xs text-muted">该技能点暂无对应面试题，可在题库搜索更多。</span></template>
+            <a-empty v-if="!relatedLoading && relatedQuestions.length === 0" description="暂无相关面试题" :image="undefined" style="padding:20px 0">
+              <template #description><span style="font-size:11px;color:#a3a3a3">该技能点暂无对应面试题。</span></template>
             </a-empty>
+            <div v-else-if="relatedLoading && relatedQuestions.length === 0" style="padding:24px 0;text-align:center;font-size:11px;color:#a3a3a3">加载中…</div>
 
-            <div v-else class="space-y-2">
-              <div v-for="(rq, i) in relatedQuestions" :key="rq.id" class="rounded-xl border border-line overflow-hidden">
-                <button type="button" class="w-full text-left px-3 py-2.5 flex items-start gap-2 hover:bg-surface transition"
+            <!-- 题目卡片列表 -->
+            <div v-else style="display:flex;flex-direction:column;gap:8px">
+              <div v-for="(rq, i) in relatedQuestions" :key="rq.id"
+                   style="border-radius:12px;border:1px solid #e5e5e5;background:#fff;overflow:hidden;transition:all .2s ease;cursor:default"
+                   @mouseenter="$el.style.borderColor='rgba(225,29,72,.3)';$el.style.boxShadow='0 1px 3px rgba(0,0,0,.06)'"
+                   @mouseleave="$el.style.borderColor='#e5e5e5';$el.style.boxShadow='none'">
+                <button type="button" style="width:100%;text-align:left;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;border:none;background:transparent;cursor:pointer"
                         @click="rq._open = !rq._open">
-                  <Icon :name="rq._open ? 'chevron-down' : 'chevron-right'" :size="14" class="mt-0.5 shrink-0 text-muted" />
-                  <span class="flex-1 min-w-0">
-                    <span class="text-[13px] leading-snug text-ink">{{ rq.q }}</span>
-                    <span class="flex flex-wrap gap-1.5 mt-1.5">
-                      <span class="text-[10px] px-1.5 py-0.5 rounded-full"
-                            :class="rq.difficulty === 'hard' ? 'bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400'
-                                  : rq.difficulty === 'medium' ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400'
-                                  : 'bg-slate-100 text-slate-500 dark:bg-slate-500/15 dark:text-slate-400'">
+                  <!-- 题号方块：折叠灰 / 展开珊瑚 -->
+                  <span style="flex-shrink:0;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:3px;transition:background .15s,color .15s,border-color .15s"
+                        :style="rq._open ? { background:'#e11d48', color:'#fff', border:'1px solid #e11d48' } : { background:'#fafafa', border:'1px solid #e5e5e5', color:'#a3a3a3' }">{{ i + 1 }}</span>
+
+                  <span style="flex:1;min-width:0">
+                    <!-- 题目文本：未展开时 2 行截断 + 行内代码样式 -->
+                    <span style="font-size:13px;line-height:1.65;color:#171717;display:block"
+                          :style="rq._open ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }"
+                          v-html="qInline(rq.q)"></span>
+                    <!-- 标签行 -->
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px">
+                      <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;border:1px solid"
+                            :style="rq.difficulty === 'hard'
+                              ? { background:'rgba(254,226,226,.8)', color:'#dc2626', border:'#fecaca' }
+                              : rq.difficulty === 'medium'
+                                ? { background:'rgba(254,243,199,.8)', color:'#d97706', border:'#fde68a' }
+                                : { background:'rgba(248,250,252,.8)', color:'#64748b', border:'#f1f5f9' }">
                         {{ rq.difficulty === 'hard' ? '困难' : rq.difficulty === 'medium' ? '较难' : '常规' }}
                       </span>
-                      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-coral/10 text-brand-coral">{{ rq.tech }}</span>
-                    </span>
+                      <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;background:rgba(225,29,72,.07);color:#e11d48;border:1px solid rgba(225,29,72,.12)">{{ rq.tech }}</span>
+                      <Icon :name="rq._open ? 'chevron-up' : 'chevron-down'" :size="12" style="color:rgba(115,115,115,.6);margin-left:auto;flex-shrink:0" />
+                    </div>
                   </span>
                 </button>
-                <div v-if="rq._open" class="px-3 pb-3 -mt-1 border-t border-line pt-2.5">
-                  <div class="rounded-r-lg border-l-2 border-brand-coral/60 bg-brand-coral/[.04] p-3.5 prose-dm text-[13px]" v-html="md(rq.a)"></div>
-                </div>
+                <!-- 展开答案区 -->
+                <div v-if="rq._open" style="margin:0 14px 12px -0px;border-radius:8px;border-left:2.5px solid rgba(225,29,72,.5);background:rgba(225,29,72,.04);padding:12px 14px;font-size:12.5px;line-height:1.65;color:#262626" v-html="md(rq.a)"></div>
               </div>
-              <a-button v-if="relatedQuestions.length" type="link" size="small" block class="!px-0 mt-1"
-                        :href="`/interview?track=${selected.track}&q=${encodeURIComponent(selected.name)}`">查看全部并练习 →</a-button>
-            </div>
-          </div>
-
-          <!-- 我的掌握度 & 行动（免费即可用）-->
-          <a-divider />
-          <div class="mb-4">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-bold">我的掌握度</span>
-              <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
-                    :style="{ background: statusDotColor[mStatus(selected.track, selected.subtrackId, selected.name)] + '22', color: statusDotColor[mStatus(selected.track, selected.subtrackId, selected.name)] }">
-                {{ { new:'未开始', learning:'学习中', familiar:'较熟悉', mastered:'已掌握' }[mStatus(selected.track, selected.subtrackId, selected.name)] }}
-              </span>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <a-button v-if="auth.isLoggedIn" size="small" type="primary" :loading="markingSkill" @click="toggleMark">
-                {{ (masteryMap[sk(selected.track, selected.subtrackId, selected.name)]?.marked) ? '取消掌握标记' : '标记已掌握' }}
+              <!-- 查看全部 -->
+              <a-button v-if="relatedQuestions.length" type="link" size="small" block style="padding:0 !important;margin-top:4px !important;font-size:12px !important;text-align:center"
+                        :href="`/interview?track=${selected.track}&q=${encodeURIComponent(selected.name)}`">
+                查看全部 {{ relatedCount }} 道并练习 <span style="opacity:.6">→</span>
               </a-button>
-              <a-button v-else size="small" type="primary" :href="`/auth/login?redirect=${encodeURIComponent($route.fullPath)}`">登录后标记</a-button>
-              <a-button size="small" :href="`/exam/practice?track=${selected.track}&subtrack=${selected.subtrackId}&skill=${encodeURIComponent(selected.name)}`">去自测 →</a-button>
             </div>
           </div>
 
-          <!-- 推荐学习：优先展示本站真实章节（细分赛道确定性匹配，主流赛道模糊匹配）-->
-          <div class="mb-4">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="book" :size="15" style="color:var(--brand)" /> 推荐学习</span>
-              <span v-if="learnLoading" class="text-xs text-muted font-normal">匹配中…</span>
+          <!-- 分隔线 -->
+          <div style="margin:0 20px;height:1px;background:rgba(229,229,229,.5)"></div>
+
+          <!-- 掌握度 & 行动 -->
+          <div style="padding:20px 20px 16px">
+            <div style="border-radius:12px;background:linear-gradient(135deg,#fafafa,#fafafa80);border:1px solid #e5e5e5;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#ecfdf5"><Icon name="check" :size="12" style="color:#10b981"/></span>
+                  <span style="font-size:13.5px;font-weight:700;color:#171717">我的掌握度</span>
+                </div>
+                <span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid"
+                      :style="{ borderColor: statusDotColor[mStatus(selected.track, selected.subtrackId, selected.name)] + '40', background: statusDotColor[mStatus(selected.track, selected.subtrackId, selected.name)] + '0e', color: statusDotColor[mStatus(selected.track, selected.subtrackId, selected.name)] }">
+                  {{ { new:'未开始', learning:'学习中', familiar:'较熟悉', mastered:'已掌握' }[mStatus(selected.track, selected.subtrackId, selected.name)] }}
+                </span>
+              </div>
+              <div style="display:flex;gap:8px">
+                <a-button v-if="auth.isLoggedIn" size="small" type="primary" :loading="markingSkill" @click="toggleMark" style="flex:1">                  {{ (masteryMap[sk(selected.track, selected.subtrackId, selected.name)]?.marked) ? '取消标记' : '标记已掌握' }}
+                </a-button>
+                <a-button v-else size="small" type="primary" :href="`/auth/login?redirect=${encodeURIComponent($route.fullPath)}`" style="flex:1">登录后标记</a-button>
+                <a-button size="small" :href="`/exam/practice?track=${selected.track}&subtrack=${selected.subtrackId}&skill=${encodeURIComponent(selected.name)}`">去自测 →</a-button>
+              </div>
             </div>
-            <a-empty v-if="!learnLoading && !learnSections.length" description="暂无匹配章节" :image="undefined" class="py-4">
-              <template #description><span class="text-xs text-muted">该技能暂未匹配到课程章节；可参考下方官方资料。</span></template>
+          </div>
+
+          <!-- 分隔线 -->
+          <div style="margin:0 20px;height:1px;background:rgba(229,229,229,.5)"></div>
+
+          <!-- 推荐学习 -->
+          <div style="padding:8px 20px 16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#eff6ff"><Icon name="book" :size="12" style="color:#3b82f6"/></span>
+              <span style="font-size:13.5px;font-weight:700;color:#171717">推荐学习</span>
+              <span v-if="learnLoading" style="font-size:11px;color:#a3a3a3">匹配中…</span>
+            </div>
+            <a-empty v-if="!learnLoading && !learnSections.length" description="暂无匹配章节" :image="undefined" style="padding:12px 0">
+              <template #description><span style="font-size:11px;color:#a3a3a3">该技能暂未匹配到课程章节。</span></template>
             </a-empty>
-            <div v-else class="space-y-1.5">
+            <div v-else style="display:flex;flex-direction:column;gap:6px">
               <NuxtLink v-for="sec in learnSections" :key="sec.id" :to="`/learn/${sec.moduleId}/${sec.chapterId}/${sec.id}`"
-                        class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
-                <div class="font-medium text-ink truncate">{{ sec.title }}</div>
-                <div class="text-[11px] text-muted truncate">{{ sec.chapterTitle }}</div>
+                        style="display:block;border-radius:8px;border:1px solid #e5e5e5;padding:10px 12px;text-decoration:none;transition:all .15s"
+                        @mouseenter="$el.style.borderColor='#93c5fd';$el.style.background='#eff6ff20'"
+                        @mouseleave="$el.style.borderColor='#e5e5e5';$el.style.background='transparent'">
+                <div style="font-weight:500;font-size:13px;color:#171717;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ sec.title }}</div>
+                <div style="font-size:11px;color:#a3a3a3;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ sec.chapterTitle }}</div>
               </NuxtLink>
             </div>
           </div>
 
-          <!-- 延伸阅读：官方权威资料（细分赛道为主，主流赛道无）-->
-          <div v-if="selected.official && selected.official.length" class="mb-4">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-bold flex items-center gap-1.5"><Icon name="globe" :size="15" style="color:var(--brand)" /> 延伸阅读（官方）</span>
+          <!-- 延伸阅读（官方） -->
+          <div v-if="selected.official && selected.official.length" style="padding:8px 20px 16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#f5f3ff"><Icon name="globe" :size="12" style="color:#8b5cf6"/></span>
+              <span style="font-size:13.5px;font-weight:700;color:#171717">延伸阅读（官方）</span>
             </div>
-            <div class="space-y-1.5">
+            <div style="display:flex;flex-direction:column;gap:6px">
               <a v-for="res in selected.official" :key="res.url" :href="res.url" target="_blank" rel="noopener noreferrer"
-                 class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
-                <div class="font-medium text-ink truncate flex items-center gap-1.5">
-                  <Icon name="globe" :size="13" class="text-brand-coral shrink-0" />{{ res.title }}
+                 style="display:block;border-radius:8px;border:1px solid #e5e5e5;padding:10px 12px;text-decoration:none;transition:all .15s"
+                 @mouseenter="$el.style.borderColor='#c4b5fd';$el.style.background='#f5f3ff25'"
+                 @mouseleave="$el.style.borderColor='#e5e5e5';$el.style.background='transparent'">
+                <div style="font-weight:500;font-size:13px;color:#171717;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px">
+                  <Icon name="globe" :size="11" style="color:#a78bfa;flex-shrink:0"/>{{ res.title }}
                 </div>
-                <div v-if="res.note" class="text-[11px] text-muted mt-0.5 leading-snug">{{ res.note }}</div>
+                <div v-if="res.note" style="font-size:11px;color:#a3a3a3;margin-top:2px;line-height:1.4">{{ res.note }}</div>
               </a>
             </div>
           </div>
 
-          <div class="text-xs text-muted">
-            所属赛道：<span class="text-ink font-medium">{{ selected.subtrack }}</span><br />
-            技术方向：<span class="text-ink font-medium">{{ selected.direction }}</span>
+          <!-- 底部元信息 -->
+          <div style="padding:14px 20px;background:#fafafa80;border-top:1px solid rgba(229,229,229,.6)">
+            <div style="display:flex;align-items:center;font-size:11px;color:#a3a3a3;gap:16px;flex-wrap:wrap">
+              <span>赛道：<span style="color:#525252;font-weight:500">{{ selected.subtrack }}</span></span>
+              <span>方向：<span style="color:#525252;font-weight:500">{{ selected.direction }}</span></span>
+            </div>
           </div>
         </div>
 
-        <div v-else-if="selected.kind === 'level'">
-          <span class="text-xs font-semibold px-2 py-1 rounded-full" :style="{ background: levelColor[selected.level] + '1a', color: levelColor[selected.level] }">{{ selected.title }}</span>
-          <p class="text-sm text-ink leading-relaxed mt-3">{{ selected.stance }}</p>
-          <a-divider>该等级技能（{{ selected.count }}）</a-divider>
-          <ul class="space-y-1.5">
-            <li v-for="name in selected.skills" :key="name" class="text-sm text-sub flex items-start gap-2">
+        <!-- ===== 等级详情 ===== -->
+        <div v-else-if="selected.kind === 'level'" class="relative px-5 pt-5 pb-4">
+          <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#e11d48] to-[#be185d]"></div>
+          <h2 class="text-[18px] font-extrabold text-ink leading-tight pr-8">{{ selected.subtrack }} · {{ selected.title }}</h2>
+          <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border mt-3"
+                :style="{ borderColor: levelColor[selected.level] + '40', background: levelColor[selected.level] + '10', color: levelColor[selected.level] }">
+            <span class="w-1.5 h-1.5 rounded-full" :style="{ background: levelColor[selected.level] }"></span>{{ selected.title }}
+          </span>
+          <p class="mt-3 text-[13.5px] leading-relaxed text-sub">{{ selected.stance }}</p>
+          <div class="-mx-5 my-4 h-px bg-line/60"></div>
+          <p class="text-[13px] font-bold text-ink mb-2.5">该等级技能（{{ selected.count }}）</p>
+          <ul class="space-y-2">
+            <li v-for="name in selected.skills" :key="name" class="text-[13px] text-sub flex items-start gap-2.5 px-2 py-1.5 rounded-lg hover:bg-surface transition">
               <span class="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" :style="{ background: levelColor[selected.level] }"></span>{{ name }}
             </li>
           </ul>
-          <div class="text-xs text-muted mt-3">所属赛道：<span class="text-ink">{{ selected.subtrack }}</span></div>
+          <div class="text-[11px] text-muted mt-4 pt-3 border-t border-line/60">所属赛道：<span class="text-sub font-medium">{{ selected.subtrack }}</span></div>
         </div>
 
-        <div v-else-if="selected.kind === 'subtrack'">
-          <p class="text-sm text-ink leading-relaxed">{{ selected.summary }}</p>
-          <a-divider>各等级技能数</a-divider>
+        <!-- ===== 赛道详情 ===== -->
+        <div v-else-if="selected.kind === 'subtrack'" class="relative px-5 pt-5 pb-4">
+          <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#e11d48] to-[#be185d]"></div>
+          <h2 class="text-[18px] font-extrabold text-ink leading-tight pr-8">{{ selected.name }}</h2>
+          <p class="mt-3 text-[13.5px] leading-relaxed text-sub">{{ selected.summary }}</p>
+          <div class="-mx-5 my-4 h-px bg-line/60"></div>
+          <p class="text-[13px] font-bold text-ink mb-3">各等级技能数</p>
           <div class="grid grid-cols-3 gap-2 text-center">
-            <div v-for="lv in levelOrder" :key="lv" class="rounded-xl p-3 border border-line">
+            <div v-for="lv in levelOrder" :key="lv" class="rounded-xl p-3 border border-line bg-surface/60">
               <div class="text-xs font-bold" :style="{ color: levelColor[lv] }">{{ levelLabel[lv] }}</div>
-              <div class="text-xl font-extrabold mt-1 tabular-nums">{{ selected.counts[lv] }}</div>
+              <div class="text-xl font-extrabold mt-1 tabular-nums" :style="{ color: levelColor[lv] }">{{ selected.counts[lv] }}</div>
             </div>
           </div>
           <template v-if="selected.official && selected.official.length">
-            <a-divider>官方学习资料</a-divider>
+            <div class="my-4 h-px bg-line/60"></div>
+            <p class="text-[13px] font-bold text-ink mb-2.5">官方学习资料</p>
             <div class="space-y-1.5">
               <a v-for="res in selected.official" :key="res.url" :href="res.url" target="_blank" rel="noopener noreferrer"
-                 class="block rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand-coral/40 transition">
-                <div class="font-medium text-ink truncate flex items-center gap-1.5">
-                  <Icon name="globe" :size="13" class="text-brand-coral shrink-0" />{{ res.title }}
+                 class="block rounded-lg border border-line px-3 py-2.5 text-[13px] hover:border-violet-300 hover:bg-violet-50/[.3] transition-all group">
+                <div class="font-medium text-ink truncate flex items-center gap-1.5 group-hover:text-violet-600 transition-colors">
+                  <Icon name="globe" :size="12" class="text-violet-400 shrink-0" />{{ res.title }}
                 </div>
                 <div v-if="res.note" class="text-[11px] text-muted mt-0.5 leading-snug">{{ res.note }}</div>
               </a>
             </div>
           </template>
-          <div class="text-xs text-muted mt-3">技术方向：<span class="text-ink">{{ selected.direction }}</span></div>
+          <div class="text-[11px] text-muted mt-4 pt-3 border-t border-line/60">技术方向：<span class="text-sub font-medium">{{ selected.direction }}</span></div>
         </div>
 
-        <div v-else-if="selected.kind === 'direction'">
-          <div class="w-12 h-12 rounded-2xl mb-3" :style="{ background: selected.color }"></div>
-          <p class="text-sm text-ink">共 <b>{{ selected.subCount }}</b> 个细分赛道、<b>{{ selected.total }}</b> 项技能点。点击上方树形图或切换到「路线图」查看具体拆解。</p>
+        <!-- ===== 方向详情 ===== -->
+        <div v-else-if="selected.kind === 'direction'" class="px-5 pt-5 pb-4">
+          <div class="w-12 h-12 rounded-2xl mb-4 shadow-sm" :style="{ background: selected.color }"></div>
+          <p class="text-[13.5px] leading-relaxed text-sub">共 <b class="text-ink">{{ selected.subCount }}</b> 个细分赛道、<b class="text-ink">{{ selected.total }}</b> 项技能点。点击上方树形图或切换到「路线图」查看具体拆解。</p>
         </div>
 
-        <div v-else>
-          <p class="text-sm text-muted">这是整棵技能路线图的入口。选择某个技术方向，再沿「赛道 → 等级 → 技能」向下钻取。</p>
+        <div v-else class="px-5 pt-5 pb-4">
+          <p class="text-[13.5px] text-muted leading-relaxed">这是整棵技能路线图的入口。选择某个技术方向，再沿「赛道 → 等级 → 技能」向下钻取。</p>
         </div>
       </template>
     </a-drawer>
@@ -339,6 +416,15 @@ import { useMarkdown } from '~/composables/useMarkdown'
 
 const { isDark } = useTheme()
 const { md } = useMarkdown()
+// 题目文本转义并把 <...> 包裹成行内代码样式（数据来自本站 API，可信；先转义再包裹防 XSS）
+function qInline(text: string): string {
+  const esc = (text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  // 非贪婪匹配整段 &lt;...&gt;；用 .*? 而非 [^&] 以避免内容含 &amp; 等实体时被截断
+  return esc.replace(/&lt;(.*?)&gt;/g, '<code class="q-inline-code">&lt;$1&gt;</code>')
+}
 const auth = useAuthStore()
 const { request } = useApi()
 
@@ -408,15 +494,6 @@ const boardView = computed(() => buildBoardView(activeDir.value, kw.value))
 
 // ---- 抽屉 ----
 const selected = ref<any>(null)
-const drawerTitle = computed(() => {
-  const m = selected.value
-  if (!m) return ''
-  if (m.kind === 'skill') return m.name
-  if (m.kind === 'level') return `${m.subtrack} · ${m.title}`
-  if (m.kind === 'subtrack') return m.name
-  if (m.kind === 'direction') return m.name
-  return '技能路线图'
-})
 function openNode(meta: any) { selected.value = meta }
 function openSkill(s: SkillNode, lv: LevelGroup, st: SubTrack, d: Direction) {
   selected.value = { kind: 'skill', name: s.name, desc: s.desc, must: s.must, level: lv.level, levelTitle: levelLabel[lv.level], subtrack: st.name, subtrackId: st.id, direction: d.name, track: d.id, official: OFFICIAL_RESOURCES[st.id] || [] }
