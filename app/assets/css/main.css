@@ -236,7 +236,10 @@ aside a.text-muted { color: rgb(var(--muted)) !important; }
    读成「白/透明 → 红」，即用户报告的「刷新时先白字后变红」闪烁。去掉 opacity 后内容始终以正确
    颜色满透明度可见，仅做轻微上移，彻底消除色彩闪烁。 */
 .reveal { animation: reveal .6s cubic-bezier(.16,1,.3,1) both; }
-@keyframes reveal { 0% { transform: translateY(14px); } 100% { transform: translateY(0); } }
+/* 入场位移改用独立的 `translate` 属性，与 Tailwind 的 `transform`(hover:-translate-y-*) 互不冲突，
+   避免 .reveal 的 animation fill(both) 把 transform 钉死，导致带 hover 抬升的卡片出现偏移抖动。
+   仍只做位移、不碰 opacity（见上方白字闪红修复约束）。 */
+@keyframes reveal { 0% { translate: 0 14px; } 100% { translate: 0 0; } }
 .stagger > * { animation: reveal .55s cubic-bezier(.16,1,.3,1) both; }
 .stagger > *:nth-child(1){animation-delay:.04s}
 .stagger > *:nth-child(2){animation-delay:.10s}
@@ -381,4 +384,44 @@ main .ant-card.mx-4 { margin-left: 1rem !important; margin-right: 1rem !importan
 /* 减少动效偏好 */
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
+}
+
+/* ============ 技能路线图详情抽屉（优化版） ============ */
+.skill-detail-drawer .ant-drawer-header {
+  padding: 0;
+  border-bottom: none;
+}
+/* 双保险：即使 :body-style 被某些缓存/SSR 路径吞掉，也强制抽屉内容区无内边距、可纵向滚动。
+   这是抽屉"渐变饰条贴边 + 内容不被默认 24px 内边距挤歪"的关键。 */
+.skill-detail-drawer .ant-drawer-body {
+  padding: 0 !important;
+  overflow-y: auto;
+}
+.skill-detail-drawer .ant-drawer-header-close-only {
+  padding-right: 12px;
+  padding-top: 8px;
+  flex-direction: row-reverse;
+}
+.skill-drawer-body {
+  position: relative;
+}
+.drawer-q-card {
+  transition: all .2s ease;
+}
+.drawer-q-card:hover {
+  transform: translateX(2px);
+}
+/* 题目内联代码片段（<table>/<ul> 等），与 prose-dm code 风格统一 */
+.q-inline-code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11.5px;
+  background: rgb(var(--brand-coral) / 0.10);
+  color: rgb(var(--brand-deep, 153 60 29));
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.dark .q-inline-code {
+  background: rgb(var(--brand-coral) / 0.18);
+  color: #f5c4b3;
 }
