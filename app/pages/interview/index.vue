@@ -50,11 +50,12 @@ const router = useRouter()
 onMounted(() => {
   const q = route.query
   if (typeof q.track === 'string' && isTrack(q.track)) {
-    return router.replace(buildTarget('/interview/' + q.track, ['mode', 'subtrack', 'skill', 'q', 'tech', 'type', 'page']))
+    // 仅透传搜索/筛选态（?q/?type/?page，用户主动输入，标准 query 语义）；技术分类已是路由段，不再以 ?tech= 透传
+    return router.replace(buildTarget('/interview/' + q.track, ['q', 'type', 'page']))
   }
   if (q.mode === 'tree' && typeof q.subtrack === 'string') {
     const dir = roadmap.find(d => d.subTracks.some(st => st.id === q.subtrack))
-    if (dir) return router.replace(buildTarget('/interview/' + dir.id, ['mode', 'subtrack', 'skill']))
+    if (dir) return router.replace('/interview/' + dir.id)
   }
 })
 function buildTarget(base: string, keys: string[]): string {
@@ -72,7 +73,7 @@ const overview = computed(() => ovRes.value || null)
 
 // canonical：枢纽页规范 URL（预渲染阶段无 request event 时降级为空，由 sitemap 提供 URL）
 const canonicalUrl = useCanonicalUrl()
-useHead(() => ({ link: canonicalUrl ? [{ rel: 'canonical', href: canonicalUrl }] : [] }))
+useHead(() => ({ link: canonicalUrl.value ? [{ rel: 'canonical', href: canonicalUrl.value }] : [] }))
 
 useSeoMeta({
   title: '面试题库 & AI 陪练',
@@ -80,6 +81,6 @@ useSeoMeta({
   ogTitle: '面试题库 · MentorLoop',
   ogDescription: '高频面试题 + 特殊场景题，按技术精确筛选，答案结构清晰。',
   ogType: 'website',
-  ogUrl: canonicalUrl
+  ogUrl: canonicalUrl.value
 })
 </script>

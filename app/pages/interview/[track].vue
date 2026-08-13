@@ -35,24 +35,20 @@
 </template>
 
 <script setup lang="ts">
-import { TRACK_NAMES, TRACK_COLORS, isTrack, techToSlug } from '~~/server/utils/interviewSlugs'
+import { TRACK_NAMES, TRACK_COLORS, isTrack } from '~~/server/utils/interviewSlugs'
 const route = useRoute()
 const track = computed(() => route.params.track as string)
 if (!isTrack(track.value)) {
   throw createError({ statusCode: 404, statusMessage: '题库不存在' })
 }
-// 旧深链 /interview/frontend?tech=Vue → /interview/frontend/vue（每个技术独立可索引页）
-// 仅在方向页（无 child tech 段）生效；技术子类页由 [tech].vue 自行处理，避免父级误重定向造成 hydration mismatch
-if (!route.params.tech && typeof route.query.tech === 'string' && route.query.tech) {
-  throw navigateTo('/interview/' + track.value + '/' + techToSlug(route.query.tech), { redirectCode: 301 })
-}
+// 技术分类完全是路由段 /interview/[track]/[tech]（英文 slug），不再有任何 ?tech= 查询参数。
 const trackName = computed(() => TRACK_NAMES[track.value as keyof typeof TRACK_NAMES])
 
 // 方向页 SEO（技术子类页由 [tech].vue 自行设置，避免父级 meta 覆盖子页）
 if (!route.params.tech) {
   // canonical：方向页规范 URL（不含分页/筛选查询参数），防止查询变体被重复收录
   const canonicalUrl = useCanonicalUrl()
-  useHead(() => ({ link: canonicalUrl ? [{ rel: 'canonical', href: canonicalUrl }] : [] }))
+  useHead(() => ({ link: canonicalUrl.value ? [{ rel: 'canonical', href: canonicalUrl.value }] : [] }))
 
   useSeoMeta({
     title: computed(() => trackName.value + '面试题库 · 高频必刷题与特殊场景题'),
@@ -60,7 +56,7 @@ if (!route.params.tech) {
     ogTitle: computed(() => 'MentorLoop · ' + trackName.value + '面试题'),
     ogDescription: computed(() => trackName.value + '面试题库，按技术精确筛选，答案结构清晰。'),
     ogType: 'article',
-    ogUrl: canonicalUrl
+    ogUrl: canonicalUrl.value
   })
 }
 </script>

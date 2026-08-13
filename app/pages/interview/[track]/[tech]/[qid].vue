@@ -81,6 +81,12 @@
 <script setup lang="ts">
 import { TRACK_NAMES, isTrack, slugToTech, techToSlug } from '~~/server/utils/interviewSlugs'
 
+// 强制组件在同(方向, 技术)下复用：切题时不卸载重建，配合下方 useFetch 的稳定 key，
+// 实现「原地换数据」——旧题内容保留到新数据返回，消除整块消失再出现的闪动。
+definePageMeta({
+  key: (r) => `${r.params.track}/${r.params.tech}`
+})
+
 const route = useRoute()
 const track = computed(() => route.params.track as string)
 const slugParam = computed(() => route.params.tech as string)
@@ -99,8 +105,13 @@ const techSlug = computed(() => techToSlug(tech))
 const trackName = computed(() => TRACK_NAMES[track.value as keyof typeof TRACK_NAMES])
 const { md } = useMarkdown()
 
-// 单题数据（SSR 期间即拉取，保证首屏与 SEO 文本在服务端渲染）
-const { data, error } = await useFetch(() => '/api/interview/question/' + encodeURIComponent(qid.value))
+// 单题数据：用稳定缓存 key + watch(qid)，切题时复用同一 data 引用、保留上一题内容直到新数据返回，
+// 避免 <div v-if="q"> 整块消失再出现（闪动）。server:true 保证 SSR 首屏与 SEO 文本由服务端渲染。
+const detailKey = 'question-detail-' + track.value + '-' + tech
+const { data, error } = await useFetch(
+  () => '/api/interview/question/' + encodeURIComponent(qid.value),
+  { key: detailKey, watch: [qid], server: true }
+)
 
 // 不存在 → 404；存在但 URL 的 track/tech 与真实归属不一致 → 301 到规范 URL（防重复收录）
 if (error.value && error.value.statusCode === 404) {
@@ -129,7 +140,7 @@ function adjUrl(id: string) {
 
 // ===== SEO =====
 const canonicalUrl = useCanonicalUrl()
-useHead(() => ({ link: canonicalUrl ? [{ rel: 'canonical', href: canonicalUrl }] : [] }))
+useHead(() => ({ link: canonicalUrl.value ? [{ rel: 'canonical', href: canonicalUrl.value }] : [] }))
 
 const descText = computed(() => {
   const kw = keywords.value.slice(0, 4).join('、')
@@ -143,7 +154,7 @@ useSeoMeta({
   ogTitle: computed(() => (q.value.length > 48 ? q.value.slice(0, 48) + '…' : q.value)),
   ogDescription: descText,
   ogType: 'article',
-  ogUrl: canonicalUrl
+  ogUrl: canonicalUrl.value
 })
 
 // QAPage 结构化数据：最大化每题在搜索结果中的富摘要机会

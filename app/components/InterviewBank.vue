@@ -64,7 +64,7 @@
         <span class="text-xs text-muted mr-1">技术：</span>
         <NuxtLink :to="`/interview/${activeTrack}/`" class="chip-tab chip-tab-sm" :class="!techFilter ? 'chip-tab-active' : ''">全部</NuxtLink>
         <NuxtLink v-for="t in techOptions" :key="t.tech"
-                  :to="`/interview/${activeTrack}/${techToSlug(t.tech)}${t.tech === techFilter ? '' : '?tech=' + encodeURIComponent(t.tech)}`"
+                  :to="`/interview/${activeTrack}/${techToSlug(t.tech)}`"
                   class="chip-tab chip-tab-sm"
                   :class="t.tech === techFilter ? 'chip-tab-active' : ''">{{ t.tech }} <span class="opacity-60">{{ t.count }}</span></NuxtLink>
       </div>

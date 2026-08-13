@@ -57,7 +57,7 @@ const trackName = computed(() => TRACK_NAMES[track.value as keyof typeof TRACK_N
 if (!route.params.qid) {
   // canonical：技术子类页规范 URL（不含分页/筛选查询参数），防止查询变体被重复收录
   const canonicalUrl = useCanonicalUrl()
-  useHead(() => ({ link: canonicalUrl ? [{ rel: 'canonical', href: canonicalUrl }] : [] }))
+  useHead(() => ({ link: canonicalUrl.value ? [{ rel: 'canonical', href: canonicalUrl.value }] : [] }))
 
   useSeoMeta({
     title: computed(() => `${trackName.value} ${tech} 面试题 · 高频必刷题`),
@@ -65,7 +65,7 @@ if (!route.params.qid) {
     ogTitle: computed(() => 'MentorLoop · ' + trackName.value + ' ' + tech + ' 面试题'),
     ogDescription: computed(() => `${trackName.value} ${tech} 面试题库，按技术精确筛选，答案结构清晰。`),
     ogType: 'article',
-    ogUrl: canonicalUrl
+    ogUrl: canonicalUrl.value
   })
 }
 </script>
