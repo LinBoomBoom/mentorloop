@@ -1,5 +1,6 @@
 // sitemap 构建与缓存（B5 缓存 + B6 消除 N+1 嵌套查询）
 import { sqlite } from './db'
+import { techToSlug } from './interviewSlugs'
 
 const BASE = (process.env.SITE_URL || 'https://mentorloop.example.com').replace(/\/$/, '')
 const CACHE_TTL_MS = 3600_000 // 1 小时
@@ -36,6 +37,31 @@ export function buildSitemapUrls(base: string = BASE): string[] {
     }
   }
   for (const st of sets) urls.push(`${base}/exam/sets/${st.id}`)
+
+  // 面试题库：方向页 + 技术子类页（slug 由 techToSlug 统一映射，与服务端/客户端一致）
+  const tracks = sqlite.prepare("SELECT DISTINCT track FROM interview_questions").all() as any[]
+  const techRows = sqlite.prepare(
+    "SELECT DISTINCT track, tech FROM interview_questions WHERE tech IS NOT NULL AND tech != ''"
+  ).all() as any[]
+  const seen = new Set<string>()
+  for (const t of tracks) urls.push(`${base}/interview/${t.track}`)
+  for (const r of techRows) {
+    const slug = techToSlug(r.tech)
+    const key = r.track + '/' + slug
+    if (seen.has(key)) continue
+    seen.add(key)
+    urls.push(`${base}/interview/${r.track}/${slug}`)
+  }
+
+  // 单题详情页：每道题一个独立可索引 URL（QAPage 结构化数据在各详情页注入），
+  // 让 6565 道真题全部进入搜索引擎收录，最大化题库 SEO 价值。
+  const qRows = sqlite.prepare(
+    "SELECT id, track, tech FROM interview_questions WHERE id IS NOT NULL AND id != '' AND track IS NOT NULL AND track != ''"
+  ).all() as any[]
+  for (const r of qRows) {
+    const slug = techToSlug(r.tech || '综合')
+    urls.push(`${base}/interview/${r.track}/${slug}/${r.id}`)
+  }
   return urls
 }
 
