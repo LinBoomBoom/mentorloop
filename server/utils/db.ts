@@ -711,6 +711,39 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       if (!cols.has('subtrack_id')) db.exec('ALTER TABLE skill_section_map ADD COLUMN subtrack_id TEXT')
       if (!cols.has('skill_name')) db.exec('ALTER TABLE skill_section_map ADD COLUMN skill_name TEXT')
     }
+  },
+  {
+    version: 19,
+    name: 'interview-voice-video',
+    up: (db) => {
+      // 面试语音/视频深化：扩展会话表 + 新增逐字稿/媒体表（幂等）
+      const cols = new Set((db.prepare('PRAGMA table_info(interview_sessions)').all() as any[]).map((r: any) => r.name))
+      if (!cols.has('mode')) db.exec("ALTER TABLE interview_sessions ADD COLUMN mode TEXT DEFAULT 'text'")
+      if (!cols.has('recording_url')) db.exec('ALTER TABLE interview_sessions ADD COLUMN recording_url TEXT')
+      if (!cols.has('duration_ms')) db.exec('ALTER TABLE interview_sessions ADD COLUMN duration_ms INTEGER')
+      if (!cols.has('consent_at')) db.exec('ALTER TABLE interview_sessions ADD COLUMN consent_at INTEGER')
+      db.exec(`CREATE TABLE IF NOT EXISTS interview_transcripts (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        turn INTEGER,
+        role TEXT,
+        text TEXT,
+        confidence REAL,
+        audio_url TEXT,
+        created_at INTEGER,
+        FOREIGN KEY(session_id) REFERENCES interview_sessions(id) ON DELETE CASCADE
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_it_session ON interview_transcripts(session_id, turn)')
+      db.exec(`CREATE TABLE IF NOT EXISTS interview_media (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        kind TEXT,
+        url TEXT,
+        created_at INTEGER,
+        FOREIGN KEY(session_id) REFERENCES interview_sessions(id) ON DELETE CASCADE
+      )`)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_im_session ON interview_media(session_id)')
+    }
   }
 ]
 

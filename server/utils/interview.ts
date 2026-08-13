@@ -163,18 +163,20 @@ async function callEval(llmMessages: any[]): Promise<any> {
 }
 
 // 开启一场新面试（生成首题 + 落库）
-export async function startInterview(userId: string, opts: { track?: string; level?: string; goal?: string }) {
+export async function startInterview(userId: string, opts: { track?: string; level?: string; goal?: string; mode?: string; consentAt?: number }) {
   if (!llmEnabled()) throw new Error('AI 服务未配置（缺少 DEEPSEEK_API_KEY）')
   const track = opts.track || 'frontend'
   const level = opts.level || 'mid'
   const goal = opts.goal || ''
+  const mode = (opts.mode === 'voice' || opts.mode === 'video') ? opts.mode : 'text'
+  const consentAt = opts.consentAt || null
   const question = await generateFirstQuestion(track, level, goal)
   const id = uid('iv_')
   const now = Date.now()
   const messages = [{ role: 'assistant', content: question }]
-  sqlite.prepare(`INSERT INTO interview_sessions (id,user_id,track,level,goal,status,messages,turns,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
-    .run(id, userId, track, level, goal || null, 'active', JSON.stringify(messages), 0, now, now)
-  return { sessionId: id, question }
+  sqlite.prepare(`INSERT INTO interview_sessions (id,user_id,track,level,goal,status,messages,turns,created_at,updated_at,mode,consent_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(id, userId, track, level, goal || null, 'active', JSON.stringify(messages), 0, now, now, mode, consentAt)
+  return { sessionId: id, question, mode }
 }
 
 // 提交一道回答：评分 + 下一题（或结束）
