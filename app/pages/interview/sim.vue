@@ -36,6 +36,34 @@
         <span class="text-sm font-semibold mb-1.5 block">目标岗位 / 方向（选填）</span>
         <input v-model="goal" class="input" placeholder="如：高级前端 / 全栈工程师" />
       </label>
+      <label class="block mb-5">
+        <span class="text-sm font-semibold mb-1.5 block">面试模式</span>
+        <div class="flex gap-2">
+          <button type="button" class="chip-tab" :class="mode === 'text' && 'chip-tab-active'" @click="mode = 'text'">文字</button>
+          <button type="button" class="chip-tab" :class="mode === 'voice' && 'chip-tab-active'" @click="mode = 'voice'">语音</button>
+          <button type="button" class="chip-tab" :class="mode === 'video' && 'chip-tab-active'" @click="mode = 'video'">视频</button>
+        </div>
+      </label>
+      <label v-if="mode !== 'text'" class="block mb-5">
+        <span class="text-sm font-semibold mb-1.5 block flex items-center gap-2">面试官音色
+          <a-button size="small" type="link" class="!p-0" :loading="previewing" @click="previewVoice">试听</a-button>
+        </span>
+        <select v-model="selectedVoice" class="input !py-2.5" @change="applyVoice(selectedVoice)">
+          <option v-for="v in piperVoices" :key="v.id" :value="v.id">{{ v.label }} · {{ v.desc }}</option>
+        </select>
+        <p class="text-xs text-muted mt-1.5">
+          共 {{ piperVoices.length }} 种音色（女声 {{ femaleCount }}/男声 {{ maleCount }}）。
+          <template v-if="ttsProvider === 'piper'">当前：<b>服务端本地神经网络合成</b>（离线、音质自然、所有访客一致；中文基础嗓音：华嫣 / 小雅 / 朝文）。</template>
+          <template v-else-if="ttsProvider === 'edge'">当前：服务端云端 Edge 合成（备用通道，需联网）。</template>
+          <template v-else-if="ttsProvider === 'mock'">当前：模拟模式（测试用蜂鸣）。</template>
+          <template v-else-if="ttsBackend === 'local'">当前：本机浏览器合成（系统默认嗓音，可能偏机械）；建议服务端运行 <code>npm run setup:piper</code> 启用本地神经网络。</template>
+          <template v-else>运行时自动选择：优先服务端本地 Piper 神经网络，不可用时回退本机浏览器合成。</template>
+        </p>
+      </label>
+      <label v-if="mode !== 'text'" class="flex items-start gap-2 mb-5 text-sm text-sub" :class="consentHint && !consent && 'p-2 rounded-lg ring-2 ring-red-400 bg-red-50'">
+        <input type="checkbox" v-model="consent" class="mt-0.5" @change="consentHint = false" />
+        <span>{{ mode === 'video' ? '我已同意开启摄像头与麦克风，面试音视频仅用于实时转写与复盘（不长期留存原始音视频）。' : '我已同意开启麦克风，面试语音仅用于实时转写与复盘（不长期留存原始音视频）。' }}</span>
+      </label>
       <a-button type="primary" block :loading="starting" @click="start">
         开始面试
       </a-button>
@@ -48,8 +76,49 @@
         <div class="flex items-center gap-2 text-sm font-semibold">
           <Icon name="chat" :size="16" class="text-brand-coral" />
           {{ trackName(track) }} · {{ levelName(level) }}
+          <span v-if="mode === 'video'" class="chip bg-brand-coral/10 text-brand-coral !text-xs">视频面试</span>
+          <span v-else-if="mode === 'voice'" class="chip bg-brand-coral/10 text-brand-coral !text-xs">语音面试</span>
         </div>
         <a-tag class="!bg-ink/5 !text-sub" :bordered="false">第 {{ Math.min(turns + (phase==='done'?0:1), maxTurns) }} / {{ maxTurns }} 题</a-tag>
+      </div>
+
+      <!-- 面试官面板（语音/视频模式）：律动头像 + 实时字幕；视频模式附摄像头预览 -->
+      <div v-if="mode !== 'text' && phase === 'running'" class="px-5 py-4 border-b border-line bg-gradient-to-b from-brand-coral/[.06] to-transparent">
+        <div class="flex gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3">
+              <div class="w-14 h-14 rounded-2xl bg-brand-coral/15 flex items-center justify-center overflow-hidden transition-transform" :style="interviewerStyle">
+                <Icon name="sparkles" :size="22" class="text-brand-coral" />
+              </div>
+              <div class="text-sm">
+                <div class="font-semibold">AI 面试官</div>
+                <div class="text-muted">{{ interviewerSpeaking ? '正在讲话…' : '聆听中' }}</div>
+              </div>
+            </div>
+            <div v-if="speakingText" class="mt-3 rounded-2xl bg-ink/5 px-4 py-3 text-sm whitespace-pre-line">
+              {{ speakingText }}
+              <div class="mt-2 flex items-center gap-3">
+                <button type="button" class="inline-flex items-center gap-1 text-xs text-brand-coral hover:underline disabled:opacity-50" :disabled="interviewerSpeaking" @click="replayTts">
+                  <Icon name="volume" :size="14" /> 重播语音
+                </button>
+                <select :value="selectedVoice" class="text-xs border border-line rounded-lg px-1.5 py-1 bg-white" @change="applyVoice(($event.target as any).value)">
+                  <option v-for="v in piperVoices" :key="v.id" :value="v.id">{{ v.label }}</option>
+                </select>
+              </div>
+            </div>
+            <!-- TTS 完全不可用时的提示（字幕仍可见，可手动阅读） -->
+            <div v-if="ttsError && !speakingText" class="mt-2 text-xs text-muted">{{ ttsError }}</div>
+          </div>
+          <div v-if="mode === 'video'" class="w-32 sm:w-40 shrink-0 relative">
+            <video ref="camVideoEl" class="w-full rounded-xl bg-black aspect-[3/4] object-cover" autoplay playsinline muted />
+            <!-- 摄像头未就绪时的覆盖层 -->
+            <div v-if="!camStream" class="absolute inset-0 rounded-xl bg-black/70 flex flex-col items-center justify-center text-white text-xs gap-1">
+              <Icon name="camera" :size="20" class="opacity-60" />
+              <span>摄像头{{ err && err.includes('摄像') ? '未授权' : '连接中…' }}</span>
+            </div>
+            <div class="text-xs text-muted text-center mt-1">你（摄像头）</div>
+          </div>
+        </div>
       </div>
 
       <!-- 对话流 -->
@@ -90,11 +159,18 @@
 
       <!-- 作答输入 -->
       <div v-else class="p-5 border-t border-line flex gap-3 items-end">
-        <a-textarea v-model:value="userAnswer" :rows="3" class="flex-1 resize-none" placeholder="输入你的回答…（不会也可直接写「不会」继续）" :disabled="evaluating" @keydown.ctrl.enter="submitAnswer" />
+        <a-textarea v-model:value="userAnswer" :rows="3" class="flex-1 resize-none" :placeholder="mode === 'text' ? '输入你的回答…（不会也可直接写「不会」继续）' : '可语音作答，或在此输入…'" :disabled="evaluating || listening || recording" @keydown.ctrl.enter="submitAnswer" />
+        <a-button v-if="mode !== 'text'" type="primary" class="shrink-0" :class="(listening || recording) && 'btn-soft'" :disabled="evaluating || !consent || (listening || recording ? false : false)" :loading="listening || recording" @click="onVoiceButton">
+          <template #icon><Icon :name="(listening || recording) ? 'pause' : 'mic'" :size="16" /></template>
+          {{ voiceBtnLabel }}
+        </a-button>
+        <span v-if="(listening || recording) && mode !== 'text'" class="text-xs text-brand-coral shrink-0 animate-pulse">{{ listening ? '正在聆听…' : '录音中…' }}</span>
         <a-button type="primary" class="shrink-0" :disabled="evaluating || !userAnswer.trim()" :loading="evaluating" @click="submitAnswer">
           提交
         </a-button>
+        <audio ref="audioEl" class="hidden" />
       </div>
+      <p v-if="mode !== 'text' && !canBrowserStt" class="px-5 pb-1 text-xs text-muted">当前浏览器不支持本地实时语音识别（如 Safari / Firefox），将改用「录音上传识别」（需服务端已配置 ASR；若不可用请手动输入或改用 Chrome / Edge）。</p>
       <p v-if="err" class="px-5 pb-4 text-red-500 text-sm">{{ err }}</p>
     </a-card>
   </div>
@@ -131,6 +207,441 @@ const finalScore = ref<number | null>(null)
 const summary = ref('')
 const scrollEl = ref<any>(null)
 
+// 模式：文字 / 语音 / 视频
+const mode = ref<'text' | 'voice' | 'video'>('text')
+const consent = ref(false)
+// 未勾选同意时聚焦提示，引导用户先勾选再点麦克风（避免"无声无弹窗"困惑）
+const consentHint = ref(false)
+
+// ---- 面试官音色：仅服务端本地 Piper 离线神经网络嗓音（真实模型，无假音色） ----
+// 服务端已剔除旧版 16 个 Edge 映射变体——HF piper-voices 仅有的中文模型就是这 3 个（华嫣/小雅 女声、朝文 男声），
+// 每个 id 对应一个真实神经网络模型，音色/自然度确有差异，但感情层次有限（非真人 / 微软云端级）。
+interface PiperVoice { id: string; label: string; desc: string; gender: 'female' | 'male' }
+// 静态兜底列表（与服务端 PIPER_VOICES 一致）；挂载后会用 /api/vip/interview/voices 返回的实际可用列表覆盖。
+const PIPER_VOICES: PiperVoice[] = [
+  { id: 'huayan',   label: '华嫣', desc: '温柔知性女声（默认）', gender: 'female' },
+  { id: 'xiao_ya',  label: '小雅', desc: '清亮自然女声',         gender: 'female' },
+  { id: 'chaowen',  label: '朝文', desc: '沉稳磁性男声',         gender: 'male' }
+]
+// 实际渲染用的列表（来自服务端，仅含已下载的模型）
+const piperVoices = ref<PiperVoice[]>(PIPER_VOICES)
+// 服务端 TTS 后端类型：'piper' | 'edge' | 'mock' | ''（未探测）
+const ttsProvider = ref<string>('')
+const selectedVoice = ref('huayan')
+try {
+  const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('ml_interview_voice') : null
+  if (saved && PIPER_VOICES.some((v) => v.id === saved)) selectedVoice.value = saved
+} catch {}
+
+// 浏览器本地真实可用中文嗓音：仅用于 Piper 不可用时的离线兜底（系统默认嗓音，无多音色）。
+const localVoices = ref<any[]>([])
+function loadLocalVoices() {
+  const synth = (window as any).speechSynthesis
+  if (!synth) return
+  const collect = () => {
+    const vs = synth.getVoices?.() || []
+    localVoices.value = vs.filter((v: any) => /zh|cmn/i.test(v.lang) || /Chinese/i.test(v.name))
+  }
+  collect()
+  // 部分浏览器（如 Safari / 部分 Chrome）异步加载嗓音列表
+  if (typeof synth.onvoiceschanged === 'object') {
+    synth.onvoiceschanged = collect
+  }
+}
+// 浏览器本地合成回退时，挑选一个中文嗓音（优先本机已装神经嗓音 → 有感情；否则任意中文/首个）。
+// 注意：回退路径不提供"多音色"，只是系统默认嗓音；真正的多音色由服务端 Piper 提供。
+function pickBrowserVoice(): any {
+  const vs = localVoices.value
+  if (!vs.length) return null
+  const zh = vs.filter((v: any) => /zh|cmn/i.test(v.lang) || /Chinese/i.test(v.name))
+  const pool = zh.length ? zh : vs
+  // 优先有感情的神经嗓音（名字含 Online / Natural / Neural）
+  const neural = pool.find((v: any) => /online|natural|neural/i.test(v.name))
+  return neural || pool[0]
+}
+// 等待浏览器嗓音列表就绪（部分浏览器异步加载，避免"刷新后选 A 播 B"的时序错配）
+function whenVoicesReady(cb: () => void) {
+  const synth = (window as any).speechSynthesis
+  if (!synth) { cb(); return }
+  const vs = synth.getVoices?.() || []
+  if (vs.length) { cb(); return }
+  let done = false
+  const run = () => { if (done) return; done = true; try { synth.removeEventListener('voiceschanged', run) } catch {}; cb() }
+  try { synth.addEventListener('voiceschanged', run) } catch {}
+  // 兜底超时，避免极端情况下永不回调
+  setTimeout(run, 1000)
+}
+
+function applyVoice(id: string) {
+  selectedVoice.value = id
+  try { localStorage.setItem('ml_interview_voice', id) } catch {}
+}
+function currentVoicePreset(): PiperVoice {
+  return piperVoices.value.find((v) => v.id === selectedVoice.value) || piperVoices.value[0]
+}
+// TTS 后端状态：'piper' = 服务端本地神经网络（离线、一致）；'cloud' = 云端 Edge；'local' = 回退浏览器本地合成；'' = 未探测
+const ttsBackend = ref<'piper' | 'cloud' | 'local' | ''>('')
+// 试听状态（setup 页"试听"按钮）
+const previewing = ref(false)
+const femaleCount = computed(() => piperVoices.value.filter((v) => v.gender === 'female').length)
+const maleCount = computed(() => piperVoices.value.filter((v) => v.gender === 'male').length)
+// 试听当前选中的音色（用户主动手势，Autoplay 不会拦截）
+function previewVoice() {
+  previewing.value = true
+  const sample = '你好，我是你的 AI 面试官，很高兴为你模拟这场面试，祝你发挥顺利。'
+  // playTts 会按当前后端（云端/本地）播同样本，便于开面前确认音色
+  playTts(sample)
+  // 试听是一次性动作，约 3.5s 后解除 loading（不阻塞真正面试播放）
+  setTimeout(() => { previewing.value = false }, 3500)
+}
+
+// 语音双通道：浏览器 Web Speech 优先；Safari / Firefox 不支持时回退 MediaRecorder → 服务端 ASR
+const canBrowserStt = typeof window !== 'undefined' && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+const listening = ref(false)
+const recording = ref(false)
+const audioEl = ref<any>(null)
+let recognition: any = null
+let mediaRecorder: any = null
+let recChunks: any[] = []
+let camStream: MediaStream | null = null
+const camVideoEl = ref<any>(null)
+
+// 面试官动画：随 TTS 振幅律动 + 实时字幕
+const interviewerSpeaking = ref(false)
+const speakingText = ref('')
+const mouthOpen = ref(0)
+const ttsError = ref('')          // TTS 播放失败时的可见提示
+let audioCtx: any = null
+let rafId = 0
+let mouthTimer: any = null
+// 预解锁音频上下文（必须在用户手势同步调用中，否则 Autoplay Policy 拦截）
+function unlockAudio() {
+  try {
+    const AC = (window as any).AudioContext || (window as any).webkitAudioContext
+    if (!AC || audioCtx) return
+    audioCtx = new AC()
+    // 创建一个静音振荡器"激活" AudioContext（一次性，之后所有音频可自由播放）
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    gain.gain.value = 0
+    osc.connect(gain).connect(audioCtx.destination)
+    osc.start()
+    osc.stop(audioCtx.currentTime + 0.01)
+  } catch { /* 非关键路径 */ }
+}
+// 在任意用户交互时尽早解锁（mode 切换、consent 勾选、按钮点击均可触发）
+const unlockListenersActive = ref(false)
+function bindUnlockOnce() {
+  if (unlockListenersActive.value || typeof window === 'undefined') return
+  unlockListenersActive.value = true
+  const once = () => { unlockAudio(); unbindUnlock() }
+  const unbindUnlock = () => {
+    document.removeEventListener('click', once, true)
+    document.removeEventListener('touchend', once, true)
+    unlockListenersActive.value = false
+  }
+  document.addEventListener('click', once, true)
+  document.addEventListener('touchend', once, true)
+}
+const interviewerStyle = computed(() => ({
+  transform: `scale(${1 + mouthOpen.value * 0.14})`,
+  transition: 'transform 60ms linear'
+}))
+const voiceBtnLabel = computed(() => {
+  if (listening.value || recording.value) return '停止'
+  return canBrowserStt ? '点击说话' : '录音作答'
+})
+
+// 浏览器内置 TTS 回退（SpeechSynthesis）：服务端 Edge TTS 不可用（如沙箱/网络/密钥问题）时，
+// 用浏览器本地合成中文语音，彻底不依赖服务端，保证"听"一定可用。
+// 注意：播完不清空 speakingText（语音模式下字幕是题目唯一展示位，避免"播完看不到题"）。
+function speakFallback(text: string) {
+  const synth = (window as any).speechSynthesis
+  if (!synth) return
+  // 等本机嗓音列表就绪，避免"刷新后选 A 却播默认 B"的时序错配
+  whenVoicesReady(() => {
+    try {
+      synth.cancel() // 打断上一段
+      const u = new SpeechSynthesisUtterance(text)
+      u.lang = 'zh-CN'
+      // 回退路径：挑选本机中文嗓音（优先神经嗓音），不提供多音色
+      const voice = pickBrowserVoice()
+      if (voice) u.voice = voice
+      u.onstart = () => { interviewerSpeaking.value = true; startMouthAnim() }
+      // 关键：播完仅停止律动，保留字幕（speakingText 不置空）
+      u.onend = () => { interviewerSpeaking.value = false; stopMouthAnim(); ttsError.value = '' }
+      u.onerror = () => { interviewerSpeaking.value = false; stopMouthAnim() }
+      synth.speak(u)
+      // onstart 在某些浏览器不可靠，兜底确保"正在讲话"状态立即生效
+      interviewerSpeaking.value = true; startMouthAnim()
+    } catch {
+      interviewerSpeaking.value = false; stopMouthAnim()
+    }
+  })
+}
+
+// 用定时器模拟面试官口型律动（浏览器 TTS 无法取振幅，做平滑呼吸式动画）
+function startMouthAnim() {
+  stopMouthAnim()
+  let t = 0
+  mouthTimer = setInterval(() => { t += 0.4; mouthOpen.value = 0.35 + 0.25 * Math.sin(t) }, 140)
+}
+function stopMouthAnim() {
+  if (mouthTimer) { clearInterval(mouthTimer); mouthTimer = null }
+  mouthOpen.value = 0
+}
+
+// 朗读面试官文本（语音/视频模式触发）
+// 优先服务端音频：本地 Piper 离线神经网络（默认）或云端 Edge TTS（多音色、有感情）；
+// 失败/503/非音频 自动回退浏览器 SpeechSynthesis（不依赖服务端网络）。
+// 关键：播完仅停止律动，保留字幕（speakingText 不置空），避免语音模式下"播完看不到题目"。
+async function playTts(text: string) {
+  if (!text || mode.value === 'text') return
+  ttsError.value = ''
+  speakingText.value = text
+  interviewerSpeaking.value = true
+  // 本会话已确认云端不可用（探测过返回 503/非音频）→ 跳过必败的服务端请求，直接本地合成，省去每题一次无效往返延迟
+  if (ttsBackend.value === 'local') { speakFallback(text); return }
+  const preset = currentVoicePreset()
+  const params = new URLSearchParams({ text: encodeURIComponent(text), cache: '1', t: String(Date.now()), voice: preset.id })
+  try {
+    const res = await fetch(`/api/vip/interview/tts?${params.toString()}`)
+    const ctype = res.headers.get('Content-Type') || ''
+    if (!res.ok || !ctype.startsWith('audio/')) {
+      // 服务端不可用 → 浏览器本地合成回退（并标注后端，便于预期管理）
+      ttsBackend.value = 'local'
+      speakFallback(text)
+      return
+    }
+    // 依据服务端 x-tts-provider 标注后端（piper=本地神经网络 / edge=云端）
+    ttsBackend.value = ((res.headers.get('x-tts-provider') || '').toLowerCase() === 'piper') ? 'piper' : 'cloud'
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    if (!audioEl.value) { speakFallback(text); return }
+    audioEl.value.src = url
+    try { audioCtx?.resume?.() } catch {}
+    // 口型律动用定时器动画（不接管 <audio> 音频流，避免 createMediaElementSource 导致元素哑火）
+    startMouthAnim()
+    // 播完仅停止律动，保留字幕（speakingText 不置空）；URL 在播完后再回收，避免提前切断
+    audioEl.value.onended = () => { interviewerSpeaking.value = false; stopMouthAnim(); ttsError.value = ''; try { URL.revokeObjectURL(url) } catch {} }
+    const promise = audioEl.value.play()
+    if (promise) {
+      promise.then(() => { startMouthAnim() }).catch(() => {
+        // Autoplay 拦截 或 解码失败 → 回退浏览器合成
+        interviewerSpeaking.value = false
+        stopMouthAnim()
+        speakFallback(text)
+      })
+    }
+  } catch {
+    // fetch 抛错（断网等）→ 回退浏览器合成
+    ttsBackend.value = 'local'
+    speakFallback(text)
+  }
+}
+
+// 注意：刻意不把 <audio> 元素接入 Web Audio（createMediaElementSource），
+// 该操作会独占元素音频流并常导致元素本身哑火。口型律动统一用定时器动画（startMouthAnim）。
+
+// 通道 A：浏览器端 SpeechRecognition（Chrome / Edge）
+function startBrowserStt() {
+  const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  if (!SR) { err.value = '当前浏览器不支持语音识别，请改用 Chrome / Edge 或手动输入'; return }
+  recognition = new SR()
+  recognition.lang = 'zh-CN'
+  recognition.interimResults = false
+  recognition.continuous = false
+  listening.value = true
+  err.value = ''  // 清除旧错误，显示"正在聆听…"状态
+  recognition.onresult = (e: any) => {
+    const transcript = e.results?.[0]?.[0]?.transcript || ''
+    if (transcript.trim()) {
+      userAnswer.value = transcript.trim()
+      listening.value = false
+      submitAnswer()
+    } else {
+      err.value = '未识别到内容，请重试'
+      listening.value = false
+    }
+  }
+  recognition.onerror = (e: any) => {
+    listening.value = false
+    const msg = String(e?.error || '').toLowerCase()
+    if (msg.includes('no-speech')) err.value = '未检测到语音，请说话后再试'
+    else if (msg.includes('not-allowed') || msg.includes('permission'))
+      err.value = '麦克风权限被拒绝：点击地址栏左侧的「🎙 麦克风」图标，选择「允许」本站点麦克风，再重试（此前若误选「阻止」，需先点地址栏图标改为允许）。'
+    else err.value = '语音识别错误：' + (e?.error || '未知') + '，请重试或手动输入'
+  }
+  recognition.onend = () => { listening.value = false }
+  try { recognition.start() } catch (e: any) {
+    listening.value = false
+    err.value = '无法启动语音识别：' + (e?.message || e)
+  }
+}
+
+// 通道 B：MediaRecorder 录音 → /api/vip/interview/asr 转写（Safari / Firefox 回退）
+async function startRecord() {
+  try {
+    recording.value = true
+    err.value = ''  // 显示"录音中…"状态
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    mediaRecorder = new MediaRecorder(stream)
+    recChunks = []
+    mediaRecorder.ondataavailable = (e: any) => { if (e.data && e.data.size) recChunks.push(e.data) }
+    mediaRecorder.onstop = async () => {
+      recording.value = false
+      stream.getTracks().forEach((t: any) => t.stop())
+      const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' })
+      if (!blob.size) { err.value = '录音为空，请重试'; return }
+      try {
+        const fd = new FormData()
+        const ext = (mediaRecorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm'
+        fd.append('audio', new File([blob], 'answer.' + ext, { type: blob.type || 'audio/webm' }))
+        err.value = '正在识别…'
+        const res = await fetch('/api/vip/interview/asr', { method: 'POST', body: fd })
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}))
+          err.value = j.error || `语音识别失败(${res.status})` + (res.status === 503 ? '（服务端 ASR 未配置，请在 .env 设置 ASR_API_KEY）' : '，请改用文字输入或 Chrome / Edge')
+          return
+        }
+        const j = await res.json()
+        if (j.text && j.text.trim()) {
+          userAnswer.value = j.text.trim()
+          submitAnswer()
+        } else {
+          err.value = '未识别到内容，请重试或直接输入'
+        }
+      } catch (e: any) { err.value = '语音识别请求失败：' + (e?.message || e) }
+    }
+    mediaRecorder.start()
+  } catch (e: any) {
+    recording.value = false
+    const msg = String(e?.message || e).toLowerCase()
+    if (msg.includes('permission') || msg.includes('denied') || msg.includes('NotAllowedError'))
+      err.value = '麦克风权限被拒绝：请在浏览器地址栏左侧点击「允许」麦克风权限'
+    else
+      err.value = '无法访问麦克风：' + (e?.message || e) + '（需 localhost/https 并允许权限）'
+  }
+}
+
+// 语音作答按钮：根据浏览器能力选择通道
+// 关键点：首次点击先主动用 getUserMedia 探测麦克风权限（会弹系统授权框），
+// 避免"静默失败看不到弹窗"——若用户此前误选「阻止」，则给出明确的改路径指引。
+async function onVoiceButton() {
+  ttsError.value = ''
+  err.value = ''
+  // 停止中
+  if (listening.value || recording.value) {
+    if (canBrowserStt) { try { recognition?.stop() } catch {} }
+    else try { mediaRecorder?.stop() } catch {}
+    return
+  }
+  // 安全上下文检测：getUserMedia 仅在 localhost 或 https 下可用，局域网 IP 不会弹窗
+  if (typeof window !== 'undefined' && !window.isSecureContext) {
+    err.value = '当前访问地址不是安全上下文（需用 http://localhost 或 https 访问，不能用局域网 IP），浏览器不会弹出麦克风授权。请改用 localhost 访问，或在下方文本框直接输入作答。'
+    return
+  }
+  // 检查授权勾选：未勾选时给出醒目引导（不静默拦截），并自动聚焦到同意框
+  if (!consent.value) {
+    err.value = '请先勾选下方「同意开启麦克风」（或视频模式的摄像头/麦克风），勾选后点击麦克风按钮即会弹出系统授权框。'
+    consentHint.value = true
+    return
+  }
+  // 预解锁音频上下文
+  unlockAudio()
+  // 主动探测麦克风权限（仅取轨后立即停轨），强制浏览器弹窗或暴露真实状态
+  try {
+    const probe = await navigator.mediaDevices.getUserMedia({ audio: true })
+    probe.getTracks().forEach((t: any) => t.stop()) // 释放探测轨，真正录音时再取
+  } catch (e: any) {
+    const msg = String(e?.message || e).toLowerCase()
+    if (msg.includes('notfound') || msg.includes('devices not found') || msg.includes('requested device not found')) {
+      err.value = '未检测到麦克风设备：当前电脑没有连接麦克风（或被系统隐私禁用）。请接入麦克风后刷新，或直接在下方文本框输入。'
+      return
+    }
+    if (msg.includes('permission') || msg.includes('denied') || msg.includes('notallowederror')) {
+      err.value = '麦克风权限被拒绝：点击地址栏左侧「🎙 麦克风」图标，将本站点改为「允许」，再重试（此前若选过「阻止」，不会再次弹窗，需手动改）。'
+      return
+    }
+    err.value = '无法访问麦克风：' + (e?.message || e) + '（需 localhost/https 并允许权限）'
+    return
+  }
+  if (canBrowserStt) startBrowserStt()
+  else startRecord()
+}
+
+// 视频模式：开启摄像头预览（带重试）
+async function ensureCamera(retry = 0) {
+  if (mode.value !== 'video') return
+  if (!camVideoEl.value) {
+    if (retry < 5) { await new Promise(r => setTimeout(r, 80)); return ensureCamera(retry + 1) }
+    else { err.value = '摄像头元素未就绪，请刷新重试或改用语音模式'; return }
+  }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 480 } }, audio: false })
+    camVideoEl.value.srcObject = camStream
+    // 部分浏览器需等 loadedmetadata 才真正渲染画面
+    await new Promise<void>((resolve) => {
+      const v = camVideoEl.value
+      if (v.readyState >= 2) { resolve(); return }
+      v.onloadedmetadata = () => resolve()
+      setTimeout(resolve, 2000)
+    })
+  } catch (e: any) {
+    const msg = String(e?.message || e).toLowerCase()
+    if (msg.includes('permission') || msg.includes('denied') || msg.includes('NotAllowedError'))
+      err.value = '摄像头权限被拒绝：请在浏览器地址栏左侧点击「允许」摄像头权限，或改用语音模式'
+    else if (msg.includes('notfound') || msg.includes('notfound') || msg.includes('devices not found') || msg.includes('requested device not found'))
+      err.value = '未检测到摄像头设备：当前电脑没有连接摄像头（或被系统隐私设置禁用）。请接入摄像头后刷新，或改用「语音模式」'
+    else if (msg.includes('notreadable') || msg.includes('trackstart'))
+      err.value = '摄像头被其他程序占用（如会议软件），请关闭后重试或改用语音模式'
+    else
+      err.value = '摄像头开启失败：' + (e?.message || e) + '（可改用语音模式）'
+  }
+}
+function stopCamera() {
+  camStream?.getTracks().forEach((t: any) => t.stop())
+  camStream = null
+}
+
+// 重播：用户手动点击后重新播放（此时有用户手势，Autoplay 不拦截）
+// 优先复用当前音频元素从头播（音频源已加载，秒级响应）；无源时重新拉取。
+async function replayTts() {
+  unlockAudio()
+  ttsError.value = ''
+  if (!speakingText.value) return
+  const text = speakingText.value
+  // 本会话已确认云端不可用 → 直接本地重播，跳过必败的服务端请求
+  if (ttsBackend.value === 'local') { speakFallback(text); return }
+  // 若已有音频源且来自服务端，直接从头播（最可靠的重播方式）
+  if (audioEl.value && audioEl.value.src && (ttsBackend.value === 'cloud' || ttsBackend.value === 'piper')) {
+    try {
+      audioEl.value.currentTime = 0
+      interviewerSpeaking.value = true; startMouthAnim()
+      audioEl.value.play().then(() => { startMouthAnim() }).catch(() => { interviewerSpeaking.value = false; stopMouthAnim(); speakFallback(text) })
+      return
+    } catch { /* 落到重新拉取 */ }
+  }
+  const preset = currentVoicePreset()
+  const params = new URLSearchParams({ text: encodeURIComponent(text), cache: '1', t: String(Date.now()), voice: preset.id })
+  try {
+    const res = await fetch(`/api/vip/interview/tts?${params.toString()}`)
+    const ctype = res.headers.get('Content-Type') || ''
+    if (!res.ok || !ctype.startsWith('audio/')) { ttsBackend.value = 'local'; speakFallback(text); return }
+    // 依据服务端 x-tts-provider 标注后端（piper=本地神经网络 / edge=云端）
+    ttsBackend.value = ((res.headers.get('x-tts-provider') || '').toLowerCase() === 'piper') ? 'piper' : 'cloud'
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    if (!audioEl.value) { speakFallback(text); return }
+    audioEl.value.src = url
+    try { audioCtx?.resume?.() } catch {}
+    startMouthAnim()
+    audioEl.value.onended = () => { interviewerSpeaking.value = false; stopMouthAnim(); ttsError.value = ''; try { URL.revokeObjectURL(url) } catch {} }
+    interviewerSpeaking.value = true
+    audioEl.value.play().then(() => { startMouthAnim() }).catch(() => { interviewerSpeaking.value = false; stopMouthAnim(); speakFallback(text) })
+  } catch { ttsBackend.value = 'local'; speakFallback(text) }
+}
+
 useSeoMeta({
   title: 'AI 深度模拟面试 · MentorLoop',
   description: '多轮实战面试 + 逐题评分反馈，由大模型模拟真实技术面试官。',
@@ -138,7 +649,6 @@ useSeoMeta({
   ogType: 'website',
   ogUrl: safeOgUrl()
 })
-
 const TRACK_NAMES: Record<string, string> = { frontend: '前端', backend: '后端', devops: '运维 / DevOps', ai: 'AI 工程' }
 const LEVEL_NAMES: Record<string, string> = { junior: '初级', mid: '中级', senior: '高级' }
 function trackName(t: string) { return TRACK_NAMES[t] || t }
@@ -147,6 +657,21 @@ function levelName(l: string) { return LEVEL_NAMES[l] || l }
 function scrollToEnd() { nextTick(() => { scrollEl.value?.scrollTo({ top: 1e9, behavior: 'smooth' }) }) }
 
 onMounted(async () => {
+  // 尽早绑定音频上下文解锁（任意用户点击/触摸即可激活 AudioContext）
+  bindUnlockOnce()
+  // 加载浏览器本地中文嗓音列表（用于 Piper 不可用时的离线兜底）
+  loadLocalVoices()
+  // 拉取服务端实际可用的 Piper 音色列表（仅已下载的模型）与后端类型
+  try {
+    const vr: any = await request('/api/vip/interview/voices')
+    if (vr?.voices?.length) {
+      piperVoices.value = vr.voices
+      ttsProvider.value = vr.provider || ''
+      if (!piperVoices.value.some((v: any) => v.id === selectedVoice.value)) {
+        selectedVoice.value = piperVoices.value[0]?.id || 'huayan'
+      }
+    }
+  } catch { /* 拉取失败则用静态兜底列表，不影响主流程 */ }
   if (await guard()) return
   try {
     const r: any = await request('/api/vip/status')
@@ -161,16 +686,34 @@ onMounted(async () => {
   }
 })
 
+onUnmounted(() => {
+  if (rafId) cancelAnimationFrame(rafId)
+  stopMouthAnim()
+  try { (window as any).speechSynthesis?.cancel?.() } catch {}
+  try { audioCtx?.close() } catch {}
+  stopCamera()
+})
+
 async function start() {
   starting.value = true; err.value = ''
+  if (mode.value !== 'text' && !consent.value) { err.value = '请先勾选设备授权'; starting.value = false; return }
+  const consentAt = (mode.value !== 'text' && consent.value) ? Date.now() : null
   try {
-    const r: any = await request('/api/vip/interview/start', { method: 'POST', body: { track: track.value, level: level.value, goal: goal.value } })
+    const r: any = await request('/api/vip/interview/start', { method: 'POST', body: { track: track.value, level: level.value, goal: goal.value, mode: mode.value, consentAt } })
     sessionId.value = r.sessionId
     currentQuestion.value = r.question
-    messages.value = [{ role: 'assistant', content: r.question }]
+    // 文字模式：问题进对话流；语音/视频模式：问题仅显示在面试官面板（speakingText），避免重复
+    messages.value = (mode.value === 'text') ? [{ role: 'assistant', content: r.question }] : []
     turns.value = 0
     phase.value = 'running'
     scrollToEnd()
+    // 摄像头需等 v-if 渲染出 <video> 元素后再绑定
+    if (mode.value === 'video') {
+      await nextTick()
+      await ensureCamera()
+    }
+    // TTS 必须在用户手势同步上下文中触发，否则 Autoplay Policy 会静默拦截
+    playTts(r.question)
   } catch (e: any) { err.value = e.message } finally { starting.value = false }
 }
 
@@ -181,16 +724,23 @@ async function submitAnswer() {
   evaluating.value = true; err.value = ''
   try {
     const r: any = await request('/api/vip/interview/answer', { method: 'POST', body: { sessionId: sessionId.value, answer: ans } })
-    messages.value.push({ role: 'assistant', content: r.isLast ? '' : '下一题：' + r.nextQuestion, score: r.evaluation.score, feedback: r.evaluation.feedback, analysis: r.analysis || '' })
+    // 语音/视频模式：下一题仅通过面试官面板+TTS 展示，不重复推入对话流
+    if (mode.value !== 'text' && !r.isLast && r.nextQuestion) {
+      // 不 push assistant 消息，避免与 speakingText 重复
+    } else {
+      messages.value.push({ role: 'assistant', content: r.isLast ? '' : '下一题：' + r.nextQuestion, score: r.evaluation.score, feedback: r.evaluation.feedback, analysis: r.analysis || '' })
+    }
     turns.value = r.turns
     currentQuestion.value = r.nextQuestion || (r.isLast ? '' : '（请尝试回答，或写「不会」继续）')
     userAnswer.value = ''
     if (r.isLast) { phase.value = 'done'; finalScore.value = r.score; summary.value = r.summary || '' }
+    else { playTts(r.nextQuestion) }
     scrollToEnd()
   } catch (e: any) { err.value = e.message } finally { evaluating.value = false }
 }
 
 function reset() {
+  stopCamera()
   phase.value = 'setup'; sessionId.value = ''; messages.value = []; currentQuestion.value = ''; userAnswer.value = ''; turns.value = 0; finalScore.value = null; summary.value = ''
 }
 </script>

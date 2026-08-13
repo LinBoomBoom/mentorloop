@@ -84,7 +84,11 @@ const ICONS: Record<string, string> = {
   git: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7M8.5 6H13a3 3 0 0 1 3 3v0"/>',
   robot: '<rect x="5" y="8" width="14" height="10" rx="2"/><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6"/><path d="M5 12H3M21 12h-2"/>',
   brain: '<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 2 4 3 3 0 0 0 5 1V5a3 3 0 0 0-3-1z"/><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-2 4 3 3 0 0 1-5 1"/>',
-  pipeline: '<rect x="3" y="4" width="6" height="4" rx="1"/><rect x="15" y="16" width="6" height="4" rx="1"/><path d="M6 8v4a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v1"/>'
+  pipeline: '<rect x="3" y="4" width="6" height="4" rx="1"/><rect x="15" y="16" width="6" height="4" rx="1"/><path d="M6 8v4a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v1"/>',
+  mic: '<path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  pause: '<path d="M9 5v14M15 5v14"/>',
+  volume: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a3 3 0 0 1 0 6M18.5 7a6 6 0 0 1 0 10"/>',
+  camera: '<path d="M14.5 4h-5L8 2H3a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-3.5z"/>'
 }
 
 const inner = computed(() => ICONS[props.name] || ICONS.box || '')
