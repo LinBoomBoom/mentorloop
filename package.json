@@ -22,7 +22,8 @@
     "reseed": "node scripts/_reseed.mjs",
     "backup": "node scripts/backup-db.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "setup:piper": "node scripts/setup-piper.mjs"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
@@ -31,6 +32,7 @@
     "ant-design-vue": "^4.2.6",
     "better-sqlite3": "13.0.2",
     "echarts": "^5.6.0",
+    "edge-tts": "^1.0.1",
     "mammoth": "^1.9.0",
     "nuxt": "4.5.1",
     "pdf-parse": "^1.1.1",

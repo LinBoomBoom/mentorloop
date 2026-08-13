@@ -11,6 +11,12 @@ node_modules
 *.db
 data/*.db
 
+# Generated TTS/STT media cache (runtime artifacts, not source)
+data/media/
+
+# Local Piper offline TTS engine (binary + models, downloaded via `npm run setup:piper`, not source)
+data/piper/
+
 # Env files
 .env
 .env.*
