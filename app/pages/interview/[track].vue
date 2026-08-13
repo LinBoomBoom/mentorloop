@@ -18,7 +18,7 @@
     <InterviewAsk />
 
     <NuxtLink to="/interview/sim" class="block mb-6">
-      <a-card class="reveal hover:-translate-y-0.5 transition !border-brand-coral/30 !bg-brand-coral/5" :body-style="{ padding: '16px' }">
+      <a-card class="hover:-translate-y-0.5 transition !border-brand-coral/30 !bg-brand-coral/5" :body-style="{ padding: '16px' }">
         <div class="flex items-center gap-3">
           <span class="w-10 h-10 rounded-xl bg-brand-coral/15 text-brand-coral flex items-center justify-center shrink-0"><Icon name="sparkles" :size="20" /></span>
           <div class="flex-1 min-w-0">
