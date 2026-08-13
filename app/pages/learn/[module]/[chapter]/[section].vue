@@ -117,24 +117,23 @@
       <a-card v-if="section && (relatedQ.length || relatedLoading)" class="mt-4" :body-style="{ padding: '20px' }">
         <div class="flex items-center gap-2 mb-3 text-sm font-bold">
           <Icon name="clipboard" :size="16" class="text-brand-coral" /> 本节相关面试题
-          <span class="text-xs font-normal text-muted">（由用户提问经审核采纳后关联到本节）</span>
+          <span class="text-xs font-normal text-muted">（已采纳题优先，无时按本节内容自动匹配相关面试题）</span>
         </div>
         <a-skeleton v-if="relatedLoading && !relatedQ.length" active :paragraph="{ rows: 3 }" />
-        <div v-else class="space-y-3">
-          <div v-for="iq in relatedQ" :key="iq.id" class="rounded-xl border border-ink/10 overflow-hidden">
-            <button type="button" class="w-full text-left flex items-start gap-2 p-3.5 hover:bg-ink/[.03] transition"
-                    @click="iq._open = !iq._open" :aria-expanded="!!iq._open">
-              <Icon :name="iq._open ? 'chevronDown' : 'chevronRight'" :size="15" class="text-muted mt-0.5 shrink-0" />
-              <span class="min-w-0">
-                <span class="font-medium">{{ iq.q }}</span>
-                <span class="ml-2 align-middle"><a-tag :bordered="false" class="!text-[10px]" :color="iq.difficulty === 'hard' ? 'red' : iq.difficulty === 'medium' ? 'gold' : 'default'">{{ iq.difficulty === 'hard' ? '困难' : iq.difficulty === 'medium' ? '较难' : '常规' }}</a-tag></span>
-                <span v-if="iq.tech && iq.tech !== '综合'" class="ml-1 align-middle"><a-tag :bordered="false" class="!text-[10px] !bg-ink/5 !text-muted">{{ iq.tech }}</a-tag></span>
+        <div v-else class="space-y-2">
+          <NuxtLink v-for="iq in relatedQ" :key="iq.id" :to="detailUrl(iq)"
+                    class="block rounded-xl border border-ink/10 p-3.5 hover:border-brand-coral/50 hover:bg-brand-coral/[.03] transition group">
+            <div class="flex items-start gap-2">
+              <Icon name="arrowRight" :size="15" class="text-brand-coral mt-0.5 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+              <span class="min-w-0 flex-1">
+                <span class="font-medium leading-snug">{{ iq.q }}</span>
+                <span class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <a-tag :bordered="false" class="!text-[10px]" :color="iq.difficulty === 'hard' ? 'red' : iq.difficulty === 'medium' ? 'gold' : 'default'">{{ iq.difficulty === 'hard' ? '困难' : iq.difficulty === 'medium' ? '较难' : '常规' }}</a-tag>
+                  <a-tag v-if="iq.tech && iq.tech !== '综合'" :bordered="false" class="!text-[10px] !bg-ink/5 !text-muted">{{ iq.tech }}</a-tag>
+                </span>
               </span>
-            </button>
-            <div v-if="iq._open" class="px-3.5 pb-4 -mt-1">
-              <div class="prose-dm pl-5 border-l-2 border-brand-coral/40" v-html="md(iq.a)"></div>
             </div>
-          </div>
+          </NuxtLink>
           <NuxtLink to="/interview" class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-coral hover:underline mt-1">
             <Icon name="arrowRight" :size="13" /> 去面试题库做更多练习
           </NuxtLink>
@@ -163,6 +162,7 @@
 </template>
 
 <script setup lang="ts">
+import { techToSlug } from '~~/server/utils/interviewSlugs'
 const route = useRoute()
 const router = useRouter()
 const { request } = useApi()
@@ -213,7 +213,7 @@ async function loadRelated() {
   relatedLoading.value = true
   try {
     const r: any = await $fetch('/api/interview/by-section?sectionId=' + encodeURIComponent(sid))
-    relatedQ.value = (r.items || []).map((x: any) => ({ ...x, _open: false }))
+    relatedQ.value = (r.items || [])
   } catch (e) {
     relatedQ.value = []
   } finally { relatedLoading.value = false }
@@ -249,6 +249,11 @@ const prev = computed(() => (curIdx.value > 0 ? flat.value[curIdx.value - 1] : n
 const next = computed(() => (curIdx.value >= 0 && curIdx.value < flat.value.length - 1 ? flat.value[curIdx.value + 1] : null))
 
 function navTo(f: any) { router.push(`/learn/${route.params.module}/${f.cid}/${f.sid}`) }
+
+// 相关面试题 → 独立详情页（去除抽屉，强化学↔问闭环与站内抓取）
+function detailUrl(iq: any) {
+  return '/interview/' + iq.track + '/' + techToSlug(iq.tech || '综合') + '/' + iq.id
+}
 
 async function toggleDone() {
   if (!module.value || !section.value) return

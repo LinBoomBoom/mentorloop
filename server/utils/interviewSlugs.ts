@@ -21,8 +21,9 @@ export const TRACK_COLORS: Record<Track, string> = {
   ai: '#8b5cf6'
 }
 
-// tech（真实名）→ slug。覆盖当前全部 35 个技术子类 + 跨方向「综合」。
-// 注：JavaScript/TS 已拆为 JavaScript + TypeScript；CSS/HTML 已拆为 CSS + HTML（更细分类利于 SEO 收录）。
+// tech（真实名）→ slug。覆盖当前全部 37 个技术子类 + 跨方向「综合」。
+// 注：JavaScript/TS 已拆为 JavaScript + TypeScript；CSS/HTML 已拆为 CSS + HTML；
+//     Java/Spring 已拆为 Java + Spring + 后端通用（更细分类利于 SEO 收录）。
 const TECH_SLUG_MAP: Record<string, string> = {
   // frontend
   'JavaScript': 'javascript',
@@ -37,7 +38,9 @@ const TECH_SLUG_MAP: Record<string, string> = {
   '网络/HTTP': 'network-http',
   '安全': 'security',
   // backend
-  'Java/Spring': 'java-spring',
+  'Java': 'java',
+  'Spring': 'spring',
+  '后端通用': 'backend-general',
   '系统设计': 'system-design',
   '分布式/微服务': 'distributed-microservices',
   'MySQL/数据库': 'mysql-database',

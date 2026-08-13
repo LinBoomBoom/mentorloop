@@ -59,7 +59,7 @@ const LOCK = path.join(ROOT, '.workbuddy', 'reclassify.lock')
 // 各方向合法技术子类（用于校验 LLM 输出）
 const TECH_NAMES = {
   frontend: ['JavaScript', 'TypeScript', 'Vue', 'React', 'CSS', 'HTML', '浏览器/渲染', '网络/HTTP', '性能优化', '安全', '工程化/构建'],
-  backend: ['Java/Spring', 'MySQL/数据库', 'Redis/缓存', '并发/多线程', '分布式/微服务', '消息队列', '网络/TCP', '系统设计'],
+  backend: ['Java', 'Spring', '后端通用', 'MySQL/数据库', 'Redis/缓存', '并发/多线程', '分布式/微服务', '消息队列', '网络/TCP', '系统设计'],
   devops: ['Linux/排查', '网络/TCP/HTTPS', 'Nginx/网关', '容器/Docker', 'Kubernetes', 'CI/CD/发布', '监控/SRE'],
   ai: ['提示工程/Prompt', 'RAG', 'Embedding/向量', '评估/Eval', 'Agent/工具调用', '模型基础/训练', '应用与部署']
 }
