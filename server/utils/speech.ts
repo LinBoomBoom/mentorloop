@@ -38,7 +38,7 @@ export function splitSentences(text: string): string[] {
 const PIPER_DEFAULT_VOICE = process.env.TTS_VOICE || 'huayan'
 // 仅 TTS_PROVIDER=edge（测试 / 备用通道）使用的默认 Edge 神经嗓音名。
 const EDGE_VOICE_DEFAULT = 'zh-CN-XiaoxiaoNeural'
-const TTS_CACHE_DIR = path.join(process.cwd(), 'data', 'media', 'tts')
+export const TTS_CACHE_DIR = path.join(process.cwd(), 'data', 'media', 'tts')
 
 // ---- Mock TTS（离线/测试用，生成合法 WAV 蜂鸣，保证音频链路可跑、可单测） ----
 class MockTtsProvider implements TtsProvider {
@@ -200,14 +200,20 @@ export function ttsEnabled(): boolean {
   try { getTts(); return true } catch { return false }
 }
 
-// ---- TTS 缓存（题库题不变 → 零重合成；按 语音|文本 哈希） ----
-export function ttsCacheKey(text: string, voice?: string): string {
-  return crypto.createHash('sha256').update(`${voice || PIPER_DEFAULT_VOICE}|${text}`).digest('hex')
+// ---- TTS 缓存（题库题不变 → 零重合成；按 提供商|语音|文本 哈希） ----
+// 注意：缓存 key 必须包含 provider 维度。历史上 mock（测试蜂鸣）/piper/edge 共用同一个
+// `voice|text` 命名空间，一旦某环境用 mock 生成过蜂鸣并被缓存，切回 piper 后仍会命中旧
+// 缓存 → 播放出 8000Hz 蜂鸣（"噪音"）。加 provider 维度后三者各自独立命名空间，永不串味。
+export function ttsCacheKey(text: string, voice?: string, provider: string = ''): string {
+  return crypto.createHash('sha256').update(`${provider}|${voice || PIPER_DEFAULT_VOICE}|${text}`).digest('hex')
 }
 export async function synthesizeWithCache(text: string, opts?: TtsOptions): Promise<TtsResult> {
   const provider = getTts()
-  if (opts?.cache === false) return provider.synthesize(text, opts)
-  const key = ttsCacheKey(text, opts?.voice)
+  // mock 为测试用蜂鸣（makeBeepWav），绝不能写入磁盘缓存：否则会污染生产/开发共用的
+  // data/media/tts/ 目录，导致真实 piper/edge 合成时命中旧 mock 缓存播放出噪音。
+  // opts.cache=false（如实时流式逐句，避免堆积缓存）同样跳过磁盘写入。
+  if (opts?.cache === false || provider.name === 'mock') return provider.synthesize(text, opts)
+  const key = ttsCacheKey(text, opts?.voice, provider.name)
   const ext = provider.name === 'edge' ? 'mp3' : 'wav'
   const file = path.join(TTS_CACHE_DIR, `${key}.${ext}`)
   if (fs.existsSync(file)) {
