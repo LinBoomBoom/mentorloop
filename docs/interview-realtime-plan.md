@@ -79,8 +79,8 @@ LISTENING/SPEAKING ──(会话结束/异常)──> CLOSED
 ### 5.1 `server/api/vip/interview/ws.ts`（新增，Nitro `defineWebSocketHandler`）
 - 连接即校验登录（`getUser(event)`），绑定 `sessionId`（前端建连时带 token + sessionId）。
 - 消息协议（JSON）：
-  - `→` 客户端→服务端：`{type:'speech_start'|'speech_final', text?}`（浏览器流式 STT 时，文本由客户端转写好直接发，服务端不碰音频；Safari 走服务端流式 STT 时发音频块 `{type:'audio_chunk', data:base64}`，后续接入）/ `{type:'barge_in'}`（插话打断）/ `{type:'ping'}`（保活）。
-  - `←` 服务端→客户端：`{type:'interim', text}`（候选人定稿转写回显"你说：…"）/ `{type:'turn_eval', evaluation, analysis, nextQuestion, isLast, score, summary}`（结构化评测卡，与口播解耦）/ `{type:'ai_token', text}`（AI 口播逐句字幕）/ `{type:'audio', data:base64, mime, ext}`（TTS 音频块，按句）/ `{type:'barge_ack'}`（已打断、停播）/ `{type:'turn_end'}`（本轮自然结束，AI 说完转听候选人）/ `{type:'pong'}`（保活响应）。
+  - `→` 客户端→服务端：`{type:'speech_start'}`（候选人有声，VAD 触发打断）/ `{type:'speech_final', text}`（Web Speech 路径：浏览器本地转写定稿）/ `{type:'hello', stt}`（能力协商：`webspeech`|`server`）/ `{type:'audio_chunk', data:base64}`（服务端 ASR 路径：16-bit PCM 音频块，~100ms 一块）/ `{type:'speech_end_audio'}`（VAD 判定说话结束，刷新 ASR 最终转写）/ `{type:'barge_in'}`（插话打断）/ `{type:'ping'}`（保活）。
+  - `←` 服务端→客户端：`{type:'asr_partial', text}`（服务端 ASR 流式中间结果，实时字幕预览，不入库）/ `{type:'interim', text}`（候选人定稿转写回显"你说：…"）/ `{type:'turn_eval', evaluation, analysis, nextQuestion, isLast, score, summary}`（结构化评测卡，与口播解耦）/ `{type:'ai_token', text}`（AI 口播逐句字幕）/ `{type:'audio', data:base64, mime, ext}`（TTS 音频块，按句）/ `{type:'barge_ack'}`（已打断、停播）/ `{type:'turn_end'}`（本轮自然结束，AI 说完转听候选人）/ `{type:'pong'}`（保活响应）。
 - **Caddy 透传**：`Caddyfile` 需 `reverse_proxy` 下保留 WebSocket（`upgrade` 头）并放宽 `proxy_read_timeout`（长连接）。当前 Caddyfile 若无 WS 段需补。
 
 ### 5.2 `server/utils/llm.ts`（改造，非重写）
@@ -101,9 +101,12 @@ export interface LlmClient {
   - `MockTtsProvider`：整段蜂鸣 yield（测试用）。
 - 复用 `ttsCacheKey`/`synthesizeWithCache` 思路：句级文本命中题库缓存则跳过合成。
 
-### 5.4 `server/utils/asr.ts`（改造，可选增强）
-- 新增流式厂商 `AliyunRealtimeProvider`（WebSocket 实时语音识别，返回 interim+final）；非必做，优先级低于「浏览器端流式 STT」。
-- 若不做，`asr.ts` 维持整段转写，Safari 在 P3 退化为「录完一段再发」（仍可对话，只是无实时 interim）。
+### 5.4 `server/utils/asrStream.ts`（Step 7 新增，已实现；与回合制 `asr.ts` 相互独立）
+- 抽象 `StreamingAsr` 接口：`push(chunk)` + `end()` + 异步迭代产出 `{text,isFinal}`。
+- `MockStreamAsr`：确定性（push 产 interim 进度、end 产 final）。开发/测试环境默认启用（无需 ASR 密钥即可本地验证整条实时链路）。
+- `getStreamAsr()` 工厂：`ASR_API_KEY` 已配但真实流式厂商未实现 → 返回 null（客户端干净降级文字输入；注意该 Key 当前仅驱动回合制 Whisper 上传识别，与流式实时识别是两回事）；生产环境无厂商 → null（不发假稿）；`ASR_MOCK=1` 强制 mock；其余（开发/测试）→ MockStreamAsr。
+- 真实流式厂商（阿里云/讯飞/Whisper 流式，WebSocket 实时识别）留作后续接入：实现 `StreamingAsr` 并接入 `getStreamAsr()` 即可，前端 `audio_chunk` 通道无需改动。
+- **与 `asr.ts` 区分**：`asr.ts`（`getAsr()`/`AsrProvider`）是「整段音频 → 文本」（OpenAI 兼容 Whisper），供 voice/video 模式的 `/api/vip/interview/asr` 上传识别；本文件是「流式 PCM → interim/final」，供实时 ws 的 `audio_chunk` 路径。两者不共用。
 
 ---
 
@@ -142,7 +145,7 @@ export interface LlmClient {
 4. **ws 编排核心**：新建 `server/utils/interviewRealtime.ts`（`handleSpeechFinal` 调 `answerInterview` 评测 → 拼口播 → `synthesizeStream` 按句推音频 + `ai_token` 字幕；`handleBarge` 置 `ttsCancelled` 打断）；`ws.ts` 改为经自动导入的薄封装；`startInterview` 接受 `mode='realtime'`。补 `tests/interview-realtime.test.mjs`。 ✅ 已完成
 5. **前端实时模式**：`sim.vue` 接 ws + VAD + 播放队列 + 打断 UI。（待做）
 6. **Caddyfile WS 段** + 本地端到端验收（Chrome/Edge）。 ✅ 已完成
-7. **（可选）`asr.ts` 流式厂商**：Safari 真实时转写。（待做，优先级低）
+7. **（已完成）`asr.ts` 流式厂商接入 + 前端服务端 ASR 路径**：Safari/Firefox 等无 Web Speech 的浏览器走「麦克风 PCM → ws `audio_chunk` → 服务端 `StreamingAsr` → 转写 → 复用 `handleSpeechFinal` 评分/口播」。本期 `MockAsr` 默认可用（开发/演示），真实厂商待接入（实现 `StreamingAsr` 即可）。详见 5.4。
 
 每步独立 commit，可单独 review；步骤 1–3 不依赖浏览器即可单测，优先完成防回归。
 
@@ -197,5 +200,5 @@ export interface LlmClient {
 
 ### 12.3 已知限制 / 后续
 - **回声**：AI 声音经扬声器、麦克风收，依赖浏览器 AEC；若串音严重，可在 `getUserMedia` 已开 `echoCancellation/noiseSuppression/autoGainControl`（已配置）。更稳方案为播放 AI 音频时临时静麦（兜底开关，未实现）。
-- **Safari / Firefox**：Web Speech 流式不可用 → 退化为「文字输入发送」（已支持，走同一 ws 通道）。真·流式 STT（阿里云/讯飞）为可选增强（步骤 7，待做）。
+- **Safari / Firefox**：Web Speech 不可用 → 走服务端流式 ASR（`audio_chunk` 通道，Step 7 已接入）：麦克风 PCM 经 ws 发服务端，转写后复用同一评分/口播编排。服务端 ASR 未配置（`getAsr()` 返回 null）时干净降级为「文字输入发送」（走同一 ws 通道）。真实 ASR 厂商（阿里云/讯飞/Whisper）接入后即获真·流式转写 + interim 字幕。
 - **打断精度**：VAD 轻量阈值 + 去抖；误触/漏触可在 `VAD_THRESHOLD`/`VAD_SILENCE_MS` 调参。

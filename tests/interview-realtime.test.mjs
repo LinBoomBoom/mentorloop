@@ -26,7 +26,7 @@ vi.mock('../server/utils/speech', () => {
   return { splitSentences: realSplit, getTts: () => provider }
 })
 
-const { handleSpeechFinal, handleBarge, createRealtimeConn } = await import('../server/utils/interviewRealtime')
+const { handleSpeechFinal, handleBarge, createRealtimeConn, handleAudioChunk, endAsrSession } = await import('../server/utils/interviewRealtime')
 const { answerInterview } = await import('../server/utils/interview')
 const { getTts } = await import('../server/utils/speech')
 
@@ -52,8 +52,11 @@ function collect(conn, text) {
   return { msgs, promise: handleSpeechFinal(conn, text, { send: (m) => msgs.push(m) }) }
 }
 
+// 捕获原始 synthesizeStream（1 块/句），在 beforeEach 复位，避免 barge 用例把共享 mock 改成 2 块/句后污染后续用例
+const ORIGINAL_SYNTH = getTts().synthesizeStream
 beforeEach(() => {
   answerInterview.mockReset()
+  getTts().synthesizeStream = ORIGINAL_SYNTH
 })
 
 describe('handleSpeechFinal 正常轮', () => {
@@ -156,5 +159,81 @@ describe('handleBarge 打断', () => {
     expect(conn.ttsCancelled).toBe(false)
     handleBarge(conn)
     expect(conn.ttsCancelled).toBe(true)
+  })
+})
+
+describe('服务端 ASR 路径（audio_chunk）', () => {
+  it('多块音频 + speech_end_audio → 复用评分编排，消息顺序与 speech_final 一致', async () => {
+    answerInterview.mockResolvedValue(EVAL)
+    const conn = createRealtimeConn('u1', 's1')
+    const msgs = []
+    const cb = { send: (m) => msgs.push(m) }
+    handleAudioChunk(conn, Buffer.from('a'), cb)
+    const sess = conn.asrSession
+    handleAudioChunk(conn, Buffer.from('b'), cb)
+    endAsrSession(conn)
+    await sess.done // 等待后台消费者循环跑完（final → handleSpeechFinal → 口播）
+
+    // ASR 中间结果（asr_partial）先于评测卡；最终序列与 speech_final 路径一致
+    expect(msgs.filter((m) => m.type === 'asr_partial').length).toBe(2)
+    expect(msgs[msgs.findIndex((m) => m.type === 'asr_partial') + 1]?.type === 'turn_eval' || msgs.some((m) => m.type === 'turn_eval')).toBe(true)
+    expect(msgs[msgs.length - 1].type).toBe('turn_end')
+
+    const aiTokens = msgs.filter((m) => m.type === 'ai_token')
+    const audios = msgs.filter((m) => m.type === 'audio')
+    expect(aiTokens.length).toBe(3)
+    expect(audios.length).toBe(3)
+    for (const a of audios) {
+      expect(a.mime).toBe('audio/wav')
+      expect(Buffer.from(a.data, 'base64').toString('utf8')).toMatch(/^AUDIO:/)
+    }
+    expect(conn.state).toBe('LISTENING')
+    expect(conn.ttsCancelled).toBe(false)
+  })
+
+  it('SPEAKING 期间 barge 打断 ASR 驱动轮：停止尾块音频，不发 turn_end', async () => {
+    answerInterview.mockResolvedValue(EVAL)
+    let release
+    const gate = new Promise((r) => { release = r })
+    const provider = getTts()
+    provider.synthesizeStream = async function* (s) {
+      yield { chunk: Buffer.from('AUDIO:' + s), mime: 'audio/wav', ext: 'wav' }
+      await gate // 首块后挂起，待测试注入 barge
+      yield { chunk: Buffer.from('TAIL:' + s), mime: 'audio/wav', ext: 'wav' }
+    }
+
+    const conn = createRealtimeConn('u1', 's1')
+    const msgs = []
+    const cb = { send: (m) => msgs.push(m) }
+    handleAudioChunk(conn, Buffer.from('a'), cb)
+    const sess = conn.asrSession
+    endAsrSession(conn)
+    await new Promise((r) => setImmediate(r)) // 让消费者循环产出 final 并进入 handleSpeechFinal
+    expect(handleBarge(conn)).toBe(true)       // 此时已在 SPEAKING
+    release()
+    await sess.done
+
+    const audios = msgs.filter((m) => m.type === 'audio')
+    expect(audios.every((a) => Buffer.from(a.data, 'base64').toString('utf8').startsWith('AUDIO:'))).toBe(true)
+    expect(audios.every((a) => Buffer.from(a.data, 'base64').toString('utf8').startsWith('TAIL:'))).toBe(false)
+    expect(msgs.some((m) => m.type === 'turn_end')).toBe(false)
+    expect(conn.state).toBe('LISTENING')
+  })
+
+  it('服务端 ASR 未配置（生产且无厂商）→ 仅回一次 error，不创建会话', () => {
+    const saved = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    delete process.env.ASR_API_KEY
+    try {
+      const conn = createRealtimeConn('u1', 's1')
+      const msgs = []
+      const cb = { send: (m) => msgs.push(m) }
+      handleAudioChunk(conn, Buffer.from('a'), cb)
+      handleAudioChunk(conn, Buffer.from('b'), cb)
+      expect(conn.asrSession).toBeFalsy()
+      expect(msgs.filter((m) => m.type === 'error').length).toBe(1)
+    } finally {
+      process.env.NODE_ENV = saved
+    }
   })
 })

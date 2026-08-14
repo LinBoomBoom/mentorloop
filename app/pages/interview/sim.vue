@@ -182,7 +182,8 @@
         </a-button>
         <audio ref="audioEl" class="hidden" />
       </div>
-      <p v-if="mode !== 'text' && !canBrowserStt" class="px-5 pb-1 text-xs text-muted">当前浏览器不支持本地实时语音识别（如 Safari / Firefox），将改用「录音上传识别」（需服务端已配置 ASR；若不可用请手动输入或改用 Chrome / Edge）。</p>
+      <p v-if="mode === 'realtime' && !canBrowserStt" class="px-5 pb-1 text-xs text-muted">当前浏览器不支持本地语音识别（如 Safari / Firefox），实时模式将改用「服务端流式语音识别」（需服务端已配置 ASR；未配置时请手动输入或改用 Chrome / Edge）。</p>
+      <p v-else-if="mode !== 'text' && !canBrowserStt" class="px-5 pb-1 text-xs text-muted">当前浏览器不支持本地语音识别（如 Safari / Firefox），将改用「录音上传识别」（需服务端已配置 ASR；若不可用请手动输入或改用 Chrome / Edge）。</p>
       <p v-if="err" class="px-5 pb-4 text-red-500 text-sm">{{ err }}</p>
     </a-card>
   </div>
@@ -342,6 +343,10 @@ let lastFinalTs = 0
 let rtLastScore: number | null = null
 let rtSummary = ''
 let rtIsLast = false
+// 服务端 ASR 路径（无 Web Speech 的浏览器）采集状态
+let serverAsrStream: MediaStream | null = null
+let scriptNode: any = null
+let lastAsrChunkTs = 0
 const VAD_THRESHOLD = 0.04                                   // 音量 RMS 阈值（0~1）
 const VAD_SILENCE_MS = 700                                  // 静音超过该值视为说话结束
 
@@ -817,13 +822,20 @@ function connectRealtime() {
   rtWs = ws
   rtActive.value = true
   rtState.value = 'listening'
-  ws.onopen = () => { wsConnected.value = true; startVad(); startRealtimeStt() }
+  ws.onopen = () => {
+    wsConnected.value = true
+    // 能力协商：声明本端 STT 能力（有 Web Speech 走浏览器本地转写，否则走服务端 ASR）
+    sendWs({ type: 'hello', stt: canBrowserStt ? 'webspeech' : 'server' })
+    startVad()
+    if (canBrowserStt) startRealtimeStt()
+    else startRealtimeServerAsr()
+  }
   ws.onmessage = (ev: any) => {
     let m: any
     try { m = JSON.parse(ev.data) } catch { return }
     onWsMessage(m)
   }
-  ws.onclose = () => { wsConnected.value = false; stopVad(); stopRealtimeStt() }
+  ws.onclose = () => { wsConnected.value = false; stopVad(); stopRealtimeStt(); stopRealtimeServerAsr() }
   ws.onerror = () => { wsConnected.value = false }
 }
 
@@ -834,6 +846,10 @@ function onWsMessage(m: any) {
     case 'interim':
       messages.value.push({ role: 'user', content: m.text })
       scrollToEnd()
+      break
+    case 'asr_partial':
+      // 服务端 ASR 流式中间结果：仅作实时字幕预览，不入库（定稿由 speech_final/interim 回显）
+      interimText.value = m.text
       break
     case 'turn_eval':
       messages.value.push({ role: 'assistant', content: '', score: m.evaluation?.score, feedback: m.evaluation?.feedback, analysis: m.analysis || '' })
@@ -962,10 +978,11 @@ function vadLoop() {
   } else if (candidateSpeaking.value && now - lastVoiceTs > VAD_SILENCE_MS) {
     candidateSpeaking.value = false
     bargeSent.value = false
-    flushFinalTurn()
+    if (canBrowserStt) flushFinalTurn()              // Web Speech 路径：本地定稿经 ws 发送
+    else sendWs({ type: 'speech_end_audio' })        // 服务端 ASR 路径：刷新服务端最终转写
   }
-  // Web Speech 长时间未出定稿时的兜底（避免卡住不发）
-  if (finalTurn && !interviewerSpeaking.value && now - lastFinalTs > 2500) flushFinalTurn()
+  // Web Speech 长时间未出定稿时的兜底（避免卡住不发，仅浏览器本地转写路径需要）
+  if (canBrowserStt && finalTurn && !interviewerSpeaking.value && now - lastFinalTs > 2500) flushFinalTurn()
   vadRaf = requestAnimationFrame(vadLoop)
 }
 function stopVad() {
@@ -1007,6 +1024,54 @@ function stopRealtimeStt() {
   try { recognitionRt?.stop() } catch {}
   recognitionRt = null
 }
+
+// 服务端 ASR 采集路径（Safari / Firefox 等无 Web Speech 的浏览器）：
+// 复用 VAD 已开的麦克风流（micStream），用 ScriptProcessor 读 16-bit PCM，~100ms 节流发 audio_chunk。
+// 注意：ScriptProcessor 需连到 destination 才会触发 onaudioprocess，但需经零增益节点避免回声外放。
+async function startRealtimeServerAsr() {
+  rtSttAvailable.value = false
+  // 复用 VAD 的麦克风流；若 VAD 尚未就绪则自行获取（权限已授权时浏览器不会再次弹窗）
+  if (!micStream) {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+    } catch { err.value = '麦克风不可用，实时模式降级为文字输入（仍可手动发送）'; return }
+  }
+  if (!audioCtx) unlockAudio()
+  const ac = audioCtx
+  if (!ac) return
+  try {
+    const src = ac.createMediaStreamSource(micStream)
+    const proc = ac.createScriptProcessor(4096, 1, 1)
+    proc.onaudioprocess = (e: any) => {
+      if (!rtActive.value) return
+      const input = e.inputBuffer.getChannelData(0)
+      const pcm = new Int16Array(input.length)
+      for (let i = 0; i < input.length; i++) {
+        const s = Math.max(-1, Math.min(1, input[i]))
+        pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff
+      }
+      const now = performance.now()
+      if (now - lastAsrChunkTs >= 100) {
+        lastAsrChunkTs = now
+        const bytes = new Uint8Array(pcm.buffer)
+        let bin = ''
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
+        sendWs({ type: 'audio_chunk', data: btoa(bin) })
+      }
+    }
+    src.connect(proc)
+    const zero = ac.createGain()
+    zero.gain.value = 0
+    proc.connect(zero)
+    zero.connect(ac.destination)
+    scriptNode = proc
+  } catch { err.value = '音频采集失败，实时模式降级为文字输入（仍可手动发送）' }
+}
+function stopRealtimeServerAsr() {
+  if (scriptNode) { try { scriptNode.disconnect() } catch {}; scriptNode = null }
+  // micStream 由 stopVad 负责释放（VAD 与 ASR 共用同一路麦克风）
+  serverAsrStream = null
+}
 // 把累积的候选人定稿经 ws 发送（AI 说话中不下发，避免回声误发）
 function flushFinalTurn() {
   if (interviewerSpeaking.value) return
@@ -1031,6 +1096,7 @@ function closeRealtime() {
   wsConnected.value = false
   stopVad()
   stopRealtimeStt()
+  stopRealtimeServerAsr()
   audioQueue.length = 0
   isPlayingQueue = false
   playingSource = null

@@ -3,19 +3,23 @@
 //
 // 消息协议（JSON）：
 //   客户端 → 服务端：
-//     { type: 'speech_start' }      候选人有声（前端 VAD 触发，用于打断）
-//     { type: 'speech_final', text } 一轮语音转写定稿（浏览器 Web Speech 或 Safari 录音回退）
-//     { type: 'barge_in' }           候选人插话，要求立即打断 AI 发言
-//     { type: 'ping' }               保活
+//     { type: 'speech_start' }            候选人有声（前端 VAD 触发，用于打断）
+//     { type: 'speech_final', text }      一轮语音转写定稿（浏览器 Web Speech 路径）
+//     { type: 'barge_in' }                候选人插话，要求立即打断 AI 发言
+//     { type: 'ping' }                     保活
+//     { type: 'hello', stt }              能力协商：stt='webspeech'|'server'（server=无 Web Speech，走服务端 ASR）
+//     { type: 'audio_chunk', data }       音频块（base64 的 16-bit PCM，服务端 ASR 路径，~100ms 一块）
+//     { type: 'speech_end_audio' }        客户端 VAD 判定说话结束 → 刷新 ASR 最终转写
 //   服务端 → 客户端：
 //     { type: 'error', message }
-//     { type: 'interim', text }      候选人本轮定稿转写（回显"你说：…"）
-//     { type: 'turn_eval', ... }     本轮结构化评测（分数/反馈/解析/是否结束），供前端评测卡
-//     { type: 'ai_token', text }     AI 口播逐句（与流式 TTS 同步）
+//     { type: 'interim', text }            候选人本轮定稿转写（回显"你说：…"）
+//     { type: 'asr_partial', text }        服务端 ASR 流式中间结果（实时字幕预览，不入库）
+//     { type: 'turn_eval', ... }           本轮结构化评测（分数/反馈/解析/是否结束），供前端评测卡
+//     { type: 'ai_token', text }           AI 口播逐句（与流式 TTS 同步）
 //     { type: 'audio', data: base64, mime, ext }  TTS 音频块（流式，按句）
-//     { type: 'barge_ack' }          已收到打断，停止 AI 发言
-//     { type: 'turn_end' }           一轮对话自然结束（AI 说完，转听候选人）
-//     { type: 'pong' }               保活响应
+//     { type: 'barge_ack' }                已收到打断，停止 AI 发言
+//     { type: 'turn_end' }                 一轮对话自然结束（AI 说完，转听候选人）
+//     { type: 'pong' }                     保活响应
 //
 // 编排核心在 server/utils/interviewRealtime.ts（经 Nitro 自动导入），本文件仅做：
 // 建连鉴权、peer.context 维护 per-connection 状态、协议分发。严禁相对 import server/utils（见 server-imports 闸门）。
@@ -30,6 +34,10 @@ function peerEvent(peer: any) {
 
 function sendJson(peer: any, obj: unknown) {
   try { peer.send(JSON.stringify(obj)) } catch { /* 连接已关闭则忽略 */ }
+}
+
+function safeB64(s: any): Buffer {
+  try { return Buffer.from(String(s || ''), 'base64') } catch { return Buffer.alloc(0) }
 }
 
 export default defineWebSocketHandler({
@@ -82,16 +90,36 @@ export default defineWebSocketHandler({
       await handleSpeechFinal(conn, text, { send: (m) => sendJson(peer, m) })
       return
     }
-    // 其余类型（audio_chunk 等）后续接入，先忽略
+
+    // 能力协商：客户端声明自身 STT 能力（webspeech / server）。
+    // 若声明走服务端 ASR 但服务端无可用厂商，立即提示降级文字输入。
+    if (type === 'hello') {
+      const stt = String(msg?.stt || 'webspeech')
+      if (stt === 'server' && !getStreamAsr()) {
+        sendJson(peer, { type: 'error', message: '服务端语音识别未配置（请在 .env 设置 ASR_API_KEY 或接入 ASR 厂商）' })
+      }
+      return
+    }
+
+    // 服务端 ASR 路径（Safari / Firefox 等无 Web Speech 的浏览器）：收到 PCM 音频块 → 推入 ASR 会话。
+    if (type === 'audio_chunk') {
+      const data = safeB64(msg?.data)
+      if (!data.length) return
+      handleAudioChunk(conn, data, { send: (m) => sendJson(peer, m) })
+      return
+    }
+
+    // 客户端 VAD 判定候选人说话结束 → 刷新 ASR 最终转写 → 触发评分编排。
+    if (type === 'speech_end_audio') {
+      endAsrSession(conn)
+      return
+    }
   },
 
   close(peer) {
     const ctx = (peer.context || {}) as any
     const conn = ctx?.conn
-    if (conn) {
-      conn.state = 'CLOSED'
-      conn.ttsCancelled = true // 释放在播 TTS 迭代，避免连接泄漏
-    }
+    if (conn) closeRealtimeConn(conn)
   },
 
   error(_peer, _error) {

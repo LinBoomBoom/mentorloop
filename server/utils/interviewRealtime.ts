@@ -11,14 +11,23 @@
 
 import { answerInterview } from './interview'
 import { getTts, splitSentences } from './speech'
+import { getStreamAsr, type StreamingAsr, type AsrChunk } from './asrStream'
 
 export type RealtimeState = 'LISTENING' | 'THINKING' | 'SPEAKING' | 'CLOSED'
+
+// 单连接的服务端 ASR 会话（无 Web Speech 的浏览器走此路径）
+export interface AsrSession {
+  asr: StreamingAsr
+  done: Promise<void>   // 消费者循环：产出 interim / 最终触发评分编排
+}
 
 export interface RealtimeConn {
   userId: string
   sessionId: string
   state: RealtimeState
   ttsCancelled: boolean
+  asrSession?: AsrSession | null   // 当前轮的服务端 ASR 会话（惰性创建）
+  asrNotified?: boolean            // 是否已提示"服务端 ASR 未配置"（去抖，仅发一次）
 }
 
 export function createRealtimeConn(userId: string, sessionId: string): RealtimeConn {
@@ -126,4 +135,61 @@ export function handleBarge(conn: RealtimeConn): boolean {
   const wasSpeaking = conn.state === 'SPEAKING'
   conn.ttsCancelled = true
   return wasSpeaking
+}
+
+// ===== 服务端流式 ASR 路径（无 Web Speech 的浏览器）=====
+
+// 创建服务端 ASR 会话。无可用厂商返回 null → 调用方降级为文字输入。
+// 消费者循环：ASR 产出 interim 时回 asr_partial（实时字幕预览，不入库）；产出 final 时复用
+// handleSpeechFinal 触发「评分 + 结构化评测卡 + 句级流式口播」，与 speech_final(text) 路径完全对齐。
+export function createAsrSession(conn: RealtimeConn, cb: RealtimeCallbacks): AsrSession | null {
+  const factory = getStreamAsr()
+  if (!factory) return null
+  const asr = factory.create()
+  const done = (async () => {
+    try {
+      for await (const r of asr) {
+        if (r.isFinal) {
+          // 复用权威评分编排（落库/评分/口播全盘复用），仅入口从「文本」换成「ASR 定稿」
+          await handleSpeechFinal(conn, r.text, cb)
+        } else {
+          cb.send({ type: 'asr_partial', text: r.text })
+        }
+      }
+    } catch {
+      /* ASR 流异常不阻断连接，前端按文字兜底 */
+    }
+  })()
+  return { asr, done }
+}
+
+// 处理一块音频：首次到达时惰性创建 ASR 会话；厂商不可用则回 error 一次后丢弃后续块。
+export function handleAudioChunk(conn: RealtimeConn, data: Buffer, cb: RealtimeCallbacks): void {
+  if (!conn.asrSession) {
+    const s = createAsrSession(conn, cb)
+    if (!s) {
+      if (!conn.asrNotified) {
+        conn.asrNotified = true
+        cb.send({ type: 'error', message: '服务端语音识别未配置（请在 .env 设置 ASR_API_KEY 或接入 ASR 厂商）' })
+      }
+      return
+    }
+    conn.asrSession = s
+  }
+  conn.asrSession.asr.push(data)
+}
+
+// 标记本轮语音结束：刷新 ASR 最终转写（→ 触发评分编排），并清空会话引用。
+export function endAsrSession(conn: RealtimeConn): void {
+  if (conn.asrSession) {
+    try { conn.asrSession.asr.end() } catch { /* ignore */ }
+    conn.asrSession = null
+  }
+}
+
+// 连接关闭：结束在途 ASR 会话并取消在播 TTS 迭代，避免连接泄漏。
+export function closeRealtimeConn(conn: RealtimeConn): void {
+  endAsrSession(conn)
+  conn.state = 'CLOSED'
+  conn.ttsCancelled = true
 }
