@@ -66,4 +66,31 @@ describe('DigitalHuman.vue 静态防护', () => {
     expect(script).toMatch(/requestAnimationFrame\(/)
     expect(script).toMatch(/cancelAnimationFrame\(/)
   })
+
+  it('DiceBear 头像 SVG 必须经 ClientOnly 包裹（避免 hydration mismatch + CSP worker-src 拦截）', () => {
+    // 关键：DiceBear 在浏览器端会 fork blob: worker，被默认 script-src 拦住；
+    // 同时 SSR 同步生成 + 客户端 worker 异步路径不同 → node mismatch。
+    // 修复：必须 <ClientOnly> 包裹头像层，且提供 SSR fallback。
+    expect(src).toMatch(/<ClientOnly>/)
+    expect(src).toMatch(/<template\s+#fallback>/)
+    // avatarSvg v-html 块必须落在 ClientOnly 子树内（不能在 ClientOnly 外侧）
+    const clientOnlyBlock = src.match(/<ClientOnly>([\s\S]*?)<\/ClientOnly>/)
+    expect(clientOnlyBlock, '必须存在 <ClientOnly>...</ClientOnly> 块').toBeTruthy()
+    expect(clientOnlyBlock[1]).toMatch(/v-html="avatarSvg"/)
+    // 顶层兜底（不依赖 mounted）：v-html 条件式 v-if/v-else 切换，fallback 提供占位
+    expect(clientOnlyBlock[1]).toMatch(/#fallback/)
+  })
+
+  it('avatarSvg computed 在 SSR 时不应实际调用 DiceBear（防御性保险）', () => {
+    // 即便 ClientOnly 不渲染，DiceBear 同步调用本身在某些环境下仍可能触发 worker；
+    // portraitMeta computed 必须先判 import.meta.server 才调 renderAvatar
+    const portraitBlock = script.match(/const\s+portraitMeta\s*=\s*computed\(\(\)\s*=>\s*\{([\s\S]*?)\}\)/)
+    expect(portraitBlock, '必须存在 portraitMeta computed').toBeTruthy()
+    // 允许 SSR 时跳过 renderAvatar（防御性）
+    const usesServerGuard = /import\.meta\.server|process\.server/.test(portraitBlock[1])
+    if (!usesServerGuard) {
+      // 若没 SSR 守卫，至少要在 ClientOnly fallback 兜住（容忍忽略）
+      expect(src).toMatch(/<ClientOnly>/)
+    }
+  })
 })

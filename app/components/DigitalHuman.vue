@@ -4,6 +4,11 @@
   - 头像透明背景，外层用 CSS 画圆角矩形 + 品牌色光晕 + 装饰点
   - 在嘴部中心点叠一个"嘴型光斑"，mouthOpen 驱动亮度和大小
   - speaking 时整体微微浮动 + 角标呼吸点
+
+  SSR 注意事项：DiceBear 在浏览器端会 fork Web Worker（blob: URL）做异步渲染优化，
+  即便最终回退到同步路径，Worker 创建仍会被当前 CSP 的 script-src 兜底规则拦截，
+  且 SSR/CSR 节点结构不同 → hydration mismatch。
+  修复：DiceBear 头像层用 <ClientOnly> 包裹，SSR 输出等尺寸占位，客户端 mount 后再渲染头像。
 -->
 <template>
   <div
@@ -35,11 +40,28 @@
           :style="{ background: speaking ? palette.accent : palette.dotDim, opacity: 0.7 }" />
       </div>
 
-      <!-- DiceBear 二次元头像（透明背景，外层 CSS 控底色） -->
-      <div
-        class="absolute inset-0 flex items-center justify-center"
-        v-html="avatarSvg"
-      />
+      <!-- DiceBear 二次元头像（透明背景，外层 CSS 控底色）。
+           SSR 输出等尺寸占位（hydration 友好），客户端 mount 后再插入头像 SVG。
+           这样 SSR/CSR 节点结构完全一致，从根本上避免 hydration mismatch。 -->
+      <ClientOnly>
+        <div
+          v-if="avatarSvg"
+          class="absolute inset-0 flex items-center justify-center"
+          v-html="avatarSvg"
+        />
+        <div
+          v-else
+          class="absolute inset-0 flex items-center justify-center animate-pulse"
+          aria-hidden="true"
+        >
+          <span class="text-xs text-brand-coral/60">人像加载中…</span>
+        </div>
+        <template #fallback>
+          <div class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+            <span class="block w-12 h-12 rounded-full bg-white/40" />
+          </div>
+        </template>
+      </ClientOnly>
 
       <!-- 嘴型光斑（mouthOpen 控制亮度和大小） -->
       <div
