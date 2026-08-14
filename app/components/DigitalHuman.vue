@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
 import {
   renderAvatar,
   VOICE_PORTRAITS,
@@ -134,7 +134,6 @@ const palette = computed(() => {
 })
 
 // 呼吸缩放：缓慢正弦，speaking 时幅度更大
-import { ref, onBeforeUnmount, onMounted } from 'vue'
 const breathScale = ref(1)
 let breathT = 0
 let breathRaf = 0
@@ -157,13 +156,15 @@ const mouthGlowStyle = computed(() => {
   const topPct = a.y * 100
   // 视觉尺寸（像素）按 size 缩放
   const baseSize = sizePx.value * 0.18
-  const sizePx = baseSize * (1 + o * 1.8)
+  // 注意：变量名不能叫 sizePx——会与外层 computed 同名造成 TDZ，
+  // 在 const 声明前的 sizePx.value 访问会抛 ReferenceError，整页渲染中断。
+  const glowSize = baseSize * (1 + o * 1.8)
   const opacity = 0.15 + o * 0.55
   return {
-    left: `calc(${leftPct}% - ${sizePx / 2}px)`,
-    top: `calc(${topPct}% - ${sizePx / 2}px)`,
-    width: `${sizePx}px`,
-    height: `${sizePx}px`,
+    left: `calc(${leftPct}% - ${glowSize / 2}px)`,
+    top: `calc(${topPct}% - ${glowSize / 2}px)`,
+    width: `${glowSize}px`,
+    height: `${glowSize}px`,
     borderRadius: '50%',
     background: `radial-gradient(circle, ${palette.value.accent}cc 0%, ${palette.value.accent}55 35%, transparent 75%)`,
     opacity: String(opacity),
