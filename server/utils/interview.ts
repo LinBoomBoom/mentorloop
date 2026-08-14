@@ -168,7 +168,9 @@ export async function startInterview(userId: string, opts: { track?: string; lev
   const track = opts.track || 'frontend'
   const level = opts.level || 'mid'
   const goal = opts.goal || ''
-  const mode = (opts.mode === 'voice' || opts.mode === 'video') ? opts.mode : 'text'
+  // 模式：text（默认回合制）/ voice / video / realtime（P3 实时流式 WebSocket）。
+  // realtime 作为独立第四种 mode，便于数据分析与灰度，不与 voice 合并。
+  const mode = (opts.mode === 'voice' || opts.mode === 'video' || opts.mode === 'realtime') ? opts.mode : 'text'
   const consentAt = opts.consentAt || null
   const question = await generateFirstQuestion(track, level, goal)
   const id = uid('iv_')

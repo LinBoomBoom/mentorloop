@@ -3,22 +3,22 @@
 //
 // 消息协议（JSON）：
 //   客户端 → 服务端：
-//     { type: 'speech_start' }                         候选人有声（前端 VAD 触发，用于打断）
-//     { type: 'speech_final', text }                  一轮语音转写定稿（浏览器 Web Speech 或 Safari 录音回退）
-//     { type: 'audio_chunk', data: base64, mime }     Safari/Firefox 走服务端 ASR 时的音频块（后续接入）
-//     { type: 'barge_in' }                            候选人插话，要求立即打断 AI 发言
-//     { type: 'ping' }                                保活
+//     { type: 'speech_start' }      候选人有声（前端 VAD 触发，用于打断）
+//     { type: 'speech_final', text } 一轮语音转写定稿（浏览器 Web Speech 或 Safari 录音回退）
+//     { type: 'barge_in' }           候选人插话，要求立即打断 AI 发言
+//     { type: 'ping' }               保活
 //   服务端 → 客户端：
 //     { type: 'error', message }
-//     { type: 'interim', text }                      实时转写中间结果（回显"你说：…"）
-//     { type: 'ai_token', text }                     AI 回答逐 token（流式 LLM）
-//     { type: 'audio', data: base64, mime }          TTS 音频块（流式，按句）
-//     { type: 'barge_ack' }                          已收到打断，停止 AI 发言
-//     { type: 'turn_end' }                           一轮对话结束（自然轮转或打断后）
-//     { type: 'pong' }                               保活响应
+//     { type: 'interim', text }      候选人本轮定稿转写（回显"你说：…"）
+//     { type: 'turn_eval', ... }     本轮结构化评测（分数/反馈/解析/是否结束），供前端评测卡
+//     { type: 'ai_token', text }     AI 口播逐句（与流式 TTS 同步）
+//     { type: 'audio', data: base64, mime, ext }  TTS 音频块（流式，按句）
+//     { type: 'barge_ack' }          已收到打断，停止 AI 发言
+//     { type: 'turn_end' }           一轮对话自然结束（AI 说完，转听候选人）
+//     { type: 'pong' }               保活响应
 //
-// 本文件为「骨架 + 消息协议 + mock echo」，真实编排（STT→LLM→TTS、barge-in 中止）
-// 在下一步（ws 编排核心）接入。此处仅做鉴权、解析协议、并用 mock 回环验证通道。
+// 编排核心在 server/utils/interviewRealtime.ts（经 Nitro 自动导入），本文件仅做：
+// 建连鉴权、peer.context 维护 per-connection 状态、协议分发。严禁相对 import server/utils（见 server-imports 闸门）。
 
 import { defineWebSocketHandler } from 'h3'
 
@@ -42,12 +42,15 @@ export default defineWebSocketHandler({
     }
     const url = new URL(peer.request.url)
     const sessionId = url.searchParams.get('sessionId') || ''
-    return { context: { authed: true, userId: user.id, sessionId } }
+    const conn = createRealtimeConn(user.id, sessionId)
+    return { context: { authed: true, conn } }
   },
 
-  message(peer, message) {
+  async message(peer, message) {
     const ctx = (peer.context || {}) as any
     if (!ctx.authed) return
+    const conn = ctx.conn
+    if (!conn) return
     let msg: any
     try {
       msg = message.json()
@@ -55,29 +58,28 @@ export default defineWebSocketHandler({
       return
     }
     const type = msg?.type
+
     if (type === 'ping') {
       sendJson(peer, { type: 'pong' })
       return
     }
-    if (type === 'speech_start') {
-      // 候选人开始说话：真实编排里此处触发打断 AI 发言（barge-in）
+
+    // 候选人开口 / 插话：立即取消在播 TTS，回 barge_ack（AI 停播，转听候选人）
+    if (type === 'speech_start' || type === 'barge_in') {
+      const wasSpeaking = handleBarge(conn)
       sendJson(peer, { type: 'barge_ack' })
+      void wasSpeaking
       return
     }
+
     if (type === 'speech_final') {
       const text = String(msg?.text || '').trim()
       if (!text) return
-      // mock 回环：回显 interim + 一段 mock AI 回答（逐 token）+ 结束标记
+      // 回显候选人定稿转写（前端展示"你说：…"）
       sendJson(peer, { type: 'interim', text })
-      const reply = `（mock）我已收到你的回答：「${text}」。这是实时流式回环验证。`
-      for (const t of reply.split(/(?<=[\uff0c\uff0e\uff01\uff1f])/)) {
-        sendJson(peer, { type: 'ai_token', text: t })
-      }
-      sendJson(peer, { type: 'turn_end' })
-      return
-    }
-    if (type === 'barge_in') {
-      sendJson(peer, { type: 'barge_ack' })
+      // 异步编排：评测 + 流式口播 + 音频；并发的 barge 消息会置 conn.ttsCancelled 中断在播音频。
+      // 不 await 阻塞后续消息处理——crossws 会在事件循环空闲时调度 barge，从而实时打断。
+      await handleSpeechFinal(conn, text, { send: (m) => sendJson(peer, m) })
       return
     }
     // 其余类型（audio_chunk 等）后续接入，先忽略
@@ -85,7 +87,11 @@ export default defineWebSocketHandler({
 
   close(peer) {
     const ctx = (peer.context || {}) as any
-    void ctx
+    const conn = ctx?.conn
+    if (conn) {
+      conn.state = 'CLOSED'
+      conn.ttsCancelled = true // 释放在播 TTS 迭代，避免连接泄漏
+    }
   },
 
   error(_peer, _error) {
