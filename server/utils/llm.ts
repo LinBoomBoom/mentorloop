@@ -13,6 +13,8 @@ export interface ChatOptions {
 export interface LlmClient {
   model: string
   chat(messages: ChatMessage[], opts?: ChatOptions): Promise<string>
+  // 流式：逐 token 产出；signal 用于实时模式打断（barge-in）
+  chatStream(messages: ChatMessage[], opts?: ChatOptions, signal?: AbortSignal): AsyncIterable<string>
 }
 
 /* ---------------- Deepseek（OpenAI 兼容 /v1/chat/completions） ---------------- */
@@ -62,6 +64,82 @@ class DeepseekClient implements LlmClient {
       console.log(`[LLM][cache] model=${this.model} hit=${hit} miss=${miss} hitRatio=${ratio}%`)
     }
     return data?.choices?.[0]?.message?.content?.trim() || ''
+  }
+
+  // 流式对话：SSE 逐 delta 产出，支持 signal 中断（供实时模式打断 barge-in）。
+  async *chatStream(messages: ChatMessage[], opts: ChatOptions = {}, signal?: AbortSignal): AsyncIterable<string> {
+    const apiKey = process.env.DEEPSEEK_API_KEY
+    if (!apiKey) throw new Error('LLM 未配置：缺少 DEEPSEEK_API_KEY')
+    const timeoutMs = opts.timeoutMs ?? 30000
+    const controller = new AbortController()
+    if (signal) {
+      if (signal.aborted) controller.abort()
+      else signal.addEventListener('abort', () => controller.abort(), { once: true })
+    }
+    let res: any
+    try {
+      res = await (globalThis as any).fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: this.model,
+          messages,
+          temperature: opts.temperature ?? 0.7,
+          max_tokens: opts.maxTokens ?? 1500,
+          stream: true,
+          stream_options: { include_usage: true }
+        }),
+        signal: controller.signal
+      })
+    } catch (e: any) {
+      if (e?.name === 'TimeoutError') throw new Error(`LLM 请求超时（${timeoutMs}ms），请稍后重试`)
+      throw e
+    }
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '')
+      throw new Error(`LLM 请求失败 ${res.status}: ${txt.slice(0, 200)}`)
+    }
+    if (!res.body || typeof res.body.getReader !== 'function') {
+      throw new Error('LLM 流式响应缺少可读 body')
+    }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value as Uint8Array, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+        for (const raw of lines) {
+          const line = raw.trim()
+          if (!line.startsWith('data:')) continue
+          const data = line.slice(5).trim()
+          if (data === '[DONE]') return
+          try {
+            const json = JSON.parse(data)
+            const usage = json?.usage
+            if (usage) {
+              const hit = Number(usage.prompt_cache_hit_tokens) || 0
+              const miss = Number(usage.prompt_cache_miss_tokens) || 0
+              cacheStats.calls++
+              cacheStats.hit += hit
+              cacheStats.miss += miss
+              const total = hit + miss
+              const ratio = total ? ((hit / total) * 100).toFixed(1) : '0.0'
+              console.log(`[LLM][cache] model=${this.model} hit=${hit} miss=${miss} hitRatio=${ratio}%`)
+            }
+            const delta = json?.choices?.[0]?.delta?.content
+            if (delta) yield delta
+          } catch {
+            // 跳过不完整 / 非 JSON 的 SSE 行
+          }
+        }
+      }
+    } finally {
+      try { await reader.cancel() } catch { /* ignore */ }
+    }
   }
 }
 
