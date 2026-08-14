@@ -43,6 +43,7 @@
           <button type="button" class="chip-tab" :class="mode === 'voice' && 'chip-tab-active'" @click="mode = 'voice'">语音</button>
           <button type="button" class="chip-tab" :class="mode === 'realtime' && 'chip-tab-active'" @click="mode = 'realtime'">实时</button>
           <button type="button" class="chip-tab" :class="mode === 'video' && 'chip-tab-active'" @click="mode = 'video'">视频</button>
+          <button type="button" class="chip-tab" :class="mode === 'avatar' && 'chip-tab-active'" @click="mode = 'avatar'">数字人</button>
         </div>
       </label>
       <label v-if="mode !== 'text'" class="block mb-5">
@@ -80,18 +81,52 @@
           <span v-if="mode === 'video'" class="chip bg-brand-coral/10 text-brand-coral !text-xs">视频面试</span>
           <span v-else-if="mode === 'voice'" class="chip bg-brand-coral/10 text-brand-coral !text-xs">语音面试</span>
           <span v-else-if="mode === 'realtime'" class="chip bg-brand-coral/10 text-brand-coral !text-xs">实时面试</span>
+          <span v-else-if="mode === 'avatar'" class="chip bg-brand-coral/10 text-brand-coral !text-xs">数字人面试</span>
         </div>
         <a-tag class="!bg-ink/5 !text-sub" :bordered="false">第 {{ Math.min(turns + (phase==='done'?0:1), maxTurns) }} / {{ maxTurns }} 题</a-tag>
       </div>
 
-      <!-- 面试官面板（语音/视频模式）：律动头像 + 实时字幕；视频模式附摄像头预览 -->
+      <!-- 面试官面板（语音/视频/实时/数字人模式）：P4 数字人 SVG + 实时字幕；视频模式附摄像头预览 -->
       <div v-if="mode !== 'text' && phase === 'running'" class="px-5 py-4 border-b border-line bg-gradient-to-b from-brand-coral/[.06] to-transparent">
-        <div class="flex gap-4">
+        <!-- 数字人模式：大尺寸居中 -->
+        <div v-if="mode === 'avatar'" class="flex flex-col items-center gap-3 py-2">
+          <DigitalHuman
+            :mouth-open="lip.mouthOpen"
+            :gender="currentVoicePreset().gender"
+            :portrait-id="selectedVoice"
+            :speaking="interviewerSpeaking"
+            size="lg"
+          />
+          <div class="text-center">
+            <div class="font-semibold">AI 面试官 · {{ currentVoicePreset().label }}</div>
+            <div class="text-muted text-xs">{{ interviewerSpeaking ? '正在讲话…' : '聆听中' }}</div>
+          </div>
+          <div v-if="speakingText" class="mt-1 w-full rounded-2xl bg-ink/5 px-4 py-3 text-sm whitespace-pre-line">
+            {{ speakingText }}
+            <div class="mt-2 flex items-center justify-center gap-3">
+              <button type="button" class="inline-flex items-center gap-1 text-xs text-brand-coral hover:underline disabled:opacity-50" :disabled="interviewerSpeaking" @click="replayTts">
+                <Icon name="volume" :size="14" /> 重播语音
+              </button>
+              <select :value="selectedVoice" class="text-xs border border-line rounded-lg px-1.5 py-1 bg-white" @change="applyVoice(($event.target as any).value)">
+                <option v-for="v in piperVoices" :key="v.id" :value="v.id">{{ v.label }}</option>
+              </select>
+            </div>
+          </div>
+          <div v-if="ttsError && !speakingText" class="mt-1 text-xs text-muted">{{ ttsError }}</div>
+        </div>
+
+        <!-- 语音/视频/实时模式：数字人（左）+ 字幕；视频模式再附候选人摄像头（右，面对面） -->
+        <div v-else class="flex gap-4">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-3">
-              <div class="w-14 h-14 rounded-2xl bg-brand-coral/15 flex items-center justify-center overflow-hidden transition-transform" :style="interviewerStyle">
-                <Icon name="sparkles" :size="22" class="text-brand-coral" />
-              </div>
+              <DigitalHuman
+                :mouth-open="lip.mouthOpen"
+                :gender="currentVoicePreset().gender"
+                :portrait-id="selectedVoice"
+                :speaking="interviewerSpeaking"
+                :size="mode === 'video' ? 'md' : 'md'"
+                class="shrink-0"
+              />
               <div class="text-sm">
                 <div class="font-semibold">AI 面试官</div>
                 <div class="text-muted">{{ interviewerSpeaking ? '正在讲话…' : '聆听中' }}</div>
@@ -168,19 +203,18 @@
         </div>
         <a-textarea v-else v-model:value="userAnswer" :rows="3" class="flex-1 resize-none" :placeholder="mode === 'text' ? '输入你的回答…（不会也可直接写「不会」继续）' : '可语音作答，或在此输入…'" :disabled="evaluating || listening || recording" @keydown.ctrl.enter="submitAnswer" />
         <!-- 语音/视频模式：录音按钮 -->
-        <a-button v-if="mode === 'voice' || mode === 'video'" type="primary" class="shrink-0" :class="(listening || recording) && 'btn-soft'" :disabled="evaluating || !consent || (listening || recording ? false : false)" :loading="listening || recording" @click="onVoiceButton">
+        <a-button v-if="mode === 'voice' || mode === 'video' || mode === 'avatar'" type="primary" class="shrink-0" :class="(listening || recording) && 'btn-soft'" :disabled="evaluating || !consent || (listening || recording ? false : false)" :loading="listening || recording" @click="onVoiceButton">
           <template #icon><Icon :name="(listening || recording) ? 'pause' : 'mic'" :size="16" /></template>
           {{ voiceBtnLabel }}
         </a-button>
         <!-- 实时模式：打断按钮（AI 说话时出现） -->
         <a-button v-if="mode === 'realtime' && rtState === 'speaking'" type="primary" class="shrink-0" @click="manualBarge">打断</a-button>
-        <span v-if="(mode === 'voice' || mode === 'video') && (listening || recording)" class="text-xs text-brand-coral shrink-0 animate-pulse">{{ listening ? '正在聆听…' : '录音中…' }}</span>
+        <span v-if="(mode === 'voice' || mode === 'video' || mode === 'avatar') && (listening || recording)" class="text-xs text-brand-coral shrink-0 animate-pulse">{{ listening ? '正在聆听…' : '录音中…' }}</span>
         <span v-else-if="mode === 'realtime' && rtState === 'speaking'" class="text-xs text-brand-coral shrink-0 animate-pulse">面试官正在说话…（开口即可打断）</span>
         <span v-else-if="mode === 'realtime'" class="text-xs text-sub shrink-0">{{ wsConnected ? '聆听中…' : '连接中…' }}</span>
         <a-button type="primary" class="shrink-0" :disabled="evaluating || !userAnswer.trim()" :loading="evaluating" @click="submitAnswer">
           提交
         </a-button>
-        <audio ref="audioEl" class="hidden" />
       </div>
       <p v-if="mode === 'realtime' && !canBrowserStt" class="px-5 pb-1 text-xs text-muted">当前浏览器不支持本地语音识别（如 Safari / Firefox），实时模式将改用「服务端流式语音识别」（需服务端已配置 ASR；未配置时请手动输入或改用 Chrome / Edge）。</p>
       <p v-else-if="mode !== 'text' && !canBrowserStt" class="px-5 pb-1 text-xs text-muted">当前浏览器不支持本地语音识别（如 Safari / Firefox），将改用「录音上传识别」（需服务端已配置 ASR；若不可用请手动输入或改用 Chrome / Edge）。</p>
@@ -190,6 +224,7 @@
 </template>
 
 <script setup lang="ts">
+import { useLipSync } from '~/composables/useLipSync'
 const { request } = useApi()
 const { guard } = useLoginGate()
 const maxTurns = 6
@@ -221,7 +256,7 @@ const summary = ref('')
 const scrollEl = ref<any>(null)
 
 // 模式：文字 / 语音 / 实时 / 视频
-const mode = ref<'text' | 'voice' | 'realtime' | 'video'>('text')
+const mode = ref<'text' | 'voice' | 'realtime' | 'video' | 'avatar'>('text')
 const consent = ref(false)
 // 未勾选同意时聚焦提示，引导用户先勾选再点麦克风（避免"无声无弹窗"困惑）
 const consentHint = ref(false)
@@ -263,13 +298,22 @@ function loadLocalVoices() {
 }
 // 浏览器本地合成回退时，挑选一个中文嗓音（优先本机已装神经嗓音 → 有感情；否则任意中文/首个）。
 // 注意：回退路径不提供"多音色"，只是系统默认嗓音；真正的多音色由服务端 Piper 提供。
+// 关键：排除粤语(zh-HK)/台语(zh-TW)，优先普通话(zh-CN / zh-Hans)，避免"语音变粤语"的回退误选。
 function pickBrowserVoice(): any {
   const vs = localVoices.value
   if (!vs.length) return null
-  const zh = vs.filter((v: any) => /zh|cmn/i.test(v.lang) || /Chinese/i.test(v.name))
+  const isMandarin = (v: any) => {
+    const lang = (v.lang || '').toLowerCase()
+    const name = (v.name || '').toLowerCase()
+    if (/zh-hk|zh-tw|yue|cantonese|hong kong|taiwan/i.test(lang + ' ' + name)) return false
+    return /zh|cmn/i.test(lang) || /chinese/i.test(name)
+  }
+  const zh = vs.filter(isMandarin)
   const pool = zh.length ? zh : vs
-  // 优先有感情的神经嗓音（名字含 Online / Natural / Neural）
-  const neural = pool.find((v: any) => /online|natural|neural/i.test(v.name))
+  // 优先普通话(zh-CN / zh-Hans)，再优先有感情的神经嗓音（名字含 Online / Natural / Neural）
+  const cn = pool.find((v: any) => /zh-cn|zh-hans/i.test(v.lang || ''))
+  if (cn) return cn
+  const neural = pool.find((v: any) => /online|natural|neural/i.test(v.name || ''))
   return neural || pool[0]
 }
 // 等待浏览器嗓音列表就绪（部分浏览器异步加载，避免"刷新后选 A 播 B"的时序错配）
@@ -312,7 +356,6 @@ function previewVoice() {
 const canBrowserStt = typeof window !== 'undefined' && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
 const listening = ref(false)
 const recording = ref(false)
-const audioEl = ref<any>(null)
 let recognition: any = null
 let mediaRecorder: any = null
 let recChunks: any[] = []
@@ -350,14 +393,15 @@ let lastAsrChunkTs = 0
 const VAD_THRESHOLD = 0.04                                   // 音量 RMS 阈值（0~1）
 const VAD_SILENCE_MS = 700                                  // 静音超过该值视为说话结束
 
-// 面试官动画：随 TTS 振幅律动 + 实时字幕
+// 面试官动画：随 TTS 振幅律动（P4 真实 RMS 口型）+ 实时字幕
 const interviewerSpeaking = ref(false)
 const speakingText = ref('')
-const mouthOpen = ref(0)
 const ttsError = ref('')          // TTS 播放失败时的可见提示
 let audioCtx: any = null
 let rafId = 0
 let mouthTimer: any = null
+// P4 口型引擎：把真实音频输出的 RMS 映射为嘴部开合度，驱动 DigitalHuman.vue
+const lip = useLipSync(() => audioCtx)
 // 预解锁音频上下文（必须在用户手势同步调用中，否则 Autoplay Policy 拦截）
 function unlockAudio() {
   try {
@@ -387,10 +431,6 @@ function bindUnlockOnce() {
   document.addEventListener('click', once, true)
   document.addEventListener('touchend', once, true)
 }
-const interviewerStyle = computed(() => ({
-  transform: `scale(${1 + mouthOpen.value * 0.14})`,
-  transition: 'transform 60ms linear'
-}))
 const voiceBtnLabel = computed(() => {
   if (listening.value || recording.value) return '停止'
   return canBrowserStt ? '点击说话' : '录音作答'
@@ -402,6 +442,8 @@ const voiceBtnLabel = computed(() => {
 function speakFallback(text: string) {
   const synth = (window as any).speechSynthesis
   if (!synth) return
+  // 回退前停掉真实音频口型引擎（若存在），避免 AnalyserNode RAF 与下方定时器动画争夺 mouthOpen
+  lip.stop()
   // 等本机嗓音列表就绪，避免"刷新后选 A 却播默认 B"的时序错配
   whenVoicesReady(() => {
     try {
@@ -424,20 +466,23 @@ function speakFallback(text: string) {
   })
 }
 
-// 用定时器模拟面试官口型律动（浏览器 TTS 无法取振幅，做平滑呼吸式动画）
+// 用定时器模拟面试官口型律动（仅浏览器 SpeechSynthesis 回退路径用：本地合成无法取振幅，做平滑呼吸式动画）。
+// 真实音频路径（服务端 Piper/云端 HTTP TTS、实时模式队列）由 lipSync 的 AnalyserNode 真驱动，不调用本函数。
 function startMouthAnim() {
   stopMouthAnim()
   let t = 0
-  mouthTimer = setInterval(() => { t += 0.4; mouthOpen.value = 0.35 + 0.25 * Math.sin(t) }, 140)
+  mouthTimer = setInterval(() => { t += 0.4; lip.mouthOpen.value = 0.35 + 0.25 * Math.sin(t) }, 140)
 }
 function stopMouthAnim() {
   if (mouthTimer) { clearInterval(mouthTimer); mouthTimer = null }
-  mouthOpen.value = 0
+  lip.mouthOpen.value = 0
 }
 
-// 朗读面试官文本（语音/视频模式触发）
+// 朗读面试官文本（语音/视频/数字人模式触发）
 // 优先服务端音频：本地 Piper 离线神经网络（默认）或云端 Edge TTS（多音色、有感情）；
 // 失败/503/非音频 自动回退浏览器 SpeechSynthesis（不依赖服务端网络）。
+// P4：服务端音频经 Web Audio AudioBufferSourceNode → AnalyserNode → destination 播放，
+//     由 lipSync 取真实 RMS 驱动数字人嘴型（彻底替换旧版 Math.sin 假口型）。
 // 关键：播完仅停止律动，保留字幕（speakingText 不置空），避免语音模式下"播完看不到题目"。
 async function playTts(text: string) {
   if (!text || mode.value === 'text') return
@@ -460,32 +505,28 @@ async function playTts(text: string) {
     // 依据服务端 x-tts-provider 标注后端（piper=本地神经网络 / edge=云端）
     ttsBackend.value = ((res.headers.get('x-tts-provider') || '').toLowerCase() === 'piper') ? 'piper' : 'cloud'
     const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    if (!audioEl.value) { speakFallback(text); return }
-    audioEl.value.src = url
-    try { audioCtx?.resume?.() } catch {}
-    // 口型律动用定时器动画（不接管 <audio> 音频流，避免 createMediaElementSource 导致元素哑火）
-    startMouthAnim()
-    // 播完仅停止律动，保留字幕（speakingText 不置空）；URL 在播完后再回收，避免提前切断
-    audioEl.value.onended = () => { interviewerSpeaking.value = false; stopMouthAnim(); ttsError.value = ''; try { URL.revokeObjectURL(url) } catch {} }
-    const promise = audioEl.value.play()
-    if (promise) {
-      promise.then(() => { startMouthAnim() }).catch(() => {
-        // Autoplay 拦截 或 解码失败 → 回退浏览器合成
-        interviewerSpeaking.value = false
-        stopMouthAnim()
-        speakFallback(text)
-      })
+    const ac = audioCtx
+    if (!ac) { speakFallback(text); return }
+    try { ac.resume?.() } catch {}
+    // 解码为 AudioBuffer → 经 AnalyserNode 播放（真实 RMS 驱动嘴型）
+    let buf: AudioBuffer
+    try {
+      const arr = await blob.arrayBuffer()
+      buf = await ac.decodeAudioData(arr)
+    } catch {
+      speakFallback(text)
+      return
     }
+    const src = lip.playBuffer(buf)
+    if (!src) { speakFallback(text); return }
+    // 播完仅停止律动，保留字幕（speakingText 不置空）
+    src.onended = () => { interviewerSpeaking.value = false; lip.stop(); ttsError.value = '' }
   } catch {
     // fetch 抛错（断网等）→ 回退浏览器合成
     ttsBackend.value = 'local'
     speakFallback(text)
   }
 }
-
-// 注意：刻意不把 <audio> 元素接入 Web Audio（createMediaElementSource），
-// 该操作会独占元素音频流并常导致元素本身哑火。口型律动统一用定时器动画（startMouthAnim）。
 
 // 通道 A：浏览器端 SpeechRecognition（Chrome / Edge）
 function startBrowserStt() {
@@ -648,42 +689,13 @@ function stopCamera() {
   camStream = null
 }
 
-// 重播：用户手动点击后重新播放（此时有用户手势，Autoplay 不拦截）
-// 优先复用当前音频元素从头播（音频源已加载，秒级响应）；无源时重新拉取。
+// 重播：用户手动点击后重新播放（此时有用户手势，Autoplay 不拦截）。
+// 直接复用 playTts 重新拉取并播放（服务端有音频缓存，秒级响应）；本地合成回退路径同理。
 async function replayTts() {
   unlockAudio()
   ttsError.value = ''
   if (!speakingText.value) return
-  const text = speakingText.value
-  // 本会话已确认云端不可用 → 直接本地重播，跳过必败的服务端请求
-  if (ttsBackend.value === 'local') { speakFallback(text); return }
-  // 若已有音频源且来自服务端，直接从头播（最可靠的重播方式）
-  if (audioEl.value && audioEl.value.src && (ttsBackend.value === 'cloud' || ttsBackend.value === 'piper')) {
-    try {
-      audioEl.value.currentTime = 0
-      interviewerSpeaking.value = true; startMouthAnim()
-      audioEl.value.play().then(() => { startMouthAnim() }).catch(() => { interviewerSpeaking.value = false; stopMouthAnim(); speakFallback(text) })
-      return
-    } catch { /* 落到重新拉取 */ }
-  }
-  const preset = currentVoicePreset()
-  const params = new URLSearchParams({ text: encodeURIComponent(text), cache: '1', t: String(Date.now()), voice: preset.id })
-  try {
-    const res = await fetch(`/api/vip/interview/tts?${params.toString()}`)
-    const ctype = res.headers.get('Content-Type') || ''
-    if (!res.ok || !ctype.startsWith('audio/')) { ttsBackend.value = 'local'; speakFallback(text); return }
-    // 依据服务端 x-tts-provider 标注后端（piper=本地神经网络 / edge=云端）
-    ttsBackend.value = ((res.headers.get('x-tts-provider') || '').toLowerCase() === 'piper') ? 'piper' : 'cloud'
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    if (!audioEl.value) { speakFallback(text); return }
-    audioEl.value.src = url
-    try { audioCtx?.resume?.() } catch {}
-    startMouthAnim()
-    audioEl.value.onended = () => { interviewerSpeaking.value = false; stopMouthAnim(); ttsError.value = ''; try { URL.revokeObjectURL(url) } catch {} }
-    interviewerSpeaking.value = true
-    audioEl.value.play().then(() => { startMouthAnim() }).catch(() => { interviewerSpeaking.value = false; stopMouthAnim(); speakFallback(text) })
-  } catch { ttsBackend.value = 'local'; speakFallback(text) }
+  playTts(speakingText.value)
 }
 
 useSeoMeta({
@@ -913,30 +925,29 @@ function pumpQueue() {
   const buf = audioQueue.shift()
   isPlayingQueue = true
   interviewerSpeaking.value = true
-  startMouthAnim()
   const src = audioCtx!.createBufferSource()
   src.buffer = buf
-  src.connect(audioCtx!.destination)
+  // P4：音源经 AnalyserNode 播放，真实 RMS 驱动数字人嘴型
+  lip.connectSource(src)
   playingSource = src
   src.onended = () => {
     isPlayingQueue = false
     playingSource = null
     if (audioQueue.length) pumpQueue()
-    else { interviewerSpeaking.value = false; stopMouthAnim() }
+    else { interviewerSpeaking.value = false; lip.stop() }
   }
   try { src.start() } catch { isPlayingQueue = false; playingSource = null; if (audioQueue.length) pumpQueue() }
 }
 
-// 停止一切播放（HTTP TTS 元素 / ws 音频队列 / 浏览器本地合成）
+// 停止一切播放（ws 音频队列 / 浏览器本地合成 / 真实口型引擎）
 function stopAllPlayback() {
-  try { audioEl.value?.pause() } catch {}
   isPlayingQueue = false
   try { playingSource?.stop() } catch {}
   playingSource = null
   audioQueue.length = 0
   try { (window as any).speechSynthesis?.cancel?.() } catch {}
   interviewerSpeaking.value = false
-  stopMouthAnim()
+  lip.stop()
 }
 
 // VAD：Web Audio 音量阈值检测候选人说话起点（用于打断 AI），静音超时触发本轮定稿发送
