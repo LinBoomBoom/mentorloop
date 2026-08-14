@@ -28,6 +28,7 @@ export interface RealtimeConn {
   ttsCancelled: boolean
   asrSession?: AsrSession | null   // 当前轮的服务端 ASR 会话（惰性创建）
   asrNotified?: boolean            // 是否已提示"服务端 ASR 未配置"（去抖，仅发一次）
+  sttSampleRate?: number           // 浏览器采集率（hello 上报），用于服务端重采样到厂商速率
 }
 
 export function createRealtimeConn(userId: string, sessionId: string): RealtimeConn {
@@ -145,7 +146,7 @@ export function handleBarge(conn: RealtimeConn): boolean {
 export function createAsrSession(conn: RealtimeConn, cb: RealtimeCallbacks): AsrSession | null {
   const factory = getStreamAsr()
   if (!factory) return null
-  const asr = factory.create()
+  const asr = factory.create(conn.sttSampleRate)
   const done = (async () => {
     try {
       for await (const r of asr) {
@@ -170,7 +171,7 @@ export function handleAudioChunk(conn: RealtimeConn, data: Buffer, cb: RealtimeC
     if (!s) {
       if (!conn.asrNotified) {
         conn.asrNotified = true
-        cb.send({ type: 'error', message: '服务端语音识别未配置（请在 .env 设置 ASR_API_KEY 或接入 ASR 厂商）' })
+        cb.send({ type: 'error', message: '服务端语音识别未配置（请在 .env 设置 ASR_PROVIDER=aliyun 并配置 ALIYUN_* 凭证，或设 ASR_PROVIDER=mock 跑通链路）' })
       }
       return
     }

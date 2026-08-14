@@ -104,8 +104,29 @@ export interface LlmClient {
 ### 5.4 `server/utils/asrStream.ts`（Step 7 新增，已实现；与回合制 `asr.ts` 相互独立）
 - 抽象 `StreamingAsr` 接口：`push(chunk)` + `end()` + 异步迭代产出 `{text,isFinal}`。
 - `MockStreamAsr`：确定性（push 产 interim 进度、end 产 final）。开发/测试环境默认启用（无需 ASR 密钥即可本地验证整条实时链路）。
-- `getStreamAsr()` 工厂：`ASR_API_KEY` 已配但真实流式厂商未实现 → 返回 null（客户端干净降级文字输入；注意该 Key 当前仅驱动回合制 Whisper 上传识别，与流式实时识别是两回事）；生产环境无厂商 → null（不发假稿）；`ASR_MOCK=1` 强制 mock；其余（开发/测试）→ MockStreamAsr。
-- 真实流式厂商（阿里云/讯飞/Whisper 流式，WebSocket 实时识别）留作后续接入：实现 `StreamingAsr` 并接入 `getStreamAsr()` 即可，前端 `audio_chunk` 通道无需改动。
+- `getStreamAsr()` 工厂：`ASR_PROVIDER=aliyun` 且 `ALIYUN_*` 凭证齐全 → 构造真实阿里云 NLS 流式识别；`ASR_PROVIDER=aliyun` 但缺凭证 / 生产环境无 provider → 返回 null（客户端干净降级文字输入，绝不发假稿）；`ASR_PROVIDER=mock` 或 `ASR_MOCK=1` → MockStreamAsr（无需密钥验证整链）；其余（开发/测试）→ MockStreamAsr。
+  - 注意：`ASR_API_KEY` 仅驱动回合制 Whisper 上传识别（`asr.ts`），与流式实时识别是两回事，不再用于此处降级判断。
+
+### 5.5 `server/utils/asrStreamVendor.ts`（Step 8 新增：真实流式 ASR 厂商 · 阿里云 NLS）
+- 实现 `StreamingAsr` 接口的 `AliyunStreamAsr`：`open()` 经 REST `CreateToken`（AccessKeyId/Secret，RAM 需 `AliyunNLSFullAccess`）取 `X-NLS-Token` → 连 `wss://nls-gateway-<region>.aliyuncs.com/ws/v1?appkey=...` → 发 `StartTranscription`；`push(chunk)` 把浏览器 PCM 重采样到 16k 后二进制帧直发；`[Symbol.asyncIterator]` 解析 `TranscriptionResultChanged`(interim)/`SentenceEnd`(final)/`TranscriptionClosed`(结束)；`end()` 发 `StopTranscription`。
+- 重采样：`server/utils/asrResample.ts` 的 `LinearResampler`（纯 TS 线性插值，无原生依赖），把设备率（44100/48000）降到厂商要求的 16000；分块喂入、跨块连续、余数保活。
+- token 模块级缓存（TTL 约 2h），同进程多连接复用。
+- 用 Node 22 全局 `WebSocket`（undici，构造函数支持 `headers` 选项），**无新增依赖**。
+- 可测试性：`WebSocketCtor` / `fetchImpl` 可注入，单测不连真端点（验证帧序列 start→binary×N→stop、interim/final 解析、token 缓存、失败安全结束）。
+- 客户端采样率经 `hello` 消息的 `sampleRate` 字段上报（`audioCtx.sampleRate`），服务端据此重采样。
+
+#### 环境变量契约（`.env`）
+```
+# 真实流式 ASR（阿里云 NLS）
+ASR_PROVIDER=aliyun
+ALIYUN_ASR_APP_KEY=<你的 AppKey>
+ALIYUN_ACCESS_KEY_ID=<RAM AccessKeyId>
+ALIYUN_ACCESS_KEY_SECRET=<RAM AccessKeySecret>
+ALIYUN_ASR_REGION=cn-shanghai   # 可选，默认 cn-shanghai
+# 演示/测试（无需密钥）：
+# ASR_PROVIDER=mock     或   ASR_MOCK=1
+```
+- 真实流式厂商（讯飞/Whisper 流式）如需扩展：实现 `StreamingAsr` 并接入 `getStreamAsr()` 即可，前端 `audio_chunk` 通道无需改动。
 - **与 `asr.ts` 区分**：`asr.ts`（`getAsr()`/`AsrProvider`）是「整段音频 → 文本」（OpenAI 兼容 Whisper），供 voice/video 模式的 `/api/vip/interview/asr` 上传识别；本文件是「流式 PCM → interim/final」，供实时 ws 的 `audio_chunk` 路径。两者不共用。
 
 ---
@@ -200,5 +221,5 @@ export interface LlmClient {
 
 ### 12.3 已知限制 / 后续
 - **回声**：AI 声音经扬声器、麦克风收，依赖浏览器 AEC；若串音严重，可在 `getUserMedia` 已开 `echoCancellation/noiseSuppression/autoGainControl`（已配置）。更稳方案为播放 AI 音频时临时静麦（兜底开关，未实现）。
-- **Safari / Firefox**：Web Speech 不可用 → 走服务端流式 ASR（`audio_chunk` 通道，Step 7 已接入）：麦克风 PCM 经 ws 发服务端，转写后复用同一评分/口播编排。服务端 ASR 未配置（`getAsr()` 返回 null）时干净降级为「文字输入发送」（走同一 ws 通道）。真实 ASR 厂商（阿里云/讯飞/Whisper）接入后即获真·流式转写 + interim 字幕。
+- **Safari / Firefox**：Web Speech 不可用 → 走服务端流式 ASR（`audio_chunk` 通道，Step 7 已接入，Step 8 已接真实阿里云 NLS 厂商）：麦克风 PCM 经 ws 发服务端，重采样后流式转写，复用同一评分/口播编排，获真·中文实时转写 + interim 字幕。服务端 ASR 未配置（`ASR_PROVIDER` 缺失/缺凭证）时干净降级为「文字输入发送」（走同一 ws 通道，绝不发假稿）。
 - **打断精度**：VAD 轻量阈值 + 去抖；误触/漏触可在 `VAD_THRESHOLD`/`VAD_SILENCE_MS` 调参。

@@ -825,7 +825,8 @@ function connectRealtime() {
   ws.onopen = () => {
     wsConnected.value = true
     // 能力协商：声明本端 STT 能力（有 Web Speech 走浏览器本地转写，否则走服务端 ASR）
-    sendWs({ type: 'hello', stt: canBrowserStt ? 'webspeech' : 'server' })
+    if (!audioCtx) unlockAudio()
+    sendWs({ type: 'hello', stt: canBrowserStt ? 'webspeech' : 'server', sampleRate: audioCtx?.sampleRate || 44100 })
     startVad()
     if (canBrowserStt) startRealtimeStt()
     else startRealtimeServerAsr()

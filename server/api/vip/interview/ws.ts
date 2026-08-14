@@ -7,7 +7,7 @@
 //     { type: 'speech_final', text }      一轮语音转写定稿（浏览器 Web Speech 路径）
 //     { type: 'barge_in' }                候选人插话，要求立即打断 AI 发言
 //     { type: 'ping' }                     保活
-//     { type: 'hello', stt }              能力协商：stt='webspeech'|'server'（server=无 Web Speech，走服务端 ASR）
+//     { type: 'hello', stt, sampleRate }  能力协商：stt='webspeech'|'server'（server=无 Web Speech，走服务端 ASR）；sampleRate=audioCtx.sampleRate（默认 44100）
 //     { type: 'audio_chunk', data }       音频块（base64 的 16-bit PCM，服务端 ASR 路径，~100ms 一块）
 //     { type: 'speech_end_audio' }        客户端 VAD 判定说话结束 → 刷新 ASR 最终转写
 //   服务端 → 客户端：
@@ -91,12 +91,16 @@ export default defineWebSocketHandler({
       return
     }
 
-    // 能力协商：客户端声明自身 STT 能力（webspeech / server）。
+    // 能力协商：客户端声明自身 STT 能力（webspeech / server）+ 采集率 sampleRate。
     // 若声明走服务端 ASR 但服务端无可用厂商，立即提示降级文字输入。
     if (type === 'hello') {
       const stt = String(msg?.stt || 'webspeech')
-      if (stt === 'server' && !getStreamAsr()) {
-        sendJson(peer, { type: 'error', message: '服务端语音识别未配置（请在 .env 设置 ASR_API_KEY 或接入 ASR 厂商）' })
+      const sampleRate = Number(msg?.sampleRate) || 44100
+      if (stt === 'server') {
+        conn.sttSampleRate = sampleRate
+        if (!getStreamAsr()) {
+          sendJson(peer, { type: 'error', message: '服务端语音识别未配置（请在 .env 设置 ASR_PROVIDER=aliyun 并配置 ALIYUN_* 凭证，或设 ASR_PROVIDER=mock 跑通链路）' })
+        }
       }
       return
     }

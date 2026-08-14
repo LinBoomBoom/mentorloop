@@ -77,12 +77,31 @@ describe('getStreamAsr 工厂', () => {
     }
   })
 
-  it('配置了 ASR_API_KEY 但流式厂商未实现 → null（干净降级）', () => {
+  it('ASR_PROVIDER=aliyun 但缺 ALIYUN_* 凭证 → null（干净降级，不发假稿）', () => {
+    const saved = process.env.NODE_ENV
+    const savedKey = process.env.ASR_API_KEY
+    process.env.NODE_ENV = 'test'
+    delete process.env.ASR_API_KEY
+    process.env.ASR_PROVIDER = 'aliyun'
+    try {
+      expect(getStreamAsr()).toBeNull()
+    } finally {
+      delete process.env.ASR_PROVIDER
+      if (savedKey === undefined) delete process.env.ASR_API_KEY
+      else process.env.ASR_API_KEY = savedKey
+      process.env.NODE_ENV = saved
+    }
+  })
+
+  it('仅配置 ASR_API_KEY（无流式 provider）→ 开发默认返回 MockStreamAsr（不降级为 null）', () => {
     const saved = process.env.NODE_ENV
     process.env.NODE_ENV = 'test'
     process.env.ASR_API_KEY = 'fake'
+    delete process.env.ASR_PROVIDER
     try {
-      expect(getStreamAsr()).toBeNull()
+      const f = getStreamAsr()
+      expect(f).not.toBeNull()
+      expect(f.create()).toBeInstanceOf(MockStreamAsr)
     } finally {
       delete process.env.ASR_API_KEY
       process.env.NODE_ENV = saved

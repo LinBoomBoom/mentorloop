@@ -13,6 +13,10 @@
 //   返回 null → 客户端干净降级为文字输入（绝不发假稿）。
 //
 // 本文件属 server/utils，可被同目录模块相对 import；路由 ws.ts 经 Nitro 自动导入调用 getStreamAsr。
+// 注意：asrStreamVendor.ts 仅「类型层面」引用本文件的 StreamingAsr/AsrChunk（import type，运行期擦除），
+// 故本文件再「值层面」引用其 createAliyunStreamAsr 不会形成运行期循环依赖。
+
+import { createAliyunStreamAsr } from './asrStreamVendor'
 
 export interface AsrChunk {
   text: string
@@ -81,23 +85,27 @@ export class MockStreamAsr implements StreamingAsr {
 }
 
 export interface StreamAsrFactory {
-  create(): StreamingAsr
+  // inSampleRate：浏览器采集率（audioCtx.sampleRate，由客户端在 hello 上报），用于服务端重采样到厂商要求速率。
+  create(inSampleRate?: number): StreamingAsr
 }
 
 // 工厂：返回可用的流式 ASR 工厂，或 null（不可用 → 客户端降级文字输入）。
-// - 配置了 ASR_API_KEY 但本期未实现具体流式厂商 → 返回 null（真实厂商留作后续接入；注意该 Key 当前仅驱动
-//   回合制 Whisper 上传识别，与流式实时识别是两回事）。
-// - 其余环境：开发/测试用确定性 MockStreamAsr（便于本地验证）；生产环境无真实流式厂商则返回 null。
+// - ASR_PROVIDER=aliyun：真实阿里云 NLS 流式识别（需 ALIYUN_ASR_APP_KEY/ACCESS_KEY_ID/SECRET）；
+//   凭证缺失 → null（干净降级，绝不发假稿）。
+// - ASR_PROVIDER=mock 或 ASR_MOCK=1：确定性 MockStreamAsr（便于本地/CI 验证整链，无需密钥）。
+// - 生产环境无 ASR_PROVIDER → null（降级文字输入）。
+// - 开发/测试默认且无 ASR_PROVIDER：MockStreamAsr（本地无需密钥即可跑通实时链路）。
+// 注：ASR_API_KEY 仅驱动回合制 Whisper 上传识别（asr.ts），与流式实时识别是两回事，不再用于此处降级判断。
 export function getStreamAsr(): StreamAsrFactory | null {
-  // 真实流式 ASR 厂商（Azure Speech / 讯飞 / Whisper 流式）待接入；配置 Key 即视为「已启用但实现未就绪」
-  if (process.env.ASR_API_KEY) {
-    // TODO(real-vendor): 接入 WS 流式 ASR，构造 VendorStreamAsr 返回。当前返回 null 让客户端干净降级。
-    return null
+  const p = (process.env.ASR_PROVIDER || '').toLowerCase()
+  if (p === 'aliyun') {
+    if (!process.env.ALIYUN_ASR_APP_KEY || !process.env.ALIYUN_ACCESS_KEY_ID || !process.env.ALIYUN_ACCESS_KEY_SECRET) {
+      return null
+    }
+    return { create: (inSampleRate?: number) => createAliyunStreamAsr(inSampleRate || 44100) }
   }
-  // 显式强制 mock（测试/演示）：ASR_MOCK=1
+  if (p === 'mock') return { create: () => new MockStreamAsr() }
   if (process.env.ASR_MOCK === '1') return { create: () => new MockStreamAsr() }
-  // 生产环境无真实流式厂商 → 不可用（不发假稿），客户端降级文字输入
   if (process.env.NODE_ENV === 'production') return null
-  // 开发/测试默认：确定性 MockStreamAsr，本地无需密钥即可跑通实时链路
   return { create: () => new MockStreamAsr() }
 }
