@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process'
 
 export interface SttResult { text: string; confidence?: number }
 export interface TtsResult { audio: Buffer; mime: string; ext: string }
+export interface TtsChunk { chunk: Buffer; mime: string; ext: string }
 export interface TtsOptions { voice?: string; rate?: string; cache?: boolean }
 
 export interface SttProvider {
@@ -17,6 +18,19 @@ export interface SttProvider {
 export interface TtsProvider {
   name: string
   synthesize(text: string, opts?: TtsOptions): Promise<TtsResult>
+  // 流式：按句分段产出音频块（Edge/Piper 整段合成后切句；真 WebSocket 流式需换库，留作后续）
+  synthesizeStream(text: string, opts?: TtsOptions): AsyncIterable<TtsChunk>
+}
+
+// 按句切分（保留句末标点），供流式 TTS 逐句产出；无句末标点则整体作为一句。
+export function splitSentences(text: string): string[] {
+  const parts = text.split(/(?<=[。！？!?；;\n])/)
+  const out: string[] = []
+  for (const p of parts) {
+    const t = p.trim()
+    if (t) out.push(t)
+  }
+  return out.length ? out : [text]
 }
 
 // 默认嗓音：Piper 中文嗓音 id（前端选择项之一；亦作服务端缓存 key 一部分）。
@@ -31,6 +45,12 @@ class MockTtsProvider implements TtsProvider {
   name = 'mock'
   async synthesize(_text: string, _opts?: TtsOptions): Promise<TtsResult> {
     return { audio: makeBeepWav(500), mime: 'audio/wav', ext: 'wav' }
+  }
+  async *synthesizeStream(text: string, opts?: TtsOptions): AsyncIterable<TtsChunk> {
+    for (const s of splitSentences(text)) {
+      const r = await this.synthesize(s, opts)
+      yield { chunk: r.audio, mime: r.mime, ext: r.ext }
+    }
   }
 }
 
@@ -55,6 +75,12 @@ class EdgeTtsProvider implements TtsProvider {
       return { audio: Buffer.isBuffer(audio) ? audio : Buffer.from(audio), mime: 'audio/mpeg', ext: 'mp3' }
     } catch (e: any) {
       throw new Error('TTS 合成失败（需联网微软端点）：' + (e?.message || e))
+    }
+  }
+  async *synthesizeStream(text: string, opts?: TtsOptions): AsyncIterable<TtsChunk> {
+    for (const s of splitSentences(text)) {
+      const r = await this.synthesize(s, opts)
+      yield { chunk: r.audio, mime: r.mime, ext: r.ext }
     }
   }
 }
@@ -116,6 +142,12 @@ class PiperTtsProvider implements TtsProvider {
     const buf = riff > 0 ? raw.subarray(riff) : raw
     if (!buf || buf.length < 44 || buf.indexOf(Buffer.from('RIFF')) !== 0) throw new Error('Piper 合成返回空音频')
     return { audio: buf, mime: 'audio/wav', ext: 'wav' }
+  }
+  async *synthesizeStream(text: string, opts?: TtsOptions): AsyncIterable<TtsChunk> {
+    for (const s of splitSentences(text)) {
+      const r = await this.synthesize(s, opts)
+      yield { chunk: r.audio, mime: r.mime, ext: r.ext }
+    }
   }
 }
 
