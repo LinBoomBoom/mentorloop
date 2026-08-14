@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div>
     <div class="mb-1">
       <h1 class="page-title">AI 个性化学习路径</h1>
     </div>

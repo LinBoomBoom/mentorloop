@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div>
     <h1 class="page-title mb-1">设备与媒体能力自检</h1>
     <p class="text-muted text-sm mb-5">
       用于确认麦克风、摄像头、语音识别与语音朗读在你的浏览器/设备上是否可用。

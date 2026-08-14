@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div>
     <div class="mb-6">
       <h1 class="page-title mb-4">站内搜索</h1>
       <SearchBar placeholder="搜索：事件循环、RAG、DORA、面试题…" />

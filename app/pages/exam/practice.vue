@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div>
     <div class="mb-5">
       <h1 class="page-title flex items-center gap-2">
         <Icon name="target" :size="24" style="color:var(--brand)" /> 按技能自测

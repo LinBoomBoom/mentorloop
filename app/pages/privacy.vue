@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div>
     <h1 class="page-title mb-1">隐私政策</h1>
     <p class="text-sm text-muted mb-6">最后更新日期：2026 年 8 月 3 日　生效日期：2026 年 8 月 3 日</p>
 

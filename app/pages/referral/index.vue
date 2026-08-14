@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-4xl mx-auto">
+  <div>
     <h1 class="page-title mb-1">内推资源库</h1>
     <p class="text-muted text-sm mb-5">VIP 专属内推岗位，覆盖四大方向。看中即申请，导师/HR 会与你联系对接。</p>
 
