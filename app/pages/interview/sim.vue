@@ -41,6 +41,7 @@
         <div class="flex gap-2">
           <button type="button" class="chip-tab" :class="mode === 'text' && 'chip-tab-active'" @click="mode = 'text'">文字</button>
           <button type="button" class="chip-tab" :class="mode === 'voice' && 'chip-tab-active'" @click="mode = 'voice'">语音</button>
+          <button type="button" class="chip-tab" :class="mode === 'realtime' && 'chip-tab-active'" @click="mode = 'realtime'">实时</button>
           <button type="button" class="chip-tab" :class="mode === 'video' && 'chip-tab-active'" @click="mode = 'video'">视频</button>
         </div>
       </label>
@@ -78,6 +79,7 @@
           {{ trackName(track) }} · {{ levelName(level) }}
           <span v-if="mode === 'video'" class="chip bg-brand-coral/10 text-brand-coral !text-xs">视频面试</span>
           <span v-else-if="mode === 'voice'" class="chip bg-brand-coral/10 text-brand-coral !text-xs">语音面试</span>
+          <span v-else-if="mode === 'realtime'" class="chip bg-brand-coral/10 text-brand-coral !text-xs">实时面试</span>
         </div>
         <a-tag class="!bg-ink/5 !text-sub" :bordered="false">第 {{ Math.min(turns + (phase==='done'?0:1), maxTurns) }} / {{ maxTurns }} 题</a-tag>
       </div>
@@ -159,12 +161,22 @@
 
       <!-- 作答输入 -->
       <div v-else class="p-5 border-t border-line flex gap-3 items-end">
-        <a-textarea v-model:value="userAnswer" :rows="3" class="flex-1 resize-none" :placeholder="mode === 'text' ? '输入你的回答…（不会也可直接写「不会」继续）' : '可语音作答，或在此输入…'" :disabled="evaluating || listening || recording" @keydown.ctrl.enter="submitAnswer" />
-        <a-button v-if="mode !== 'text'" type="primary" class="shrink-0" :class="(listening || recording) && 'btn-soft'" :disabled="evaluating || !consent || (listening || recording ? false : false)" :loading="listening || recording" @click="onVoiceButton">
+        <!-- 实时模式：候选人字幕预览 + 文字兜底输入 -->
+        <div v-if="mode === 'realtime'" class="flex-1 min-w-0">
+          <p v-if="interimText" class="text-xs text-sub mb-1 truncate">你说（识别中）：{{ interimText }}</p>
+          <a-textarea v-model:value="userAnswer" :rows="2" class="w-full resize-none" placeholder="可输入文字发送（或等待语音识别）" :disabled="evaluating" @keydown.ctrl.enter="submitAnswer" />
+        </div>
+        <a-textarea v-else v-model:value="userAnswer" :rows="3" class="flex-1 resize-none" :placeholder="mode === 'text' ? '输入你的回答…（不会也可直接写「不会」继续）' : '可语音作答，或在此输入…'" :disabled="evaluating || listening || recording" @keydown.ctrl.enter="submitAnswer" />
+        <!-- 语音/视频模式：录音按钮 -->
+        <a-button v-if="mode === 'voice' || mode === 'video'" type="primary" class="shrink-0" :class="(listening || recording) && 'btn-soft'" :disabled="evaluating || !consent || (listening || recording ? false : false)" :loading="listening || recording" @click="onVoiceButton">
           <template #icon><Icon :name="(listening || recording) ? 'pause' : 'mic'" :size="16" /></template>
           {{ voiceBtnLabel }}
         </a-button>
-        <span v-if="(listening || recording) && mode !== 'text'" class="text-xs text-brand-coral shrink-0 animate-pulse">{{ listening ? '正在聆听…' : '录音中…' }}</span>
+        <!-- 实时模式：打断按钮（AI 说话时出现） -->
+        <a-button v-if="mode === 'realtime' && rtState === 'speaking'" type="primary" class="shrink-0" @click="manualBarge">打断</a-button>
+        <span v-if="(mode === 'voice' || mode === 'video') && (listening || recording)" class="text-xs text-brand-coral shrink-0 animate-pulse">{{ listening ? '正在聆听…' : '录音中…' }}</span>
+        <span v-else-if="mode === 'realtime' && rtState === 'speaking'" class="text-xs text-brand-coral shrink-0 animate-pulse">面试官正在说话…（开口即可打断）</span>
+        <span v-else-if="mode === 'realtime'" class="text-xs text-sub shrink-0">{{ wsConnected ? '聆听中…' : '连接中…' }}</span>
         <a-button type="primary" class="shrink-0" :disabled="evaluating || !userAnswer.trim()" :loading="evaluating" @click="submitAnswer">
           提交
         </a-button>
@@ -207,8 +219,8 @@ const finalScore = ref<number | null>(null)
 const summary = ref('')
 const scrollEl = ref<any>(null)
 
-// 模式：文字 / 语音 / 视频
-const mode = ref<'text' | 'voice' | 'video'>('text')
+// 模式：文字 / 语音 / 实时 / 视频
+const mode = ref<'text' | 'voice' | 'realtime' | 'video'>('text')
 const consent = ref(false)
 // 未勾选同意时聚焦提示，引导用户先勾选再点麦克风（避免"无声无弹窗"困惑）
 const consentHint = ref(false)
@@ -305,6 +317,33 @@ let mediaRecorder: any = null
 let recChunks: any[] = []
 let camStream: MediaStream | null = null
 const camVideoEl = ref<any>(null)
+
+// ---- 实时模式（mode='realtime'）状态 ----
+const rtActive = ref(false)                                   // ws 会话是否激活
+const rtState = ref<'listening' | 'thinking' | 'speaking'>('listening')
+const wsConnected = ref(false)
+const rtSttAvailable = ref(true)                              // 浏览器是否支持 Web Speech
+const interimText = ref('')                                  // 候选人流式转写预览
+const candidateSpeaking = ref(false)                         // VAD 判定：候选人正在说话
+const bargeSent = ref(false)                                  // 本轮已发过 speech_start（去抖）
+let rtWs: any = null
+let micStream: MediaStream | null = null
+let analyser: any = null
+let vadRaf = 0
+let recognitionRt: any = null
+let audioQueue: any[] = []                                    // ws 音频块解码后的播放队列
+let isPlayingQueue = false
+let playingSource: any = null
+let lastAiToken = ''
+let finalTurn = ''                                           // Web Speech 累积的候选人定稿
+let rtProc = 0                                               // 已处理的 SpeechRecognition 结果数（避免重复发送）
+let lastVoiceTs = 0
+let lastFinalTs = 0
+let rtLastScore: number | null = null
+let rtSummary = ''
+let rtIsLast = false
+const VAD_THRESHOLD = 0.04                                   // 音量 RMS 阈值（0~1）
+const VAD_SILENCE_MS = 700                                  // 静音超过该值视为说话结束
 
 // 面试官动画：随 TTS 振幅律动 + 实时字幕
 const interviewerSpeaking = ref(false)
@@ -692,6 +731,7 @@ onUnmounted(() => {
   try { (window as any).speechSynthesis?.cancel?.() } catch {}
   try { audioCtx?.close() } catch {}
   stopCamera()
+  closeRealtime()
 })
 
 async function start() {
@@ -713,12 +753,30 @@ async function start() {
       await ensureCamera()
     }
     // TTS 必须在用户手势同步上下文中触发，否则 Autoplay Policy 会静默拦截
-    playTts(r.question)
+    if (mode.value === 'realtime') {
+      // 清空转写缓冲，避免开场白被回声误识别为候选人回答
+      finalTurn = ''
+      interimText.value = ''
+      playTts(r.question)
+      connectRealtime()
+    } else {
+      playTts(r.question)
+    }
   } catch (e: any) { err.value = e.message } finally { starting.value = false }
 }
 
 async function submitAnswer() {
-  if (!userAnswer.value.trim() || evaluating.value) return
+  if (!userAnswer.value.trim()) return
+  // 实时模式：文字输入走 ws 通道（与语音同一通道），不调用回合制 answer 接口
+  if (mode.value === 'realtime') {
+    const t = userAnswer.value.trim()
+    userAnswer.value = ''
+    sendWs({ type: 'speech_final', text: t })
+    speakingText.value = ''
+    rtState.value = 'thinking'
+    return
+  }
+  if (evaluating.value) return
   const ans = userAnswer.value.trim()
   messages.value.push({ role: 'user', content: ans })
   evaluating.value = true; err.value = ''
@@ -740,7 +798,244 @@ async function submitAnswer() {
 }
 
 function reset() {
+  closeRealtime()
   stopCamera()
   phase.value = 'setup'; sessionId.value = ''; messages.value = []; currentQuestion.value = ''; userAnswer.value = ''; turns.value = 0; finalScore.value = null; summary.value = ''
+}
+
+// ===== 实时模式（WebSocket 串联 STT→评测→TTS）=====
+function sendWs(obj: any) {
+  try { if (rtWs && rtWs.readyState === 1) rtWs.send(JSON.stringify(obj)) } catch { /* 连接异常忽略 */ }
+}
+
+function connectRealtime() {
+  if (rtActive.value || !sessionId.value) return
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  const url = `${proto}://${location.host}/api/vip/interview/ws?sessionId=${encodeURIComponent(sessionId.value)}`
+  let ws: any
+  try { ws = new WebSocket(url) } catch { err.value = '无法建立实时连接'; return }
+  rtWs = ws
+  rtActive.value = true
+  rtState.value = 'listening'
+  ws.onopen = () => { wsConnected.value = true; startVad(); startRealtimeStt() }
+  ws.onmessage = (ev: any) => {
+    let m: any
+    try { m = JSON.parse(ev.data) } catch { return }
+    onWsMessage(m)
+  }
+  ws.onclose = () => { wsConnected.value = false; stopVad(); stopRealtimeStt() }
+  ws.onerror = () => { wsConnected.value = false }
+}
+
+function onWsMessage(m: any) {
+  switch (m.type) {
+    case 'pong': break
+    case 'error': err.value = m.message; break
+    case 'interim':
+      messages.value.push({ role: 'user', content: m.text })
+      scrollToEnd()
+      break
+    case 'turn_eval':
+      messages.value.push({ role: 'assistant', content: '', score: m.evaluation?.score, feedback: m.evaluation?.feedback, analysis: m.analysis || '' })
+      rtLastScore = m.score ?? null
+      rtSummary = m.summary || ''
+      rtIsLast = !!m.isLast
+      turns.value = turns.value + 1
+      scrollToEnd()
+      break
+    case 'ai_token':
+      // AI 开始口播：清空回声残留的候选人转写，逐句拼接字幕
+      rtState.value = 'speaking'
+      finalTurn = ''
+      interimText.value = ''
+      lastAiToken = m.text
+      speakingText.value = speakingText.value ? speakingText.value + m.text : m.text
+      break
+    case 'audio':
+      rtState.value = 'speaking'
+      finalTurn = ''
+      playAudioChunk(m.data, m.mime)
+      break
+    case 'barge_ack':
+      stopAllPlayback()
+      rtState.value = 'listening'
+      speakingText.value = ''
+      break
+    case 'turn_end':
+      if (rtIsLast) {
+        phase.value = 'done'
+        finalScore.value = rtLastScore
+        summary.value = rtSummary
+      } else {
+        rtState.value = 'listening'
+        speakingText.value = ''
+      }
+      break
+  }
+}
+
+// 收到 TTS 音频块（base64）→ 解码入队 → 顺序播放
+async function playAudioChunk(b64: string, mime: string) {
+  if (!audioCtx) unlockAudio()
+  const ac = audioCtx
+  if (!ac) return
+  try {
+    const bin = atob(b64)
+    const arr = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+    const buf = await ac.decodeAudioData(arr.buffer)
+    audioQueue.push(buf)
+    pumpQueue()
+  } catch {
+    // 解码失败：用浏览器本地合成兜底该句
+    if (lastAiToken) speakFallback(lastAiToken)
+  }
+}
+function pumpQueue() {
+  if (isPlayingQueue || !audioQueue.length) return
+  const buf = audioQueue.shift()
+  isPlayingQueue = true
+  interviewerSpeaking.value = true
+  startMouthAnim()
+  const src = audioCtx!.createBufferSource()
+  src.buffer = buf
+  src.connect(audioCtx!.destination)
+  playingSource = src
+  src.onended = () => {
+    isPlayingQueue = false
+    playingSource = null
+    if (audioQueue.length) pumpQueue()
+    else { interviewerSpeaking.value = false; stopMouthAnim() }
+  }
+  try { src.start() } catch { isPlayingQueue = false; playingSource = null; if (audioQueue.length) pumpQueue() }
+}
+
+// 停止一切播放（HTTP TTS 元素 / ws 音频队列 / 浏览器本地合成）
+function stopAllPlayback() {
+  try { audioEl.value?.pause() } catch {}
+  isPlayingQueue = false
+  try { playingSource?.stop() } catch {}
+  playingSource = null
+  audioQueue.length = 0
+  try { (window as any).speechSynthesis?.cancel?.() } catch {}
+  interviewerSpeaking.value = false
+  stopMouthAnim()
+}
+
+// VAD：Web Audio 音量阈值检测候选人说话起点（用于打断 AI），静音超时触发本轮定稿发送
+async function startVad() {
+  if (vadRaf) return
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+  } catch { err.value = '麦克风不可用，实时模式降级为文字输入（仍可手动发送）'; return }
+  if (!audioCtx) unlockAudio()
+  const ac = audioCtx
+  if (!ac) return
+  try {
+    const src = ac.createMediaStreamSource(micStream)
+    const an = ac.createAnalyser()
+    an.fftSize = 1024
+    src.connect(an)
+    analyser = an
+  } catch { return }
+  lastVoiceTs = 0
+  vadLoop()
+}
+function vadLoop() {
+  if (!analyser) return
+  const buf = new Uint8Array(analyser.fftSize)
+  analyser.getByteTimeDomainData(buf)
+  let sum = 0
+  for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v }
+  const rms = Math.sqrt(sum / buf.length)
+  const now = performance.now()
+  if (rms > VAD_THRESHOLD) {
+    lastVoiceTs = now
+    if (!candidateSpeaking.value) {
+      candidateSpeaking.value = true
+      // 仅当 AI 正在说话时才打断（开场白/回声不触发）
+      if (rtState.value === 'speaking' && !bargeSent.value) {
+        bargeSent.value = true
+        sendWs({ type: 'speech_start' })
+      }
+    }
+  } else if (candidateSpeaking.value && now - lastVoiceTs > VAD_SILENCE_MS) {
+    candidateSpeaking.value = false
+    bargeSent.value = false
+    flushFinalTurn()
+  }
+  // Web Speech 长时间未出定稿时的兜底（避免卡住不发）
+  if (finalTurn && !interviewerSpeaking.value && now - lastFinalTs > 2500) flushFinalTurn()
+  vadRaf = requestAnimationFrame(vadLoop)
+}
+function stopVad() {
+  if (vadRaf) { cancelAnimationFrame(vadRaf); vadRaf = 0 }
+  micStream?.getTracks().forEach((t: any) => t.stop())
+  micStream = null
+  analyser = null
+  candidateSpeaking.value = false
+  bargeSent.value = false
+}
+
+// 浏览器 Web Speech 流式转写（Chrome / Edge）：interim 实时预览，final 累积进 finalTurn
+function startRealtimeStt() {
+  const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  if (!SR) { rtSttAvailable.value = false; return }
+  rtSttAvailable.value = true
+  const rec = new SR()
+  rec.lang = 'zh-CN'
+  rec.interimResults = true
+  rec.continuous = true
+  rec.onresult = (e: any) => {
+    if (!rtActive.value) return
+    let interim = ''
+    for (let i = rtProc; i < e.results.length; i++) {
+      const r = e.results[i]
+      if (r.isFinal) { finalTurn += r[0].transcript; lastFinalTs = performance.now() }
+      else interim += r[0].transcript
+    }
+    rtProc = e.results.length
+    // AI 说话时丢弃回声转写，避免误发
+    if (!interviewerSpeaking.value) interimText.value = interim
+  }
+  rec.onerror = () => {}
+  rec.onend = () => { if (rtSttAvailable.value && rtActive.value) { try { rec.start() } catch { /* 已停止 */ } } }
+  recognitionRt = rec
+  try { rec.start() } catch { /* 启动失败忽略 */ }
+}
+function stopRealtimeStt() {
+  try { recognitionRt?.stop() } catch {}
+  recognitionRt = null
+}
+// 把累积的候选人定稿经 ws 发送（AI 说话中不下发，避免回声误发）
+function flushFinalTurn() {
+  if (interviewerSpeaking.value) return
+  if (finalTurn && finalTurn.trim()) {
+    const t = finalTurn.trim()
+    finalTurn = ''
+    sendWs({ type: 'speech_final', text: t })
+    speakingText.value = ''
+    rtState.value = 'thinking'
+  }
+}
+function manualBarge() {
+  sendWs({ type: 'barge_in' })
+  stopAllPlayback()
+  rtState.value = 'listening'
+  speakingText.value = ''
+}
+function closeRealtime() {
+  rtActive.value = false
+  try { rtWs?.close() } catch {}
+  rtWs = null
+  wsConnected.value = false
+  stopVad()
+  stopRealtimeStt()
+  audioQueue.length = 0
+  isPlayingQueue = false
+  playingSource = null
+  finalTurn = ''
+  interimText.value = ''
+  rtState.value = 'listening'
 }
 </script>
