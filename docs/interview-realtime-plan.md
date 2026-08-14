@@ -141,7 +141,7 @@ export interface LlmClient {
 3. **`ws.ts` 骨架 + 消息协议**：建连/鉴权/ping-pong/关闭。 ✅ 已完成
 4. **ws 编排核心**：新建 `server/utils/interviewRealtime.ts`（`handleSpeechFinal` 调 `answerInterview` 评测 → 拼口播 → `synthesizeStream` 按句推音频 + `ai_token` 字幕；`handleBarge` 置 `ttsCancelled` 打断）；`ws.ts` 改为经自动导入的薄封装；`startInterview` 接受 `mode='realtime'`。补 `tests/interview-realtime.test.mjs`。 ✅ 已完成
 5. **前端实时模式**：`sim.vue` 接 ws + VAD + 播放队列 + 打断 UI。（待做）
-6. **Caddyfile WS 段** + 本地端到端验收（Chrome/Edge）。（待做）
+6. **Caddyfile WS 段** + 本地端到端验收（Chrome/Edge）。 ✅ 已完成
 7. **（可选）`asr.ts` 流式厂商**：Safari 真实时转写。（待做，优先级低）
 
 每步独立 commit，可单独 review；步骤 1–3 不依赖浏览器即可单测，优先完成防回归。
@@ -171,3 +171,31 @@ export interface LlmClient {
 2. **是否同步做 Safari 服务端流式 STT（阿里云/讯飞，按量）？** 还是 Safari 在 P3 先退化为「录段发送」？建议：先退化，验证主路径后再加。
 3. **VAD 用轻量 Web Audio 阈值（零依赖、够用）还是 Silero `@ricky0123/vad-web`（更准、需下载模型）？** 建议：先用轻量阈值，后续可换。
 4. **实时模式是否作为第四种 `mode` 还是并入 `voice`？** 建议：独立 `mode='realtime'`，与现有 text/voice/video 并列，便于数据分析与灰度。
+
+---
+
+## 12. 本地端到端验收清单（Caddyfile + 浏览器）
+
+> 沙箱拦截 WebSocket 且缺真实 LLM，故 P3 仅能在**本地浏览器**实测；CI 单测只覆盖纯逻辑（见步骤 1–4、`tests/interview-realtime.test.mjs`）。
+
+### 12.1 本地直连 Nitro（无 Caddy，最快验证）
+1. `cp .env.example .env`（确保 `DEEPSEEK_API_KEY` 已填；TTS 默认 Piper 离线，或 Edge 云端）。
+2. `npm run setup:piper`（可选，启用本地神经网络嗓音；不跑则回退浏览器合成）。
+3. `npm run dev` → 打开 `http://localhost:3000/interview/sim`（须在 `localhost` 或 https，否则麦克风/WS 不可用）。
+4. 选「实时」模式 → 勾同意麦克风 → 开始面试。
+5. 预期：
+   - 开场白经 HTTP TTS 播报（复用 voice 模式逻辑）。
+   - 开口说话 → 底部「你说（识别中）：…」实时字幕；静音后自动经 ws 发 `speech_final` → 收到 `turn_eval` 评测卡 + `ai_token` 逐句字幕 + `audio` 流式播放。
+   - AI 说话中途插话 → 立即停播（`barge_ack`）→ 转听你；`手动打断` 按钮等效。
+   - 连续 6 轮后 `turn_end`（isLast）→ 综合评分页。
+6. 开发者工具 Network 看 `/api/vip/interview/ws` 为 `101 Switching Protocols`，Frames 有双向 JSON。
+
+### 12.2 生产（Caddy 反代）验证
+1. 部署后 `caddy run --config Caddyfile`（已 `read_timeout 0` 放行 WS 长连接）。
+2. 同 12.1 步骤，确认 WebSocket 经 `wss://` 不断开、无 `proxy_read_timeout` 截断。
+3. 观察 10 轮连续对话无连接泄漏（ws 关闭释放 `AbortController`/AudioContext，见 `closeRealtime` + `onUnmounted`）。
+
+### 12.3 已知限制 / 后续
+- **回声**：AI 声音经扬声器、麦克风收，依赖浏览器 AEC；若串音严重，可在 `getUserMedia` 已开 `echoCancellation/noiseSuppression/autoGainControl`（已配置）。更稳方案为播放 AI 音频时临时静麦（兜底开关，未实现）。
+- **Safari / Firefox**：Web Speech 流式不可用 → 退化为「文字输入发送」（已支持，走同一 ws 通道）。真·流式 STT（阿里云/讯飞）为可选增强（步骤 7，待做）。
+- **打断精度**：VAD 轻量阈值 + 去抖；误触/漏触可在 `VAD_THRESHOLD`/`VAD_SILENCE_MS` 调参。

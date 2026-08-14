@@ -2,6 +2,13 @@
 # 用法：caddy run --config Caddyfile
 mentorloop.example.com {
     encode gzip
-    # 静态资源与 SSR 均由 Nitro 处理，这里只做反代
-    reverse_proxy localhost:3000
+    # 静态资源与 SSR 均由 Nitro 处理，这里只做反代。
+    # WebSocket（实时面试 /api/vip/interview/ws）：
+    #   Caddy reverse_proxy 会自动透传 Upgrade/Connection 头并劫持为长连接隧道，
+    #   read_timeout=0 确保实时面试的空闲长连接不被读超时切断（默认已无超时，这里显式声明意图）。
+    reverse_proxy localhost:3000 {
+        transport http {
+            read_timeout 0
+        }
+    }
 }
