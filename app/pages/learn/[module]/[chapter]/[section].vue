@@ -27,9 +27,9 @@
             <a-card v-if="tocOpen" class="mt-2" :body-style="{ padding: '12px' }">
               <div class="space-y-0.5">
                 <NuxtLink v-for="s in (chapter?.sections || [])" :key="s.id" :to="`/learn/${route.params.module}/${chapter.id}/${s.id}`"
-                          class="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg transition min-w-0"
-                          :class="route.params.section === s.id ? 'bg-brand-coral/10 text-brand-coral font-semibold'
-                            : (isDone(progress, module.id, chapter.id, s.id) ? 'text-emerald-600' : 'text-muted')">
+                          class="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg border-l-[3px] border-transparent transition min-w-0"
+                          :class="route.params.section === s.id ? 'border-brand-coral bg-ink/5 text-ink font-medium'
+                            : (isDone(progress, module.id, chapter.id, s.id) ? 'text-emerald-700 font-medium' : 'text-sub')">
                   <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, chapter.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
                   <span class="break-words min-w-0">{{ s.title }}</span>
                 </NuxtLink>
@@ -147,9 +147,9 @@
             <div class="text-sm font-bold mb-3 flex items-center gap-1.5"><Icon name="list" :size="15" class="text-brand-coral" /> 本章目录</div>
             <div class="space-y-0.5 max-h-[72vh] overflow-auto scrollbar-thin pr-1">
               <NuxtLink v-for="s in (chapter?.sections || [])" :key="s.id" :to="`/learn/${route.params.module}/${chapter.id}/${s.id}`"
-                        class="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg transition min-w-0"
-                        :class="route.params.section === s.id ? 'bg-brand-coral/10 text-brand-coral font-semibold'
-                          : (isDone(progress, module.id, chapter.id, s.id) ? 'text-emerald-600' : 'text-muted')">
+                        class="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg border-l-[3px] border-transparent transition min-w-0"
+                        :class="route.params.section === s.id ? 'border-brand-coral bg-ink/5 text-ink font-medium'
+                          : (isDone(progress, module.id, chapter.id, s.id) ? 'text-emerald-700 font-medium' : 'text-sub')">
                 <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, chapter.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
                 <span class="break-words min-w-0">{{ s.title }}</span>
               </NuxtLink>

@@ -45,12 +45,16 @@
 
           <div class="grid sm:grid-cols-2 gap-3">
             <NuxtLink v-for="(s, si) in chapterSections(ch)" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
-                      class="flex items-center gap-3 p-3 rounded-xl border border-line transition hover:border-brand-coral/40">
+                      class="flex items-center gap-3 p-3 rounded-xl border transition"
+                      :class="isDone(progress, module.id, ch.id, s.id)
+                        ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-300'
+                        : 'bg-white border-line hover:border-emerald-200'">
               <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                    :class="isDone(progress, module.id, ch.id, s.id) ? 'bg-emerald-500 text-white' : 'bg-ink/8 text-muted'">
                 <Icon v-if="isDone(progress, module.id, ch.id, s.id)" name="check" :size="14" />
               </div>
-              <span class="text-sm font-medium truncate">{{ s.title }}</span>
+              <span class="text-sm font-medium truncate"
+                    :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-700' : 'text-sub'">{{ s.title }}</span>
             </NuxtLink>
           </div>
         </a-card>
@@ -61,12 +65,13 @@
           <a-card :body-style="{ padding: '20px' }">
             <div class="text-sm font-bold mb-3 flex items-center gap-1.5"><Icon name="book" :size="15" class="text-brand-coral" /> 本章目录</div>
             <div class="space-y-3 max-h-[72vh] overflow-auto scrollbar-thin pr-1">
-              <div v-for="(ch, ci) in (module.chapters || [])" :key="ch.id">
-                <div class="text-xs font-semibold text-sub mb-1.5 leading-snug">{{ ci + 1 }}. {{ ch.title }}</div>
+              <div v-for="(ch, ci) in (module.chapters || [])" :key="ch.id" class="px-1 -mx-1">
+                <div class="text-xs font-semibold mb-1.5 leading-snug border-l-[3px] pl-2"
+                     :class="ch.id === activeChapterId ? 'text-ink border-brand-coral' : 'text-sub border-transparent'">{{ ci + 1 }}. {{ ch.title }}</div>
                 <div class="space-y-0.5">
                   <NuxtLink v-for="s in (ch.sections || [])" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
-                            class="flex items-center gap-2 text-xs py-1 px-2 rounded-lg hover:bg-brand-coral/5 transition min-w-0"
-                            :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-600 font-medium' : 'text-muted'">
+                            class="flex items-center gap-2 text-xs py-1 px-2 rounded-lg hover:bg-ink/5 transition min-w-0"
+                            :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-700 font-medium' : 'text-sub'">
                     <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, ch.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
                     <span class="break-words min-w-0">{{ s.title }}</span>
                   </NuxtLink>
@@ -122,4 +127,17 @@ const chapterSections = (ch: any) => {
   if (!kw) return ch.sections || []
   return (ch.sections || []).filter((s: any) => s.title.toLowerCase().includes(kw) || ch.title.toLowerCase().includes(kw))
 }
+
+// 当前学习章节：第一个未完成章节（侧栏粉色高亮）。未登录无进度时不高亮。
+const activeChapterId = computed(() => {
+  const mod = module.value
+  if (!mod || !auth.isLoggedIn) return null
+  for (const ch of (mod.chapters || [])) {
+    const secs = ch.sections || []
+    if (secs.length === 0) continue
+    const done = secs.filter((s: any) => isDone(progress.value, mod.id, ch.id, s.id)).length
+    if (done < secs.length) return ch.id
+  }
+  return null
+})
 </script>
