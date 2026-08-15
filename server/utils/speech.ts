@@ -78,9 +78,9 @@ export const EDGE_VOICE_CATALOG: VoiceMeta[] = [
 // DashScope 无干净的"列举音色" REST API，规范来源是官方帮助页静态清单 → 烘焙为内置目录。
 // 前端人格 id → 真实 CosyVoice 嗓音（清晰、可区分男女声，不怕墙）。
 const ALIYUN_VOICE_MAP: Record<string, string> = {
-  huayan:  'longxiaochun', // 龙小淳 · 女 · 温柔知性
-  xiao_ya: 'longxiaoxia',  // 龙小夏 · 女 · 活泼清亮
-  chaowen: 'longtian_v3'  // 龙天 · 男 · 磁性理智（v3-flash 中 longwan 为女声 longwan_v3，男声改用龙天）
+  huayan:  'longxiaochun_v3', // 龙小淳 · 女 · 温柔知性（cosyvoice-v3-flash 仅接受 _v3 后缀音色）
+  xiao_ya: 'longxiaoxia_v3',  // 龙小夏 · 女 · 活泼清亮
+  chaowen: 'longtian_v3'      // 龙天 · 男 · 磁性理智（v3-flash 中 longwan 为女声 longwan_v3，男声改用龙天）
 }
 // 前端下拉用的阿里云音色：3 个推荐人格（persona id）+ 全部预置 CosyVoice 嗓音（真实 param）。
 // 切 ALIYUN_TTS_MODEL 时音色集随模型变化；本目录按默认模型 cosyvoice-v3-flash 整理。
@@ -88,10 +88,9 @@ export const ALIYUN_VOICE_CATALOG: VoiceMeta[] = [
   { id: 'huayan',  label: '华嫣', gender: 'female', trait: '龙小淳·温柔知性', recommended: true },
   { id: 'xiao_ya', label: '小雅', gender: 'female', trait: '龙小夏·活泼清亮', recommended: true },
   { id: 'chaowen', label: '朝文', gender: 'male',   trait: '龙天·磁性理智', recommended: true },
-  { id: 'longanyang',    label: '龙安洋', gender: 'male',   trait: '阳光男孩' },
   { id: 'longanhuan_v3', label: '龙安欢', gender: 'female', trait: '欢脱元气' },
-  { id: 'longxiaochun',  label: '龙小淳', gender: 'female', trait: '温柔知性' },
-  { id: 'longxiaoxia',   label: '龙小夏', gender: 'female', trait: '活泼清亮' },
+  { id: 'longxiaochun_v3', label: '龙小淳', gender: 'female', trait: '温柔知性' },
+  { id: 'longxiaoxia_v3',  label: '龙小夏', gender: 'female', trait: '活泼清亮' },
   { id: 'longwan_v3',    label: '龙婉',   gender: 'female', trait: '细腻柔声' },
   { id: 'longyingmu_v3', label: '龙影沐', gender: 'female', trait: '优雅知性' },
   { id: 'longantai_v3',  label: '龙安台', gender: 'female', trait: '嗲甜台湾' },
@@ -215,15 +214,26 @@ class AliyunTtsProvider implements TtsProvider {
       throw new Error('Aliyun TTS 请求失败：' + msg)
     }
     const j = await r1.json()
-    const audioRef: string | undefined = j?.output?.audio
-    if (!audioRef) throw new Error('Aliyun TTS 返回缺少音频：' + JSON.stringify(j).slice(0, 200))
+    // cosyvoice-v3-flash 返回 output.audio 为对象 { url, data }（音频经 URL 提供，data 常为空）；
+    // 旧模型或内联场景也可能直接返回 base64 字符串 / 音频 URL 字符串。统一兼容处理。
+    const audioObj = j?.output?.audio
+    let audioUrl = ''
+    let audioB64 = ''
+    if (audioObj && typeof audioObj === 'object') {
+      audioUrl = audioObj.url || ''
+      audioB64 = audioObj.data || ''
+    } else if (typeof audioObj === 'string') {
+      audioUrl = /^https?:\/\//.test(audioObj) ? audioObj : ''
+      audioB64 = audioUrl ? '' : audioObj
+    }
+    if (!audioUrl && !audioB64) throw new Error('Aliyun TTS 返回缺少音频：' + JSON.stringify(j).slice(0, 200))
     let audio: Buffer
-    if (/^https?:\/\//.test(audioRef)) {
-      const r2 = await fetch(audioRef)
+    if (audioUrl) {
+      const r2 = await fetch(audioUrl)
       if (!r2.ok) throw new Error('Aliyun TTS 音频下载失败：HTTP ' + r2.status)
       audio = Buffer.from(await r2.arrayBuffer())
     } else {
-      audio = Buffer.from(audioRef, 'base64')
+      audio = Buffer.from(audioB64, 'base64')
     }
     if (!audio || audio.length === 0) throw new Error('Aliyun TTS 返回空音频')
     return { audio, mime: format === 'mp3' ? 'audio/mpeg' : 'audio/wav', ext: format }

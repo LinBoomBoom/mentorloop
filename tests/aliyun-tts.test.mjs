@@ -38,7 +38,7 @@ describe('Aliyun TTS provider', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     const r = await provider.synthesize('你好，请做一下自我介绍。', { voice: 'huayan' })
-    expect(cap.body.input.voice).toBe('longxiaochun')
+    expect(cap.body.input.voice).toBe('longxiaochun_v3')
     expect(cap.body.model).toBe('cosyvoice-v3-flash')
     expect(cap.body.input.format).toBe('wav')
     expect(cap.auth).toBe('Bearer sk-test')
@@ -51,7 +51,7 @@ describe('Aliyun TTS provider', () => {
 
   it('xiao_ya→longxiaoxia、chaowen→longtian_v3（v3-flash 男声，龙湾为女声 longwan_v3）', async () => {
     const provider = getTts()
-    const pairs = [['xiao_ya', 'longxiaoxia'], ['chaowen', 'longtian_v3']]
+    const pairs = [['xiao_ya', 'longxiaoxia_v3'], ['chaowen', 'longtian_v3']]
     for (const [id, expectVoice] of pairs) {
       const cap = {}
       const fetchMock = vi.fn(async (url, init) => {

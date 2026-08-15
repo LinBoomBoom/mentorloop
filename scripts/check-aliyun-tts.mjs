@@ -26,9 +26,9 @@ const ENDPOINT = process.env.ALIYUN_TTS_ENDPOINT
 const MODEL = process.env.ALIYUN_TTS_MODEL || 'cosyvoice-v3-flash'
 
 const VOICE_MAP = {
-  huayan:  'longxiaochun', // 女 · 温柔知性
-  xiao_ya: 'longxiaoxia',  // 女 · 活泼清亮
-  chaowen: 'longwan'       // 男 · 沉稳大气
+  huayan:  'longxiaochun_v3', // 女 · 温柔知性
+  xiao_ya: 'longxiaoxia_v3',  // 女 · 活泼清亮
+  chaowen: 'longtian_v3'      // 男 · 磁性理智（v3-flash 中 longwan 为女声 longwan_v3，男声用龙天）
 }
 const SAMPLES = {
   huayan:  '你好，我是华嫣，欢迎来参加这次模拟面试，请先做个简单的自我介绍。',
@@ -66,15 +66,18 @@ async function synthOne(id) {
     throw new Error(msg)
   }
   const j = await r1.json()
-  const ref = j?.output?.audio
-  if (!ref) throw new Error('返回缺少音频：' + JSON.stringify(j).slice(0, 200))
+  const audioObj = j?.output?.audio
+  let audioUrl = '', audioB64 = ''
+  if (audioObj && typeof audioObj === 'object') { audioUrl = audioObj.url || ''; audioB64 = audioObj.data || '' }
+  else if (typeof audioObj === 'string') { audioUrl = /^https?:\/\//.test(audioObj) ? audioObj : ''; audioB64 = audioUrl ? '' : audioObj }
+  if (!audioUrl && !audioB64) throw new Error('返回缺少音频：' + JSON.stringify(j).slice(0, 200))
   let audio
-  if (/^https?:\/\//.test(ref)) {
-    const r2 = await fetch(ref)
+  if (audioUrl) {
+    const r2 = await fetch(audioUrl)
     if (!r2.ok) throw new Error('音频下载失败 HTTP ' + r2.status)
     audio = Buffer.from(await r2.arrayBuffer())
   } else {
-    audio = Buffer.from(ref, 'base64')
+    audio = Buffer.from(audioB64, 'base64')
   }
   if (!audio || audio.length < 44) throw new Error('返回音频过小/为空')
   const file = path.join(outDir, `${id}.wav`)
