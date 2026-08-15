@@ -38,6 +38,15 @@ export function splitSentences(text: string): string[] {
 const PIPER_DEFAULT_VOICE = process.env.TTS_VOICE || 'huayan'
 // 仅 TTS_PROVIDER=edge（测试 / 备用通道）使用的默认 Edge 神经嗓音名。
 const EDGE_VOICE_DEFAULT = 'zh-CN-XiaoxiaoNeural'
+
+// Piper 人格 id → 微软 Edge 神经嗓音（清晰、可区分男女声）。
+// 前端音色下拉用的是 Piper 人格 id（huayan/xiao_ya/chaowen），服务端按此映射成真实的
+// 微软神经嗓音名，使三种人格成为清晰、可区分的男女声，而不是都回退到同一个默认嗓音。
+const EDGE_VOICE_MAP: Record<string, string> = {
+  huayan:  'zh-CN-XiaoxiaoNeural', // 女 · 温柔知性
+  xiao_ya: 'zh-CN-XiaoyiNeural',   // 女 · 清亮自然（与 Xiaoxiao 区分）
+  chaowen: 'zh-CN-YunyangNeural'   // 男 · 沉稳磁性
+}
 export const TTS_CACHE_DIR = path.join(process.cwd(), 'data', 'media', 'tts')
 
 // ---- Mock TTS（离线/测试用，生成合法 WAV 蜂鸣，保证音频链路可跑、可单测） ----
@@ -67,8 +76,10 @@ class EdgeTtsProvider implements TtsProvider {
     } catch {
       throw new Error('TTS 依赖缺失：未安装 edge-tts（npm i edge-tts）')
     }
-    // 前端传的是 Piper 嗓音 id（如 huayan），不是 Edge 嗓音名；非 Edge 名时回退默认，避免把 id 当 Edge 名导致失败。
-    const voice = (opts?.voice && /Neural$/.test(opts.voice)) ? opts.voice : this.voice
+    // 前端传的是 Piper 人格 id（如 huayan）；按 EDGE_VOICE_MAP 映射成真实的微软神经嗓音名。
+    // 直接传 Neural 名（调试）也放行；映射表与 Neural 名都没有时回退默认嗓音。
+    const mapped = opts?.voice ? EDGE_VOICE_MAP[opts.voice] : ''
+    const voice = mapped || (opts?.voice && /Neural$/.test(opts.voice) ? opts.voice : this.voice)
     try {
       const audio = await ttsFn(text, { voice, rate: opts?.rate || '+0%', volume: '+0%', pitch: '+0Hz' })
       if (!audio || (audio as Buffer).length === 0) throw new Error('TTS 返回空音频')
