@@ -57,7 +57,7 @@
           共 {{ voiceOptions.length }} 种音色（女声 {{ femaleCount }}/男声 {{ maleCount }}）。
           <template v-if="ttsProvider === 'piper'">当前：<b>服务端本地神经网络合成</b>（离线、音质自然、所有访客一致；中文基础嗓音：华嫣 / 小雅 / 朝文）。</template>
           <template v-else-if="ttsProvider === 'aliyun'">当前：服务端<b>阿里云 CosyVoice 合成</b>（国内直连、不怕墙；可选全部预置音色）。
-            <span v-if="!aliyunConfigured" class="text-red-500">⚠️ 阿里云 key 未配置/未加载（dev server 未读取到 .env 的 DASHSCOPE_API_KEY）。</span>
+            <span v-if="!aliyunConfigured" class="text-red-500">⚠️ 阿里云 key 未配置/未加载。请<b>完整停止并重启</b> dev server（HMR 热更新不会重新读取 .env）；确认 .env 的 DASHSCOPE_API_KEY 已填写且 dev server 从本工程根目录启动。</span>
             <span v-else-if="aliyunKeyTail">已配置 key 尾号 {{ aliyunKeyTail }}。</span>
           </template>
           <template v-else-if="ttsProvider === 'edge'">当前：服务端云端 Edge 合成（备用通道，需联网）。</template>

@@ -178,12 +178,22 @@ class EdgeTtsProvider implements TtsProvider {
   }
 }
 
+// 读取阿里云密钥：优先 Nitro runtimeConfig（生产/服务端最稳的注入通道），回退 process.env
+// （dev 直连 / 单测环境）。包裹 try 因 useRuntimeConfig 仅在 Nitro 运行时存在（vitest 下走回退）。
+export function dashscopeApiKey(): string {
+  try {
+    const rc = useRuntimeConfig() as { dashscopeApiKey?: string }
+    if (rc?.dashscopeApiKey) return rc.dashscopeApiKey
+  } catch { /* 非 Nitro 运行时（vitest）：下方回退 process.env */ }
+  return process.env.DASHSCOPE_API_KEY || ''
+}
+
 // ---- 阿里云 DashScope CosyVoice TTS（国内节点 HTTP 直连，需 DASHSCOPE_API_KEY） ----
 // 非流式：POST 合成 → 取响应中的音频 URL → 再 GET 取字节；首播后由 synthesizeWithCache 永久缓存。
 class AliyunTtsProvider implements TtsProvider {
   name = 'aliyun'
   async synthesize(text: string, opts?: TtsOptions): Promise<TtsResult> {
-    const apiKey = process.env.DASHSCOPE_API_KEY
+    const apiKey = dashscopeApiKey()
     if (!apiKey) throw new Error('TTS 配置缺失：请在 .env 设置 DASHSCOPE_API_KEY（阿里云百炼 API Key）')
     const endpoint = process.env.ALIYUN_TTS_ENDPOINT
       || 'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer'

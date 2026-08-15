@@ -59,6 +59,10 @@ export default defineNuxtConfig({
   },
   // 数字人渲染配置（暴露给客户端，便于切换 2D/3D 而不重建）
   runtimeConfig: {
+    // 私有（仅服务端）密钥：从 .env 注入；服务端用 useRuntimeConfig().dashscopeApiKey 读取。
+    // 不要直接读 process.env.DASHSCOPE_API_KEY —— Nitro 运行时未必暴露任意 process.env，runtimeConfig 才是最稳的注入通道；
+    // 且 .env 改动后必须完整重启 dev server（HMR 不会重新读取 .env）。
+    dashscopeApiKey: process.env.DASHSCOPE_API_KEY || '',
     public: {
       // '2d' = DiceBear 二次元（默认，零资源）；'3d' = 本地 three-vrm 加载 VRM（需自备 VRM 资源）
       avatarMode: process.env.AVATAR_MODE || '2d',
