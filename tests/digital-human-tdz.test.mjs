@@ -67,18 +67,22 @@ describe('DigitalHuman.vue 静态防护', () => {
     expect(script).toMatch(/cancelAnimationFrame\(/)
   })
 
-  it('DiceBear 头像 SVG 必须经 ClientOnly 包裹（避免 hydration mismatch + CSP worker-src 拦截）', () => {
+  it('DiceBear 2D 头像 SVG 必须经 ClientOnly 包裹；3D 分支也须 ClientOnly + @error 回退', () => {
     // 关键：DiceBear 在浏览器端会 fork blob: worker，被默认 script-src 拦住；
     // 同时 SSR 同步生成 + 客户端 worker 异步路径不同 → node mismatch。
     // 修复：必须 <ClientOnly> 包裹头像层，且提供 SSR fallback。
-    expect(src).toMatch(/<ClientOnly>/)
+    // 3D 分支（WebGL 仅客户端可用）同样须 <ClientOnly> + 监听 @error 回退 2D。
+    expect(src).toMatch(/<ClientOnly/)
     expect(src).toMatch(/<template\s+#fallback>/)
-    // avatarSvg v-html 块必须落在 ClientOnly 子树内（不能在 ClientOnly 外侧）
-    const clientOnlyBlock = src.match(/<ClientOnly>([\s\S]*?)<\/ClientOnly>/)
-    expect(clientOnlyBlock, '必须存在 <ClientOnly>...</ClientOnly> 块').toBeTruthy()
-    expect(clientOnlyBlock[1]).toMatch(/v-html="avatarSvg"/)
-    // 顶层兜底（不依赖 mounted）：v-html 条件式 v-if/v-else 切换，fallback 提供占位
-    expect(clientOnlyBlock[1]).toMatch(/#fallback/)
+    // 取出所有 <ClientOnly ...> ... </ClientOnly> 块（2D / 3D 两个分支，互为 v-if/v-else）
+    const blocks = [...src.matchAll(/<ClientOnly[^>]*>([\s\S]*?)<\/ClientOnly>/g)]
+    expect(blocks.length, '应存在 2D 与 3D 两个 ClientOnly 分支').toBeGreaterThanOrEqual(2)
+    const diceBear = blocks.find(b => b[1].includes('v-html="avatarSvg"'))
+    expect(diceBear, 'DiceBear 2D 头像须落在 ClientOnly 子树内且含 SSR fallback').toBeTruthy()
+    expect(diceBear[1]).toMatch(/#fallback/)
+    const vrm = blocks.find(b => b[1].includes('VrmAvatar'))
+    expect(vrm, '3D 分支须渲染 VrmAvatar 且监听 @error 回退').toBeTruthy()
+    expect(vrm[1]).toMatch(/@error=/)
   })
 
   it('avatarSvg computed 在 SSR 时不应实际调用 DiceBear（防御性保险）', () => {

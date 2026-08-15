@@ -95,6 +95,24 @@ export function renderAvatarForVoice(voiceId: string, gender?: 'female' | 'male'
   return renderAvatar({ seed: ap.seed, style: ap.style })
 }
 
+/**
+ * 解析数字人实际渲染模式（2D/3D，纯函数，便于单测与组件复用）。
+ * - mode 非 '3d' → 一律 '2d'（区分大小写，仅识别小写 '3d'）；
+ * - mode 为 '3d' 但 3D 加载失败（vrmFailed）→ 回退 '2d'；
+ * - mode 为 '3d' 且未提供任何 VRM URL（既无显式 vrmUrl 也无运行时默认）→ 直接 '2d'
+ *   （避免无意义的 WebGL 尝试与 404 请求）。
+ * WebGL/资源加载失败由调用方通过 vrmFailed 反馈，组件据此回退 DiceBear 2D。
+ */
+export function resolveEffectiveAvatarMode(
+  mode: string,
+  opts?: { vrmUrl?: string; fallbackVrmUrl?: string; vrmFailed?: boolean }
+): '2d' | '3d' {
+  if (mode !== '3d') return '2d'
+  if (opts?.vrmFailed) return '2d'
+  const hasUrl = Boolean(opts?.vrmUrl) || Boolean(opts?.fallbackVrmUrl)
+  return hasUrl ? '3d' : '2d'
+}
+
 // 简单稳定哈希（避免引入额外依赖）：返回 8 位 base36 串
 function cryptoSubstring(s: string): string {
   let h = 2166136261

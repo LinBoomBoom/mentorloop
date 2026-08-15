@@ -57,6 +57,15 @@ export default defineNuxtConfig({
       ]
     }
   },
+  // 数字人渲染配置（暴露给客户端，便于切换 2D/3D 而不重建）
+  runtimeConfig: {
+    public: {
+      // '2d' = DiceBear 二次元（默认，零资源）；'3d' = 本地 three-vrm 加载 VRM（需自备 VRM 资源）
+      avatarMode: process.env.AVATAR_MODE || '2d',
+      // 3D 模式下加载的 VRM 模型 URL（放 public 或 data 经由 Nitro 提供；缺失则回退 2D）
+      avatarVrmUrl: process.env.AVATAR_VRM_URL || '/avatars/default.vrm'
+    }
+  },
   nitro: {
     // better-sqlite3 为原生模块，构建时需保持外部引用（dev 不受影响）
     externals: { inline: [], external: ['pdf-parse', 'mammoth', 'pdfjs-dist'] },

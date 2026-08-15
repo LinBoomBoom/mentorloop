@@ -17,6 +17,9 @@ data/media/
 # Local Piper offline TTS engine (binary + models, downloaded via `npm run setup:piper`, not source)
 data/piper/
 
+# 3D 数字人 VRM 模型（用户自备二进制资源，体积大，运行时从 /avatars 提供；.gitkeep 保留目录）
+app/public/avatars/*.vrm
+
 # Env files
 .env
 .env.*

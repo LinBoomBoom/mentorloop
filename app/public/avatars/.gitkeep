@@ -1,0 +1,3 @@
+把你的 VRM 模型放在本目录，命名为 default.vrm 即可被 3D 数字人加载（运行时 URL：/avatars/default.vrm）。
+获取途径：VRoid Studio（免费，导出 .vrm）或 three-vrm 官方示例模型。
+该目录的 *.vrm 已被 .gitignore 忽略（体积大、属运行时资源），勿提交二进制；.gitkeep 仅保留目录结构。
