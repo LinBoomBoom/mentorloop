@@ -47,6 +47,26 @@ const EDGE_VOICE_MAP: Record<string, string> = {
   xiao_ya: 'zh-CN-XiaoyiNeural',   // 女 · 清亮自然（与 Xiaoxiao 区分）
   chaowen: 'zh-CN-YunyangNeural'   // 男 · 沉稳磁性
 }
+// 前端下拉用的 Edge 音色（与 Piper 同形状；实测多数网络无法访问微软端点，故作备选）
+export const EDGE_VOICES: { id: string; label: string; gender: 'female' | 'male' }[] = [
+  { id: 'huayan',  label: '华嫣 · 微软女声（温柔知性）', gender: 'female' },
+  { id: 'xiao_ya', label: '小雅 · 微软女声（清亮自然）', gender: 'female' },
+  { id: 'chaowen', label: '朝文 · 微软男声（沉稳磁性）', gender: 'male' }
+]
+
+// 阿里云 DashScope CosyVoice 音色映射（国内节点 HTTP 直连，需 DASHSCOPE_API_KEY）。
+// 前端人格 id → 阿里云预置 CosyVoice 嗓音（清晰、可区分男女声，不怕墙）。
+const ALIYUN_VOICE_MAP: Record<string, string> = {
+  huayan:  'longxiaochun', // 龙小淳 · 女 · 温柔知性
+  xiao_ya: 'longxiaoxia',  // 龙小夏 · 女 · 活泼清亮（与华嫣区分）
+  chaowen: 'longwan'       // 龙湾 · 男 · 沉稳大气
+}
+// 前端下拉用的阿里云音色（与 Piper 同形状）
+export const ALIYUN_VOICES: { id: string; label: string; gender: 'female' | 'male' }[] = [
+  { id: 'huayan',  label: '华嫣 · 阿里云女声（温柔知性）', gender: 'female' },
+  { id: 'xiao_ya', label: '小雅 · 阿里云女声（清亮自然）', gender: 'female' },
+  { id: 'chaowen', label: '朝文 · 阿里云男声（沉稳磁性）', gender: 'male' }
+]
 export const TTS_CACHE_DIR = path.join(process.cwd(), 'data', 'media', 'tts')
 
 // ---- Mock TTS（离线/测试用，生成合法 WAV 蜂鸣，保证音频链路可跑、可单测） ----
@@ -96,6 +116,60 @@ class EdgeTtsProvider implements TtsProvider {
   }
 }
 
+// ---- 阿里云 DashScope CosyVoice TTS（国内节点 HTTP 直连，需 DASHSCOPE_API_KEY） ----
+// 非流式：POST 合成 → 取响应中的音频 URL → 再 GET 取字节；首播后由 synthesizeWithCache 永久缓存。
+class AliyunTtsProvider implements TtsProvider {
+  name = 'aliyun'
+  async synthesize(text: string, opts?: TtsOptions): Promise<TtsResult> {
+    const apiKey = process.env.DASHSCOPE_API_KEY
+    if (!apiKey) throw new Error('TTS 配置缺失：请在 .env 设置 DASHSCOPE_API_KEY（阿里云百炼 API Key）')
+    const endpoint = process.env.ALIYUN_TTS_ENDPOINT
+      || 'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer'
+    const model = process.env.ALIYUN_TTS_MODEL || 'cosyvoice-v3-flash'
+    const voice = ALIYUN_VOICE_MAP[opts?.voice || ''] || ALIYUN_VOICE_MAP[PIPER_DEFAULT_VOICE]
+    const format = 'wav'
+    const sampleRate = 24000
+    const body = JSON.stringify({
+      model,
+      input: { text: text.replace(/\r?\n/g, ' '), voice, format, sample_rate: sampleRate }
+    })
+    let r1: any
+    try {
+      r1 = await fetch(endpoint, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body
+      })
+    } catch (e: any) {
+      throw new Error('Aliyun TTS 网络请求失败（确认本机可访问 dashscope.aliyuncs.com）：' + (e?.message || e))
+    }
+    if (!r1.ok) {
+      let msg = `HTTP ${r1.status}`
+      try { const j = await r1.json(); if (j?.message) msg = j.message; else if (j?.code) msg = `${j.code}: ${j.message || ''}` } catch {}
+      throw new Error('Aliyun TTS 请求失败：' + msg)
+    }
+    const j = await r1.json()
+    const audioRef: string | undefined = j?.output?.audio
+    if (!audioRef) throw new Error('Aliyun TTS 返回缺少音频：' + JSON.stringify(j).slice(0, 200))
+    let audio: Buffer
+    if (/^https?:\/\//.test(audioRef)) {
+      const r2 = await fetch(audioRef)
+      if (!r2.ok) throw new Error('Aliyun TTS 音频下载失败：HTTP ' + r2.status)
+      audio = Buffer.from(await r2.arrayBuffer())
+    } else {
+      audio = Buffer.from(audioRef, 'base64')
+    }
+    if (!audio || audio.length === 0) throw new Error('Aliyun TTS 返回空音频')
+    return { audio, mime: format === 'mp3' ? 'audio/mpeg' : 'audio/wav', ext: format }
+  }
+  async *synthesizeStream(text: string, opts?: TtsOptions): AsyncIterable<TtsChunk> {
+    for (const s of splitSentences(text)) {
+      const r = await this.synthesize(s, opts)
+      yield { chunk: r.audio, mime: r.mime, ext: r.ext }
+    }
+  }
+}
+
 // ---- 本地 Piper 离线神经网络 TTS（不依赖任何云服务，所有访客一致、可永久离线） ----
 // 二进制与中文模型由 `npm run setup:piper` 下载到 data/piper/（不纳入版本库）。
 const PIPER_BIN = process.env.PIPER_BIN || (process.platform === 'win32'
@@ -136,6 +210,11 @@ export function listPiperVoices(): { id: string; label: string; gender: 'female'
   return Object.entries(PIPER_VOICES)
     .filter(([, v]) => fs.existsSync(piperModelPath(v.model)))
     .map(([id, v]) => ({ id, label: v.label, gender: v.gender }))
+}
+
+// 阿里云音色无需本地模型文件，直接返回配置列表。
+export function listAliyunVoices(): { id: string; label: string; gender: 'female' | 'male' }[] {
+  return ALIYUN_VOICES
 }
 
 class PiperTtsProvider implements TtsProvider {
@@ -199,6 +278,7 @@ export function getTts(): TtsProvider {
   const p = (process.env.TTS_PROVIDER || '').toLowerCase()
   if (p === 'mock') _tts = new MockTtsProvider()
   else if (p === 'edge') _tts = new EdgeTtsProvider(process.env.TTS_VOICE)
+  else if (p === 'aliyun') _tts = new AliyunTtsProvider()
   else if (p === 'piper') _tts = new PiperTtsProvider()
   else {
     // 默认：优先本地 Piper（离线可靠，已验证云端 Edge 在多数网络被拦截）→ 否则回退 Edge
