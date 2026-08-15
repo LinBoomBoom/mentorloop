@@ -56,7 +56,10 @@
         <p class="text-xs text-muted mt-1.5">
           共 {{ voiceOptions.length }} 种音色（女声 {{ femaleCount }}/男声 {{ maleCount }}）。
           <template v-if="ttsProvider === 'piper'">当前：<b>服务端本地神经网络合成</b>（离线、音质自然、所有访客一致；中文基础嗓音：华嫣 / 小雅 / 朝文）。</template>
-          <template v-else-if="ttsProvider === 'aliyun'">当前：服务端<b>阿里云 CosyVoice 合成</b>（国内直连、不怕墙；可选全部预置音色）。</template>
+          <template v-else-if="ttsProvider === 'aliyun'">当前：服务端<b>阿里云 CosyVoice 合成</b>（国内直连、不怕墙；可选全部预置音色）。
+            <span v-if="!aliyunConfigured" class="text-red-500">⚠️ 阿里云 key 未配置/未加载（dev server 未读取到 .env 的 DASHSCOPE_API_KEY）。</span>
+            <span v-else-if="aliyunKeyTail">已配置 key 尾号 {{ aliyunKeyTail }}。</span>
+          </template>
           <template v-else-if="ttsProvider === 'edge'">当前：服务端云端 Edge 合成（备用通道，需联网）。</template>
           <template v-else-if="ttsProvider === 'mock'">当前：模拟模式（测试用蜂鸣）。</template>
           <template v-else-if="ttsBackend === 'local'">当前：本机浏览器合成（系统默认嗓音，可能偏机械）；建议服务端运行 <code>npm run setup:piper</code> 启用本地神经网络。</template>
@@ -114,6 +117,7 @@
             </div>
           </div>
           <div v-if="ttsError && !speakingText" class="mt-1 text-xs text-muted">{{ ttsError }}</div>
+          <div v-if="ttsFallbackNotice" class="mt-1 text-xs text-red-500 font-medium">{{ ttsFallbackNotice }}</div>
         </div>
 
         <!-- 语音/视频/实时模式：数字人（左）+ 字幕；视频模式再附候选人摄像头（右，面对面） -->
@@ -146,6 +150,7 @@
             </div>
             <!-- TTS 完全不可用时的提示（字幕仍可见，可手动阅读） -->
             <div v-if="ttsError && !speakingText" class="mt-2 text-xs text-muted">{{ ttsError }}</div>
+            <div v-if="ttsFallbackNotice" class="mt-1 text-xs text-red-500 font-medium">{{ ttsFallbackNotice }}</div>
           </div>
           <div v-if="mode === 'video'" class="w-32 sm:w-40 shrink-0 relative">
             <video ref="camVideoEl" class="w-full rounded-xl bg-black aspect-[3/4] object-cover" autoplay playsinline muted />
@@ -397,6 +402,12 @@ const VAD_SILENCE_MS = 700                                  // 静音超过该�
 const interviewerSpeaking = ref(false)
 const speakingText = ref('')
 const ttsError = ref('')          // TTS 播放失败时的可见提示
+// 阿里云不可用时回退浏览器合成（系统嗓音、无感情、所有音色相同）的持续警示：
+// 不随语音播完消失，专门用来暴露「本应走阿里云却静默回落」的真实故障。
+const ttsFallbackNotice = ref('')
+// 服务端回报的阿里云 key 配置状态（一眼看出 dev server 是否加载到 .env）
+const aliyunConfigured = ref(true)
+const aliyunKeyTail = ref('')
 let audioCtx: any = null
 let rafId = 0
 let mouthTimer: any = null
@@ -497,13 +508,17 @@ async function playTts(text: string) {
     const res = await fetch(`/api/vip/interview/tts?${params.toString()}`)
     const ctype = res.headers.get('Content-Type') || ''
     if (!res.ok || !ctype.startsWith('audio/')) {
-      // 服务端不可用 → 浏览器本地合成回退（并标注后端，便于预期管理）
+      // 服务端不可用 → 浏览器本地合成回退，但必须明示，避免把「阿里云故障」藏成「音色都一样、没感情」
+      let msg = `HTTP ${res.status}`
+      try { const b: any = await res.json(); if (b?.error) msg = b.error } catch {}
       ttsBackend.value = 'local'
+      ttsFallbackNotice.value = `⚠️ 服务端语音合成不可用（${msg}）。已回退浏览器合成：系统默认嗓音、无感情、所有音色相同。请检查 .env 的 DASHSCOPE_API_KEY 与本机到 dashscope.aliyuncs.com 的网络。`
       speakFallback(text)
       return
     }
     // 依据服务端 x-tts-provider 标注后端（piper=本地神经网络 / edge=云端）
     ttsBackend.value = ((res.headers.get('x-tts-provider') || '').toLowerCase() === 'piper') ? 'piper' : 'cloud'
+    ttsFallbackNotice.value = ''   // 服务端音频正常返回 → 清除回退警示
     const blob = await res.blob()
     const ac = audioCtx
     if (!ac) { speakFallback(text); return }
@@ -522,8 +537,9 @@ async function playTts(text: string) {
     // 播完仅停止律动，保留字幕（speakingText 不置空）
     src.onended = () => { interviewerSpeaking.value = false; lip.stop(); ttsError.value = '' }
   } catch {
-    // fetch 抛错（断网等）→ 回退浏览器合成
+    // fetch 抛错（断网等）→ 回退浏览器合成，但必须明示
     ttsBackend.value = 'local'
+    ttsFallbackNotice.value = '⚠️ 无法连接语音服务（网络/服务异常）。已回退浏览器合成：系统默认嗓音、无感情、所有音色相同。请检查本机网络与 .env 配置。'
     speakFallback(text)
   }
 }
@@ -723,6 +739,8 @@ onMounted(async () => {
     if (vr?.voices?.length) {
       voiceOptions.value = vr.voices
       ttsProvider.value = vr.provider || ''
+      aliyunConfigured.value = vr.aliyunConfigured !== false
+      aliyunKeyTail.value = vr.aliyunKeyTail || ''
       if (!voiceOptions.value.some((v: any) => v.id === selectedVoice.value)) {
         selectedVoice.value = voiceOptions.value[0]?.id || 'huayan'
       }

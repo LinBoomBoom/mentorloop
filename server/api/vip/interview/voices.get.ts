@@ -6,5 +6,10 @@ export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
   const provider = getTtsProviderName()
-  return { provider, voices: listVoicesByProvider(provider) }
+  // 顺带回报阿里云 key 配置状态，便于前端一眼看出 dev server 是否真正加载到 .env，
+  // 避免「阿里云不可用却静默回退浏览器系统嗓音」时故障被藏起来。
+  const key = process.env.DASHSCOPE_API_KEY || ''
+  const aliyunConfigured = !!key
+  const aliyunKeyTail = aliyunConfigured ? key.slice(-4) : ''
+  return { provider, voices: listVoicesByProvider(provider), aliyunConfigured, aliyunKeyTail }
 })
