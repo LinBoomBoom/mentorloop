@@ -57,11 +57,15 @@ describe('avatarEngine', () => {
     }
   })
 
-  it('未知 voiceId 回落 lorelei + voiceId 当 seed', () => {
+  it('未知 voiceId 稳定回落 lorelei（女默认）+ 哈希 seed', () => {
     const out = renderAvatarForVoice('totally-unknown')
     expect(out.svg).toMatch(/^<svg /)
     expect(out.portraitId.startsWith('lorelei:')).toBe(true)
-    expect(out.portraitId).toContain('totally-unknown')
+    // 未知 id 用哈希 seed（不再内联原始 id），但跨调用稳定
+    const again = renderAvatarForVoice('totally-unknown')
+    expect(again.portraitId).toBe(out.portraitId)
+    // 不同未知 id 产生不同脸
+    expect(renderAvatarForVoice('another-unknown').portraitId).not.toBe(out.portraitId)
   })
 
   it('VOICE_PORTRAITS 覆盖三个 Piper 真实音色', () => {

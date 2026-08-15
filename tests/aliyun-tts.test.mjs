@@ -49,9 +49,9 @@ describe('Aliyun TTS provider', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('xiao_ya→longxiaoxia、chaowen→longwan', async () => {
+  it('xiao_ya→longxiaoxia、chaowen→longtian_v3（v3-flash 男声，龙湾为女声 longwan_v3）', async () => {
     const provider = getTts()
-    const pairs = [['xiao_ya', 'longxiaoxia'], ['chaowen', 'longwan']]
+    const pairs = [['xiao_ya', 'longxiaoxia'], ['chaowen', 'longtian_v3']]
     for (const [id, expectVoice] of pairs) {
       const cap = {}
       const fetchMock = vi.fn(async (url, init) => {

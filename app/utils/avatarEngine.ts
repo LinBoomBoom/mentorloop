@@ -79,8 +79,28 @@ export function renderAvatar(opts: AvatarOptions): AvatarPortraitMeta {
   }
 }
 
-/** 由 voiceId 直接渲染（薄封装）。找不到时回落 lorelei + voiceId 当 seed。 */
-export function renderAvatarForVoice(voiceId: string): AvatarPortraitMeta {
-  const preset = VOICE_PORTRAITS[voiceId] || { seed: `ml-${voiceId}`, style: 'lorelei' as AvatarStyle, gender: 'female' as const }
-  return renderAvatar({ seed: preset.seed, style: preset.style })
+/** 由任意 voiceId 解析出稳定的 { seed, style }（含不在已知表中的音色）。 */
+export function voiceAppearance(voiceId: string, gender?: 'female' | 'male'): { seed: string; style: AvatarStyle } {
+  const known = VOICE_PORTRAITS[voiceId]
+  if (known) return { seed: known.seed, style: known.style }
+  // 未知音色：用 id 哈希出稳定 seed；风格按性别选（女→lorelei，男→openPeeps）。
+  const h = cryptoSubstring(voiceId)
+  const style: AvatarStyle = gender === 'male' ? 'openPeeps' : 'lorelei'
+  return { seed: `ml-${h}`, style }
+}
+
+/** 由 voiceId 直接渲染头像（支持任意音色，稳定且可区分）。 */
+export function renderAvatarForVoice(voiceId: string, gender?: 'female' | 'male'): AvatarPortraitMeta {
+  const ap = voiceAppearance(voiceId, gender)
+  return renderAvatar({ seed: ap.seed, style: ap.style })
+}
+
+// 简单稳定哈希（避免引入额外依赖）：返回 8 位 base36 串
+function cryptoSubstring(s: string): string {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (h >>> 0).toString(36).padStart(8, '0').slice(0, 8)
 }

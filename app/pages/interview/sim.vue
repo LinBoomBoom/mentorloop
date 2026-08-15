@@ -51,11 +51,12 @@
           <a-button size="small" type="link" class="!p-0" :loading="previewing" @click="previewVoice">试听</a-button>
         </span>
         <select v-model="selectedVoice" class="input !py-2.5" @change="applyVoice(selectedVoice)">
-          <option v-for="v in piperVoices" :key="v.id" :value="v.id">{{ v.label }} · {{ v.desc }}</option>
+          <option v-for="v in voiceOptions" :key="v.id" :value="v.id">{{ v.label }}<template v-if="v.recommended"> · 推荐</template><template v-else-if="v.trait"> · {{ v.trait }}</template></option>
         </select>
         <p class="text-xs text-muted mt-1.5">
-          共 {{ piperVoices.length }} 种音色（女声 {{ femaleCount }}/男声 {{ maleCount }}）。
+          共 {{ voiceOptions.length }} 种音色（女声 {{ femaleCount }}/男声 {{ maleCount }}）。
           <template v-if="ttsProvider === 'piper'">当前：<b>服务端本地神经网络合成</b>（离线、音质自然、所有访客一致；中文基础嗓音：华嫣 / 小雅 / 朝文）。</template>
+          <template v-else-if="ttsProvider === 'aliyun'">当前：服务端<b>阿里云 CosyVoice 合成</b>（国内直连、不怕墙；可选全部预置音色）。</template>
           <template v-else-if="ttsProvider === 'edge'">当前：服务端云端 Edge 合成（备用通道，需联网）。</template>
           <template v-else-if="ttsProvider === 'mock'">当前：模拟模式（测试用蜂鸣）。</template>
           <template v-else-if="ttsBackend === 'local'">当前：本机浏览器合成（系统默认嗓音，可能偏机械）；建议服务端运行 <code>npm run setup:piper</code> 启用本地神经网络。</template>
@@ -92,13 +93,13 @@
         <div v-if="mode === 'avatar'" class="flex flex-col items-center gap-3 py-2">
           <DigitalHuman
             :mouth-open="lip.mouthOpen"
-            :gender="currentVoicePreset().gender"
+            :gender="currentVoiceMeta().gender"
             :portrait-id="selectedVoice"
             :speaking="interviewerSpeaking"
             size="lg"
           />
           <div class="text-center">
-            <div class="font-semibold">AI 面试官 · {{ currentVoicePreset().label }}</div>
+            <div class="font-semibold">AI 面试官 · {{ currentVoiceMeta().label }}</div>
             <div class="text-muted text-xs">{{ interviewerSpeaking ? '正在讲话…' : '聆听中' }}</div>
           </div>
           <div v-if="speakingText" class="mt-1 w-full rounded-2xl bg-ink/5 px-4 py-3 text-sm whitespace-pre-line">
@@ -108,7 +109,7 @@
                 <Icon name="volume" :size="14" /> 重播语音
               </button>
               <select :value="selectedVoice" class="text-xs border border-line rounded-lg px-1.5 py-1 bg-white" @change="applyVoice(($event.target as any).value)">
-                <option v-for="v in piperVoices" :key="v.id" :value="v.id">{{ v.label }}</option>
+                <option v-for="v in voiceOptions" :key="v.id" :value="v.id">{{ v.label }}</option>
               </select>
             </div>
           </div>
@@ -121,7 +122,7 @@
             <div class="flex items-center gap-3">
               <DigitalHuman
                 :mouth-open="lip.mouthOpen"
-                :gender="currentVoicePreset().gender"
+                :gender="currentVoiceMeta().gender"
                 :portrait-id="selectedVoice"
                 :speaking="interviewerSpeaking"
                 :size="mode === 'video' ? 'md' : 'md'"
@@ -139,7 +140,7 @@
                   <Icon name="volume" :size="14" /> 重播语音
                 </button>
                 <select :value="selectedVoice" class="text-xs border border-line rounded-lg px-1.5 py-1 bg-white" @change="applyVoice(($event.target as any).value)">
-                  <option v-for="v in piperVoices" :key="v.id" :value="v.id">{{ v.label }}</option>
+                  <option v-for="v in voiceOptions" :key="v.id" :value="v.id">{{ v.label }}</option>
                 </select>
               </div>
             </div>
@@ -261,24 +262,23 @@ const consent = ref(false)
 // 未勾选同意时聚焦提示，引导用户先勾选再点麦克风（避免"无声无弹窗"困惑）
 const consentHint = ref(false)
 
-// ---- 面试官音色：仅服务端本地 Piper 离线神经网络嗓音（真实模型，无假音色） ----
-// 服务端已剔除旧版 16 个 Edge 映射变体——HF piper-voices 仅有的中文模型就是这 3 个（华嫣/小雅 女声、朝文 男声），
-// 每个 id 对应一个真实神经网络模型，音色/自然度确有差异，但感情层次有限（非真人 / 微软云端级）。
-interface PiperVoice { id: string; label: string; desc: string; gender: 'female' | 'male' }
-// 静态兜底列表（与服务端 PIPER_VOICES 一致）；挂载后会用 /api/vip/interview/voices 返回的实际可用列表覆盖。
-const PIPER_VOICES: PiperVoice[] = [
+// ---- 面试官音色：暴露当前 provider 支持的全部音色（不再焊死 3 个） ----
+// 挂载后用 /api/vip/interview/voices 返回的实际列表覆盖（含阿里云全部 CosyVoice / Piper 已装模型 / Edge 中文集）。
+interface VoiceOption { id: string; label: string; gender: 'female' | 'male'; desc?: string; trait?: string; recommended?: boolean }
+// 静态兜底列表（与服务端 VOICE_FALLBACK 一致）；挂载后会用 /api/vip/interview/voices 返回的实际可用列表覆盖。
+const VOICE_FALLBACK: VoiceOption[] = [
   { id: 'huayan',   label: '华嫣', desc: '温柔知性女声（默认）', gender: 'female' },
   { id: 'xiao_ya',  label: '小雅', desc: '清亮自然女声',         gender: 'female' },
   { id: 'chaowen',  label: '朝文', desc: '沉稳磁性男声',         gender: 'male' }
 ]
 // 实际渲染用的列表（来自服务端，仅含已下载的模型）
-const piperVoices = ref<PiperVoice[]>(PIPER_VOICES)
+const voiceOptions = ref<VoiceOption[]>(VOICE_FALLBACK)
 // 服务端 TTS 后端类型：'piper' | 'edge' | 'mock' | ''（未探测）
 const ttsProvider = ref<string>('')
 const selectedVoice = ref('huayan')
 try {
   const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('ml_interview_voice') : null
-  if (saved && PIPER_VOICES.some((v) => v.id === saved)) selectedVoice.value = saved
+  if (saved && VOICE_FALLBACK.some((v) => v.id === saved)) selectedVoice.value = saved
 } catch {}
 
 // 浏览器本地真实可用中文嗓音：仅用于 Piper 不可用时的离线兜底（系统默认嗓音，无多音色）。
@@ -333,15 +333,15 @@ function applyVoice(id: string) {
   selectedVoice.value = id
   try { localStorage.setItem('ml_interview_voice', id) } catch {}
 }
-function currentVoicePreset(): PiperVoice {
-  return piperVoices.value.find((v) => v.id === selectedVoice.value) || piperVoices.value[0]
+function currentVoiceMeta(): VoiceOption {
+  return voiceOptions.value.find((v) => v.id === selectedVoice.value) || voiceOptions.value[0]
 }
 // TTS 后端状态：'piper' = 服务端本地神经网络（离线、一致）；'cloud' = 云端 Edge；'local' = 回退浏览器本地合成；'' = 未探测
 const ttsBackend = ref<'piper' | 'cloud' | 'local' | ''>('')
 // 试听状态（setup 页"试听"按钮）
 const previewing = ref(false)
-const femaleCount = computed(() => piperVoices.value.filter((v) => v.gender === 'female').length)
-const maleCount = computed(() => piperVoices.value.filter((v) => v.gender === 'male').length)
+const femaleCount = computed(() => voiceOptions.value.filter((v) => v.gender === 'female').length)
+const maleCount = computed(() => voiceOptions.value.filter((v) => v.gender === 'male').length)
 // 试听当前选中的音色（用户主动手势，Autoplay 不会拦截）
 function previewVoice() {
   previewing.value = true
@@ -491,7 +491,7 @@ async function playTts(text: string) {
   interviewerSpeaking.value = true
   // 本会话已确认云端不可用（探测过返回 503/非音频）→ 跳过必败的服务端请求，直接本地合成，省去每题一次无效往返延迟
   if (ttsBackend.value === 'local') { speakFallback(text); return }
-  const preset = currentVoicePreset()
+  const preset = currentVoiceMeta()
   const params = new URLSearchParams({ text: encodeURIComponent(text), cache: '1', t: String(Date.now()), voice: preset.id })
   try {
     const res = await fetch(`/api/vip/interview/tts?${params.toString()}`)
@@ -721,10 +721,10 @@ onMounted(async () => {
   try {
     const vr: any = await request('/api/vip/interview/voices')
     if (vr?.voices?.length) {
-      piperVoices.value = vr.voices
+      voiceOptions.value = vr.voices
       ttsProvider.value = vr.provider || ''
-      if (!piperVoices.value.some((v: any) => v.id === selectedVoice.value)) {
-        selectedVoice.value = piperVoices.value[0]?.id || 'huayan'
+      if (!voiceOptions.value.some((v: any) => v.id === selectedVoice.value)) {
+        selectedVoice.value = voiceOptions.value[0]?.id || 'huayan'
       }
     }
   } catch { /* 拉取失败则用静态兜底列表，不影响主流程 */ }

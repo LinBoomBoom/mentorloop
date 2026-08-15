@@ -85,8 +85,7 @@
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
 import {
-  renderAvatar,
-  VOICE_PORTRAITS,
+  renderAvatarForVoice,
   MOUTH_ANCHORS,
   type AvatarStyle
 } from '~/utils/avatarEngine'
@@ -118,15 +117,11 @@ const sizePx = computed(() => {
   return table[String(s)] || 128
 })
 
-// 由 portraitId 选定 seed/style（portraitId 与 voiceId 同步）
+// 由 portraitId（= voiceId）渲染头像：支持任意音色，稳定且可区分。
+// 已知 3 个人格用既定 seed+风格；未知音色按 id 哈希出稳定 seed + 按 gender 选风格。
+// 注意：必须用块体箭头（匹配静态防护测试的结构断言）；SSR 下不渲染由外层 <ClientOnly> 兜底。
 const portraitMeta = computed(() => {
-  const preset = VOICE_PORTRAITS[props.portraitId]
-  if (preset) {
-    return renderAvatar({ seed: preset.seed, style: preset.style })
-  }
-  // 默认按 gender 选：female→lorelei male→openPeeps；seed 直接用 portraitId
-  const style: AvatarStyle = props.gender === 'male' ? 'openPeeps' : 'lorelei'
-  return renderAvatar({ seed: `ml-${props.portraitId}`, style })
+  return renderAvatarForVoice(props.portraitId, props.gender)
 })
 
 const avatarSvg = computed(() => portraitMeta.value.svg)

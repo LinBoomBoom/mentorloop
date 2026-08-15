@@ -39,33 +39,96 @@ const PIPER_DEFAULT_VOICE = process.env.TTS_VOICE || 'huayan'
 // 仅 TTS_PROVIDER=edge（测试 / 备用通道）使用的默认 Edge 神经嗓音名。
 const EDGE_VOICE_DEFAULT = 'zh-CN-XiaoxiaoNeural'
 
-// Piper 人格 id → 微软 Edge 神经嗓音（清晰、可区分男女声）。
-// 前端音色下拉用的是 Piper 人格 id（huayan/xiao_ya/chaowen），服务端按此映射成真实的
-// 微软神经嗓音名，使三种人格成为清晰、可区分的男女声，而不是都回退到同一个默认嗓音。
+// 音色元信息（前端下拉通用形状；不同 provider 字段一致）
+export interface VoiceMeta {
+  id: string
+  label: string
+  gender: 'female' | 'male'
+  trait?: string          // 音色特质（如 温柔知性），用于 UI 副标题
+  recommended?: boolean   // 是否作为本项目 3 个推荐默认人格之一
+}
+
+// ---- Edge（微软）神经嗓音：烘焙中文 Neural 精选集 ----
+// 微软端点多数网络被拦（实测 403），仅作静态下拉兜底；运行时仍以 edge-tts 实际返回为准。
+// 3 个推荐人格 → 真实 Neural 名（前端传人格 id 时映射）
 const EDGE_VOICE_MAP: Record<string, string> = {
   huayan:  'zh-CN-XiaoxiaoNeural', // 女 · 温柔知性
-  xiao_ya: 'zh-CN-XiaoyiNeural',   // 女 · 清亮自然（与 Xiaoxiao 区分）
+  xiao_ya: 'zh-CN-XiaoyiNeural',   // 女 · 清亮自然
   chaowen: 'zh-CN-YunyangNeural'   // 男 · 沉稳磁性
 }
-// 前端下拉用的 Edge 音色（与 Piper 同形状；实测多数网络无法访问微软端点，故作备选）
-export const EDGE_VOICES: { id: string; label: string; gender: 'female' | 'male' }[] = [
-  { id: 'huayan',  label: '华嫣 · 微软女声（温柔知性）', gender: 'female' },
-  { id: 'xiao_ya', label: '小雅 · 微软女声（清亮自然）', gender: 'female' },
-  { id: 'chaowen', label: '朝文 · 微软男声（沉稳磁性）', gender: 'male' }
+export const EDGE_VOICE_CATALOG: VoiceMeta[] = [
+  { id: 'huayan',  label: '华嫣', gender: 'female', trait: '微软女声·温柔知性', recommended: true },
+  { id: 'xiao_ya', label: '小雅', gender: 'female', trait: '微软女声·清亮自然', recommended: true },
+  { id: 'chaowen', label: '朝文', gender: 'male',   trait: '微软男声·沉稳磁性', recommended: true },
+  { id: 'zh-CN-XiaoxiaoNeural', label: '晓晓', gender: 'female', trait: '温柔知性' },
+  { id: 'zh-CN-XiaoyiNeural',   label: '晓伊', gender: 'female', trait: '清亮自然' },
+  { id: 'zh-CN-XiaohanNeural',  label: '晓涵', gender: 'female', trait: '温柔' },
+  { id: 'zh-CN-XiaomoNeural',   label: '晓墨', gender: 'female', trait: '活泼' },
+  { id: 'zh-CN-XiaoruiNeural',  label: '晓睿', gender: 'female', trait: '知性' },
+  { id: 'zh-CN-XiaoxuanNeural', label: '晓萱', gender: 'female', trait: '甜美' },
+  { id: 'zh-CN-YunniNeural',    label: '云妮', gender: 'female', trait: '邻家' },
+  { id: 'zh-CN-YunxiNeural',    label: '云希', gender: 'male',   trait: '阳光' },
+  { id: 'zh-CN-YunfengNeural',  label: '云枫', gender: 'male',   trait: '沉稳' },
+  { id: 'zh-CN-YunhaoNeural',   label: '云皓', gender: 'male',   trait: '活力' },
+  { id: 'zh-CN-YunjianNeural',  label: '云健', gender: 'male',   trait: '干练' },
+  { id: 'zh-CN-YunzeNeural',    label: '云泽', gender: 'male',   trait: '磁性' }
 ]
 
-// 阿里云 DashScope CosyVoice 音色映射（国内节点 HTTP 直连，需 DASHSCOPE_API_KEY）。
-// 前端人格 id → 阿里云预置 CosyVoice 嗓音（清晰、可区分男女声，不怕墙）。
+// ---- 阿里云 DashScope CosyVoice：烘焙 cosyvoice-v3-flash 全部预置音色 ----
+// DashScope 无干净的"列举音色" REST API，规范来源是官方帮助页静态清单 → 烘焙为内置目录。
+// 前端人格 id → 真实 CosyVoice 嗓音（清晰、可区分男女声，不怕墙）。
 const ALIYUN_VOICE_MAP: Record<string, string> = {
   huayan:  'longxiaochun', // 龙小淳 · 女 · 温柔知性
-  xiao_ya: 'longxiaoxia',  // 龙小夏 · 女 · 活泼清亮（与华嫣区分）
-  chaowen: 'longwan'       // 龙湾 · 男 · 沉稳大气
+  xiao_ya: 'longxiaoxia',  // 龙小夏 · 女 · 活泼清亮
+  chaowen: 'longtian_v3'  // 龙天 · 男 · 磁性理智（v3-flash 中 longwan 为女声 longwan_v3，男声改用龙天）
 }
-// 前端下拉用的阿里云音色（与 Piper 同形状）
-export const ALIYUN_VOICES: { id: string; label: string; gender: 'female' | 'male' }[] = [
-  { id: 'huayan',  label: '华嫣 · 阿里云女声（温柔知性）', gender: 'female' },
-  { id: 'xiao_ya', label: '小雅 · 阿里云女声（清亮自然）', gender: 'female' },
-  { id: 'chaowen', label: '朝文 · 阿里云男声（沉稳磁性）', gender: 'male' }
+// 前端下拉用的阿里云音色：3 个推荐人格（persona id）+ 全部预置 CosyVoice 嗓音（真实 param）。
+// 切 ALIYUN_TTS_MODEL 时音色集随模型变化；本目录按默认模型 cosyvoice-v3-flash 整理。
+export const ALIYUN_VOICE_CATALOG: VoiceMeta[] = [
+  { id: 'huayan',  label: '华嫣', gender: 'female', trait: '龙小淳·温柔知性', recommended: true },
+  { id: 'xiao_ya', label: '小雅', gender: 'female', trait: '龙小夏·活泼清亮', recommended: true },
+  { id: 'chaowen', label: '朝文', gender: 'male',   trait: '龙天·磁性理智', recommended: true },
+  { id: 'longanyang',    label: '龙安洋', gender: 'male',   trait: '阳光男孩' },
+  { id: 'longanhuan_v3', label: '龙安欢', gender: 'female', trait: '欢脱元气' },
+  { id: 'longxiaochun',  label: '龙小淳', gender: 'female', trait: '温柔知性' },
+  { id: 'longxiaoxia',   label: '龙小夏', gender: 'female', trait: '活泼清亮' },
+  { id: 'longwan_v3',    label: '龙婉',   gender: 'female', trait: '细腻柔声' },
+  { id: 'longyingmu_v3', label: '龙影沐', gender: 'female', trait: '优雅知性' },
+  { id: 'longantai_v3',  label: '龙安台', gender: 'female', trait: '嗲甜台湾' },
+  { id: 'longhua_v3',    label: '龙华',   gender: 'female', trait: '元气甜美' },
+  { id: 'longcheng_v3',  label: '龙橙',   gender: 'male',   trait: '智慧青年' },
+  { id: 'longze_v3',     label: '龙泽',   gender: 'male',   trait: '温暖元气' },
+  { id: 'longzhe_v3',    label: '龙哲',   gender: 'male',   trait: '呆板大暖男' },
+  { id: 'longyan_v3',    label: '龙颜',   gender: 'female', trait: '温暖春风' },
+  { id: 'longxing_v3',   label: '龙星',   gender: 'female', trait: '温婉邻家' },
+  { id: 'longtian_v3',   label: '龙天',   gender: 'male',   trait: '磁性理智' },
+  { id: 'longqiang_v3',  label: '龙嫱',   gender: 'female', trait: '浪漫风情' },
+  { id: 'longfeifei_v3', label: '龙菲菲', gender: 'female', trait: '甜美娇气' },
+  { id: 'longhao_v3',    label: '龙浩',   gender: 'male',   trait: '多情忧郁' },
+  { id: 'longanrou_v3',  label: '龙安柔', gender: 'female', trait: '温柔闺蜜' },
+  { id: 'longhan_v3',    label: '龙寒',   gender: 'male',   trait: '温暖痴情' },
+  { id: 'longanzhi_v3',  label: '龙安智', gender: 'male',   trait: '睿智轻熟' },
+  { id: 'longanling_v3', label: '龙安灵', gender: 'female', trait: '思维灵动' },
+  { id: 'longanya_v3',   label: '龙安雅', gender: 'female', trait: '高雅气质' },
+  { id: 'longanqin_v3',  label: '龙安亲', gender: 'female', trait: '亲和活泼' },
+  { id: 'longmiao_v3',   label: '龙妙',   gender: 'female', trait: '抑扬顿挫' },
+  { id: 'longsanshu_v3', label: '龙三叔', gender: 'male',   trait: '沉稳质感' },
+  { id: 'longyuan_v3',   label: '龙媛',   gender: 'female', trait: '温暖治愈' },
+  { id: 'longyue_v3',    label: '龙悦',   gender: 'female', trait: '温暖磁性' },
+  { id: 'longxiu_v3',    label: '龙修',   gender: 'male',   trait: '博才说书' },
+  { id: 'longnan_v3',    label: '龙楠',   gender: 'male',   trait: '睿智青年' },
+  { id: 'longwanjun_v3', label: '龙婉君', gender: 'female', trait: '细腻柔声' },
+  { id: 'longyichen_v3', label: '龙逸尘', gender: 'male',   trait: '洒脱活力' },
+  { id: 'longlaobo_v3',  label: '龙老伯', gender: 'male',   trait: '沧桑岁月' },
+  { id: 'longlaoyi_v3',  label: '龙老姨', gender: 'female', trait: '烟火从容' },
+  { id: 'longjiqi_v3',   label: '龙机器', gender: 'female', trait: '呆萌机器人' },
+  { id: 'longhouge_v3',  label: '龙猴哥', gender: 'male',   trait: '经典猴哥' },
+  { id: 'longdaiyu_v3',  label: '龙黛玉', gender: 'female', trait: '娇率才女' },
+  { id: 'longanran_v3',  label: '龙安燃', gender: 'female', trait: '活泼质感' },
+  { id: 'longanxuan_v3',  label: '龙安宣', gender: 'female', trait: '经典直播' },
+  { id: 'longshuo_v3',   label: '龙硕',   gender: 'male',   trait: '博才干练' },
+  { id: 'longshu_v3',    label: '龙书',   gender: 'male',   trait: '沉稳青年' },
+  { id: 'loongbella_v3', label: 'Bella',  gender: 'female', trait: '精准干练' }
 ]
 export const TTS_CACHE_DIR = path.join(process.cwd(), 'data', 'media', 'tts')
 
@@ -126,7 +189,10 @@ class AliyunTtsProvider implements TtsProvider {
     const endpoint = process.env.ALIYUN_TTS_ENDPOINT
       || 'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer'
     const model = process.env.ALIYUN_TTS_MODEL || 'cosyvoice-v3-flash'
-    const voice = ALIYUN_VOICE_MAP[opts?.voice || ''] || ALIYUN_VOICE_MAP[PIPER_DEFAULT_VOICE]
+    // 前端可能传：① 3 个推荐人格 id（huayan/xiao_ya/chaowen）→ 映射成真实 param；
+    // ② 直接传的阿里云 voice param（形如 longxxx）→ 透传；③ 其它 → 兜底默认。
+    const direct = opts?.voice && /^long/i.test(opts.voice || '') ? (opts.voice as string) : ''
+    const voice = ALIYUN_VOICE_MAP[opts?.voice || ''] || direct || ALIYUN_VOICE_MAP[PIPER_DEFAULT_VOICE]
     const format = 'wav'
     const sampleRate = 24000
     const body = JSON.stringify({
@@ -206,15 +272,40 @@ export function piperAvailable(): boolean {
 }
 
 // 返回当前磁盘上实际可用的 Piper 中文嗓音（前端据此动态渲染音色下拉，避免列出未下载的模型）。
-export function listPiperVoices(): { id: string; label: string; gender: 'female' | 'male' }[] {
-  return Object.entries(PIPER_VOICES)
-    .filter(([, v]) => fs.existsSync(piperModelPath(v.model)))
-    .map(([id, v]) => ({ id, label: v.label, gender: v.gender }))
+// 动态扫描 data/piper/models/*.onnx：已知模型带中文标签+性别，未知模型也照常列出（全量暴露）。
+export function listPiperVoices(): VoiceMeta[] {
+  const out: VoiceMeta[] = []
+  for (const [id, v] of Object.entries(PIPER_VOICES)) {
+    if (!fs.existsSync(piperModelPath(v.model))) continue
+    const [lbl, tr] = v.label.split('·')
+    out.push({ id, label: lbl.trim(), gender: v.gender, trait: (tr || '').trim() || v.label, recommended: id === 'huayan' || id === 'xiao_ya' || id === 'chaowen' })
+  }
+  // 已下载但不在 PIPER_VOICES 已知表中的 .onnx → 也列出（全量暴露平台支持）
+  try {
+    const files = fs.readdirSync(PIPER_MODELS_DIR).filter((f) => f.endsWith('.onnx'))
+    const known = new Set(Object.values(PIPER_VOICES).map((v) => `${v.model}.onnx`))
+    for (const f of files) {
+      if (known.has(f)) continue
+      const id = f.replace(/\.onnx$/, '')
+      out.push({ id, label: id, gender: 'female', trait: '本地模型（未登记）' })
+    }
+  } catch {}
+  return out
 }
 
-// 阿里云音色无需本地模型文件，直接返回配置列表。
-export function listAliyunVoices(): { id: string; label: string; gender: 'female' | 'male' }[] {
-  return ALIYUN_VOICES
+// 阿里云音色无需本地模型文件，直接返回烘焙的全部预置音色（含 3 个推荐人格）。
+export function listAliyunVoices(): VoiceMeta[] {
+  return ALIYUN_VOICE_CATALOG
+}
+// Edge（微软）音色：返回烘焙的中文 Neural 精选集（静态兜底）。
+export function listEdgeVoices(): VoiceMeta[] {
+  return EDGE_VOICE_CATALOG
+}
+// 按 provider 返回其支持的全部音色（前端下拉统一入口）。
+export function listVoicesByProvider(provider: string): VoiceMeta[] {
+  if (provider === 'aliyun') return listAliyunVoices()
+  if (provider === 'edge') return listEdgeVoices()
+  return listPiperVoices()
 }
 
 class PiperTtsProvider implements TtsProvider {
