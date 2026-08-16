@@ -8,6 +8,8 @@ const MAX_AUDIO = 10 * 1024 * 1024 // 10MB
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
+  const rl = rateLimit('vip-asr', user.id, 60, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `语音识别请求过于频繁，请 ${rl.retryAfter} 秒后重试` })
 
   let parts: any[] = []
   try {

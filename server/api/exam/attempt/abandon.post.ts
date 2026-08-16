@@ -4,6 +4,8 @@ export default defineEventHandler(async (event) => {
   const user = getUser(event)
   // 未登录用户本就没有 attempt，无需作废
   if (!user) return json(event, 200, { ok: true })
+  const rl = rateLimit('exam-abandon', user.id, 20, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `请求过于频繁，请 ${rl.retryAfter} 秒后重试` })
   let body: any = {}
   try { body = await readBody(event) } catch (e) { body = {} }
   const attemptId = typeof body?.attemptId === 'string' ? body.attemptId : ''

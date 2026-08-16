@@ -2,6 +2,8 @@
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
+  const rl = rateLimit('progress-toggle', user.id, 60, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `操作过于频繁，请 ${rl.retryAfter} 秒后重试` })
   const { moduleId, chapterId, sectionId, done } = await readBody(event)
   if (!moduleId || !chapterId || !sectionId) return json(event, 400, { error: '参数不全' })
   if (done) sqlite.prepare('INSERT OR REPLACE INTO progress (user_id,module_id,chapter_id,section_id,done_at) VALUES (?,?,?,?,?)').run(user.id, moduleId, chapterId, sectionId, Date.now())

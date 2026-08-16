@@ -3,6 +3,8 @@
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
+  const rl = rateLimit('vip-tts', user.id, 30, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `语音合成请求过于频繁，请 ${rl.retryAfter} 秒后重试` })
   const q = getQuery(event)
   const text = typeof q.text === 'string' ? q.text : ''
   if (!text.trim()) return json(event, 400, { error: '缺少 text' })

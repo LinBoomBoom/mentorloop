@@ -2,6 +2,8 @@
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) throw createError({ statusCode: 401, message: '请先登录' })
+  const rl = rateLimit('checkin', user.id, 20, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `操作过于频繁，请 ${rl.retryAfter} 秒后重试` })
   const now = new Date()
   const checkDate = fmtDateLocal(now)
   const createdAt = now.getTime()

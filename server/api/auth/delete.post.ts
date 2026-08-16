@@ -2,6 +2,8 @@
 export default defineEventHandler(async (event) => {
   const user = getUser(event)
   if (!user) return json(event, 401, { error: '请先登录后再注销账号' })
+  const rl = rateLimit('account-delete', user.id, 5, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `操作过于频繁，请 ${rl.retryAfter} 秒后重试` })
   const { password } = await readBody(event)
 
   // 复核：设置了密码则必须匹配；仅凭验证码注册（无密码）的账号以有效会话为准
