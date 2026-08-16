@@ -108,9 +108,14 @@ export function updateUser(id: string, patch: any) {
     const v = typeof patch.vip === 'object' ? JSON.stringify(patch.vip) : patch.vip
     sets.push('vip=?'); vals.push(v)
   }
+  // P1#4：改密 / 封禁后即时撤销该用户全部会话，防止旧 token 续用（getUser 也会懒清理 banned，这里双保险且即时生效）
+  const revoke = !!(patch.password || (patch.banned !== undefined && patch.banned))
   if (!sets.length) return publicUser(u)
   vals.push(id)
   sqlite.prepare(`UPDATE users SET ${sets.join(',')} WHERE id=?`).run(...vals)
+  if (revoke) {
+    try { sqlite.prepare('DELETE FROM sessions WHERE user_id=?').run(id) } catch { /* ignore */ }
+  }
   return publicUser(sqlite.prepare('SELECT * FROM users WHERE id=?').get(id))
 }
 export function deleteUser(id: string) {
