@@ -63,15 +63,15 @@
 ## 3. 数据库 / 后端健壮性（B 系列）
 
 - [x] B1 零业务索引 → 已建 8 个
-- [ ] B2 外键开关开了但表无 FOREIGN KEY 子句
+- [x] B2 外键子句（迁移 v3 `foreign-keys` 重建 chapters/sections/exam_choices/exam_written/exam_records/progress/interview_sessions/study_plans 带 FK + ON DELETE CASCADE）
 - [x] B3 DB_PATH 依赖 cwd → 已修
-- [ ] B4 WAL 备份陷阱（无备份脚本，只拷 .db 丢数据）
-- [ ] B5 sitemap 每次请求全库遍历无缓存
-- [ ] B6 N+1 查询（stats/modules/sets/sitemap）
-- [ ] B7 exam_records 单行塞全量 JSON 复盘（表膨胀，需拆表）
-- [ ] B8 schema 无迁移机制（CREATE IF NOT EXISTS + try/catch ALTER）
+- [x] B4 WAL 备份（createDb 已 `journal_mode = WAL`；scripts/backup-db.mjs 只读 `VACUUM INTO` 自包含快照 + integrity_check，已挂 `npm run backup`，实跑通过）
+- [x] B5 sitemap 缓存（server/utils/sitemap.ts 1h 缓存 + server/routes/sitemap.xml.ts 复用；批量查询构 URL）
+- [x] B6 N+1 消除（modules.get.ts GROUP BY 聚合；sitemap.ts 批量查询替代逐节嵌套 SELECT）
+- [x] B7 exam_records 拆表（迁移 v4 拆出 exam_choice_reviews / exam_written_reviews 子表，主表双写 + 读取走子表 fallback 主表老列）
+- [x] B8 迁移机制（db.ts MIGRATIONS 版本化幂等迁移 + colExists 守卫，新增 schema 仅追加 migration）
 - [x] B9 未显式 busy_timeout → 已设
-- [ ] B10 交卷无幂等（可刷成绩记录；与 P0#3 重叠）
+- [x] B10 交卷幂等（idx_exam_records_nonce 复合唯一索引 (user_id,set_id,submit_nonce)，迁移 v2/v10；submit.post.ts 按 nonce 查询去重）
 
 ---
 
