@@ -17,15 +17,21 @@ const clear = ['sections', 'exam_choices', 'exam_written', 'exam_sets', 'intervi
 for (const t of clear) db.prepare(`DELETE FROM ${t}`).run();
 console.log('cleared content tables');
 
+// 确保 source 列存在（与 db.ts v20 迁移对齐；reseed 独立运行也需此列）
+for (const t of ['interview_questions', 'exam_choices', 'exam_written']) {
+  const cols = new Set(db.prepare(`PRAGMA table_info(${t})`).all().map((r) => r.name));
+  if (!cols.has('source')) db.prepare(`ALTER TABLE ${t} ADD COLUMN source TEXT`).run();
+}
+
 const content = JSON.parse(fs.readFileSync(SEED, 'utf-8'));
 
 const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,"desc",position) VALUES (?,?,?,?,?,?)');
 const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position) VALUES (?,?,?,?,?)');
 const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)');
-const insQ = db.prepare('INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords) VALUES (?,?,?,?,?,?)');
+const insQ = db.prepare('INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,source) VALUES (?,?,?,?,?,?,?)');
 const insSet = db.prepare('INSERT OR IGNORE INTO exam_sets (id,name,track,level,duration,vip_only) VALUES (?,?,?,?,?,?)');
-const insC = db.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,explain,multi) VALUES (?,?,?,?,?,?,?,?)');
-const insW = db.prepare('INSERT OR IGNORE INTO exam_written (id,set_id,q,points,reference) VALUES (?,?,?,?,?)');
+const insC = db.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,explain,source,multi) VALUES (?,?,?,?,?,?,?,?,?)');
+const insW = db.prepare('INSERT OR IGNORE INTO exam_written (id,set_id,q,points,reference,source) VALUES (?,?,?,?,?,?)');
 
 const tx = db.transaction(() => {
   content.modules.forEach((m, mi) => {
@@ -37,13 +43,13 @@ const tx = db.transaction(() => {
   });
   Object.entries(content.interview).forEach(([track, bank]) => {
     [...bank.hot, ...bank.special].forEach((q) => {
-      insQ.run(q.id, track, q.id[1] === 's' ? 'special' : 'hot', q.q, q.a, JSON.stringify(q.keywords || []));
+      insQ.run(q.id, track, q.id[1] === 's' ? 'special' : 'hot', q.q, q.a, JSON.stringify(q.keywords || []), q.source ?? null);
     });
   });
   content.examSets.forEach((set) => {
     insSet.run(set.id, set.name, set.track, set.level, set.duration, set.vipOnly ? 1 : 0);
-    set.choices.forEach((c) => insC.run(c.id, set.id, c.tag, c.q, JSON.stringify(c.options), JSON.stringify(c.answer), c.explain, c.multi ? 1 : 0));
-    set.written.forEach((w) => insW.run(w.id, set.id, w.q, JSON.stringify(w.points), w.reference));
+    set.choices.forEach((c) => insC.run(c.id, set.id, c.tag, c.q, JSON.stringify(c.options), JSON.stringify(c.answer), c.explain, c.source ?? null, c.multi ? 1 : 0));
+    set.written.forEach((w) => insW.run(w.id, set.id, w.q, JSON.stringify(w.points), w.reference, w.source ?? null));
   });
 });
 tx();

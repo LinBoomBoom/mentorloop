@@ -744,6 +744,47 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       )`)
       db.exec('CREATE INDEX IF NOT EXISTS idx_im_session ON interview_media(session_id)')
     }
+  },
+  {
+    version: 20,
+    name: 'interview-source-provenance',
+    up: (db) => {
+      // C2/C3 答案溯源验收：为面试题与考卷条目补充「官方源」字段 source（URL 字符串）。
+      //   - 精确源：答案/解析中已有的真实官方 URL（由 scripts/_inject-c2-source.mjs 抽取进种子）。
+      //   - 枢纽源：按 tech 映射到权威官方文档根站（Java→Oracle、Spring→spring.io、Web→MDN、安全→OWASP…）。
+      //   - 聚合型主题（系统设计/后端通用/CI-CD 等）暂无单一官方源，留 NULL 交领域专家锚定。
+      // 列在三表幂等追加；存量库以种子为真源回填，新库空表时跳过（插入已含 source）。
+      const addCol = (t: string) => {
+        const cols = new Set((db.prepare(`PRAGMA table_info(${t})`).all() as any[]).map((r: any) => r.name))
+        if (!cols.has('source')) db.prepare(`ALTER TABLE ${t} ADD COLUMN source TEXT`).run()
+      }
+      addCol('interview_questions')
+      addCol('exam_choices')
+      addCol('exam_written')
+      if ((db.prepare('SELECT COUNT(*) c FROM interview_questions').get() as any).c === 0) return
+      try {
+        const file = path.join(process.cwd(), 'data', 'seed-content.json')
+        if (!fs.existsSync(file)) return
+        const seed = JSON.parse(fs.readFileSync(file, 'utf-8'))
+        const updQ = db.prepare('UPDATE interview_questions SET source=? WHERE id=?')
+        const updC = db.prepare('UPDATE exam_choices SET source=? WHERE id=?')
+        const updW = db.prepare('UPDATE exam_written SET source=? WHERE id=?')
+        const tx = db.transaction(() => {
+          for (const bank of Object.values(seed.interview || {}) as any[]) {
+            for (const list of [bank.hot, bank.special]) {
+              for (const q of list || []) {
+                if (q && q.id) updQ.run(q.source ?? null, q.id)
+              }
+            }
+          }
+          for (const set of seed.examSets || []) {
+            for (const c of set.choices || []) if (c && c.id) updC.run(c.source ?? null, c.id)
+            for (const w of set.written || []) if (w && w.id) updW.run(w.source ?? null, w.id)
+          }
+        })
+        tx()
+      } catch { /* 种子缺失或损坏时跳过，不阻塞启动 */ }
+    }
   }
 ]
 
