@@ -38,7 +38,7 @@
 下列待办项**不阻塞于资质/决策**，可优先推进（详见各节）：
 
 - **安全收口（§2.2）**：A7/A8/A10/P1#6 已于 08-16 收尾（详见各条目 [x]）
-- **VIP 价值线（§6.1/6.3/6.4，免支付）**：T1 orders/subscriptions 表扩展 + T2 plans 配置化 + T3 3 套 VIP 专属试卷门禁 + T5 学习路径定制 + T10 个人中心 VIP 状态 + T11 埋点 + H2/H3/H4
+- **VIP 价值线（§6.1/6.3/6.4，免支付）**：T1/T2/T3/T5 已于 08-16 收尾（详见 §6.1 勾选）；剩余 T10 个人中心 VIP 状态 + T11 埋点 + H2/H3/H4 待做
 - **前端体验（§7）**：F1 模块总览虚拟滚动/TOC + F2 章节分节导航 + F3 考试页计时/题号导航 + F4 全局面包屑/目录抽屉
 - **管理后台（§8）**：G1–G7 全套 CRUD + 用户/VIP/订单管理 + 数据看板 + 审计日志
 - **内容质量（§5.4/5.5）**：D3 级别标签一致性 + D4 题目质量 + E2 hot/special 权重校准 + E3 查漏
@@ -140,13 +140,13 @@
 ## 6. VIP 价值线（vip-implementation-plan T1–T12）
 
 ### 6.1 价值线（可立即开工，不依赖支付资质）
-- [ ] T1 扩展 `orders` / `subscriptions` 表 + 迁移脚本
-- [ ] T2 `plans` 配置化（enabled + 权益 `implemented` 标记）
-- [ ] T3 新增 3 套 VIP 专属试卷 + 门禁全链路打通
+- [x] T1 扩展 `orders` / `subscriptions` 表 + 迁移脚本（**核对：db.ts 早已建表 + `fulfillOrder` 状态机 + `getActiveSubscription` + `expirePendingOrders`，本批仅验收确认，无新代码**）
+- [x] T2 `plans` 配置化（enabled + 权益 `implemented` 标记）（08-16：`server/utils/plans.ts` benefits 结构化 `{key,label,implemented}` + `period`；`plans.get.ts` 透传；`vip/index.vue` 区分「已上线/敬请期待」；诚实分级：AI 面试核心/1v1 简历诊断/内推库标 `false`；修正"12 套"夸大文案为真实 8 套）
+- [x] T3 新增 3 套 VIP 专属试卷 + 门禁全链路打通（**核对：seed 已有 8 套 `vipOnly:true` 卷（超额满足）；本批补结构化 403 `VIP_REQUIRED` + 套餐摘要，前端 `sets/[id].vue` 识别后弹升级引导**）
 - [ ] T4 AI 模拟面试 MVP（⚠ 需 LLM 厂商+Key）
   - [x] 呈现层：阿里云 TTS + 数字人/3D VRM + `/interview/sim` 实时语音流式播报（08-15/16 已落地）
   - [ ] 核心：多轮 LLM 对话 + 评分 + 薄弱点报告（**仍卡决策项②**）
-- [ ] T5 学习路径定制 MVP（复用 `exam_records` 薄弱点）
+- [x] T5 学习路径定制 MVP（复用 `exam_records` 薄弱点）（08-16：补 `generatePlanLocal` 免 LLM 确定性生成器，`getOrCreateStudyPlan` 在 `!llmEnabled()` 走本地路径不再 503，未接 LLM 前也可用；有 key 仍走 LLM 富化）
 
 ### 6.2 支付线（卡支付资质 ①）
 - [ ] T6 支付服务商接入（create + notify/webhook）
@@ -196,7 +196,7 @@
 | 数据库后端 | 10 | 0 | — |
 | 运维部署 | 6 | 0 | Node 22 已对齐；Caddyfile 域名为部署期配置 |
 | 内容基座 | ✅ 全完成 | 0 | 知识树547节100%可溯源 + 题库73.6%带 source + 考卷19预留 source 列 |
-| VIP 价值线 | 1（呈现层） | 15 | T4核心/T6–T9→①支付+②LLM；T1/T2/T3/T5/T10/T11/H2/H3/H4 可立即开工 |
+| VIP 价值线 | 5（呈现层+T1+T2+T3+T5） | 11 | T4核心→②LLM；T6–T9→①支付；T10/T11/H2/H3/H4 待做 |
 | 前端体验 | 局部 | 4（F1–F4） | — |
 | 管理后台 | 0 | 7（G1–G7） | — |
 
@@ -214,10 +214,10 @@
 3. A10 搜索 LIKE 通配符转义（% / _ 防全表匹配）→ ✅ 早已落地，本次核对确认
 4. P1#6 服务端考试计时（开考时间入库，倒计时不可纯前端控）→ ✅ 早已落地，本次核对确认
 
-**B. VIP 价值线（免支付，可独立交付）**
-5. T1 + T2 订单/订阅表扩展 + plans 配置化（权益 `implemented` 标记）
-6. T3 3 套 VIP 专属试卷 + 门禁全链路打通
-7. T5 学习路径定制（复用 `exam_records` 薄弱点）
+**B. VIP 价值线（免支付，可独立交付）— 已于 08-16 收尾 ✅**
+5. T1 + T2 订单/订阅表扩展 + plans 配置化（权益 `implemented` 标记）✅
+6. T3 3 套 VIP 专属试卷 + 门禁全链路打通 ✅（seed 实测 8 套 VIP 卷超额满足）
+7. T5 学习路径定制（复用 `exam_records` 薄弱点，免 LLM 兜底）✅
 
 **C. 前端体验 / 管理后台（按资源排期）**
 8. F1–F4 模块总览/章节/考试/全局导航
