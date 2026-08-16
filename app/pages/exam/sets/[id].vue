@@ -36,6 +36,19 @@
 
     <!-- 答题中 -->
     <div v-else-if="phase === 'take' && set" class="reveal">
+      <!-- 门禁拦截（服务端返回 VIP_REQUIRED：如会话期会员过期） -->
+      <a-card v-if="vipBlocked" class="mb-5 !bg-amber-500/10 !border-amber-500/20" :body-style="{ padding: '16px' }">
+        <div class="flex items-center gap-3">
+          <Icon name="crown" :size="20" class="text-amber-500 shrink-0" />
+          <div class="flex-1 text-sm">
+            <span class="font-semibold text-amber-600">会员已失效</span> · 该试卷为 VIP 专属，请重新开通后交卷
+          </div>
+          <NuxtLink :to="auth.isLoggedIn ? '/vip' : ('/login?redirect=' + route.fullPath)">
+            <a-button type="primary" class="shrink-0 !py-2"><Icon name="crown" :size="15" /> 去开通</a-button>
+          </NuxtLink>
+        </div>
+      </a-card>
+
       <!-- VIP 提示条 -->
       <a-card v-if="vipLocked" class="mb-5 !bg-amber-500/10 !border-amber-500/20" :body-style="{ padding: '16px' }">
         <div class="flex items-center gap-3">
@@ -284,6 +297,7 @@ useSeoMeta({
 })
 const record = ref<any>(null)
 const err = ref('')
+const vipBlocked = ref(false)
 const submitting = ref(false)
 const choiceAnswers = reactive<Record<string, any>>({})
 const writtenAnswers = reactive<Record<string, any>>({})
@@ -417,7 +431,13 @@ async function submit() {
     await nextTick()
     if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (e: any) {
-    err.value = e.message || '交卷失败，请检查网络后重试'
+    if (e?.code === 'VIP_REQUIRED') {
+      // 服务端门禁拦截（如会话期会员过期）：弹出升级引导，不显示普通错误文本
+      vipBlocked.value = true
+      err.value = ''
+    } else {
+      err.value = e.message || '交卷失败，请检查网络后重试'
+    }
     submitNonce = '' // 失败后换新票据
     if (dur.value && timeLeft.value > 0) startTimer() // 失败则恢复计时，不白扣时间
   } finally { submitting.value = false }

@@ -7,7 +7,15 @@ export default defineEventHandler(async (event) => {
   const { setId, choiceAnswers = {}, writtenAnswers = {}, usedSeconds = 0, nonce, attemptId } = await readBody(event)
   const set = sqlite.prepare('SELECT * FROM exam_sets WHERE id=?').get(setId)
   if (!set) return json(event, 404, { error: '试卷不存在' })
-  if (!requireVip(user, set)) return json(event, 403, { error: '该试卷为 VIP 专属，请先开通会员' })
+  // VIP 门禁：免费用户交卷返回结构化 VIP_REQUIRED，便于前端精准引导开通（而非仅一行错误文本）
+  if (!requireVip(user, set)) {
+    const plan = getPlan(PLANS[0]?.id || 'monthly')
+    return json(event, 403, {
+      error: '该试卷为 VIP 专属，请先开通会员',
+      code: 'VIP_REQUIRED',
+      plan: plan ? { id: plan.id, name: plan.name, price: plan.price, durationDays: plan.durationDays } : null
+    })
+  }
 
   // P1-6：服务端控制考试用时。优先按 attempt 的起始时间计算；无有效 attempt 时回退并钳制客户端值
   const now = Date.now()

@@ -12,6 +12,8 @@ export const useApi = () => {
         : (typeof data?.error === 'string' ? data.error : (data?.message || e?.statusMessage || '请求失败'))
       const err: any = new Error(msg)
       err.status = e?.status
+      // 透传后端业务码（如 VIP_REQUIRED），供前端按 code 精准引导
+      if (data?.code) err.code = data.code
       throw err
     }
   }
