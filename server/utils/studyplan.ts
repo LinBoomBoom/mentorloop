@@ -31,6 +31,19 @@ function chapterIndex(track: string) {
   return { rows, byTitle }
 }
 
+// 章节关键词索引：把每章下所有小节标题+正文拼成一个 blob，用于「弱标签→真实章节」匹配。
+// 比仅靠章节标题更准（弱标签如「React」常出现在小节正文而非章名）。
+function chapterKeywordIndex(track: string) {
+  const rows = sqlite.prepare(
+    `SELECT c.id AS id, c.title AS title, c.module_id AS moduleId,
+            GROUP_CONCAT(s.title || ' ' || IFNULL(s.content, ''), ' ') AS blob
+     FROM sections s JOIN chapters c ON c.id = s.chapter_id
+     WHERE s.direction = ?
+     GROUP BY c.id, c.title, c.module_id`
+  ).all(track) as any[]
+  return rows.map((r: any) => ({ id: r.id, title: r.title, moduleId: r.moduleId, blob: (r.blob || '').toLowerCase() }))
+}
+
 // 给里程碑里的 chapters 补上 { title, moduleId, chapterId }，匹配不到的降级为纯标签
 function decorate(plan: any, track: string) {
   const { byTitle } = chapterIndex(track)
@@ -94,9 +107,11 @@ export async function getOrCreateStudyPlan(userId: string, opts: { force?: boole
       generatedAt: cached.created_at
     }
   } else {
-    if (!llmEnabled()) throw new Error('AI 服务未配置（缺少 DEEPSEEK_API_KEY）')
-    const { rows } = chapterIndex(track)
-    const generated = await generatePlan(track, weakPoints, rows.map((r: any) => r.title))
+    // 有 LLM key → 走大模型富化路径；无 key → 走免 LLM 确定性生成（同样基于真实薄弱点与章节），
+    // 二者均产出同构的 { summary, milestones }，保证未接 LLM 前 T5 也能用，不抛 503。
+    const generated = llmEnabled()
+      ? await generatePlan(track, weakPoints, chapterIndex(track).rows.map((r: any) => r.title))
+      : generatePlanLocal(track, weakPoints, chapterKeywordIndex(track))
 
     const now = Date.now()
     // 只清理该方向的旧计划，其它方向的缓存保留（切换方向时才不会每次都重新烧 token）
@@ -119,6 +134,48 @@ export function prewarmTracks(userId: string, excludeTrack: string) {
     if (t === excludeTrack) continue
     getOrCreateStudyPlan(userId, { track: t }).catch(() => {})
   }
+}
+
+// 免 LLM 的确定性路径生成：弱标签 → 真实章节（关键词匹配）→ 按薄弱度排序成里程碑。
+// 无任何外部依赖，未接 LLM 时也能用；章节名全部取自真实课程，绝不臆造。
+function generatePlanLocal(track: string, weakPoints: any[], idx: any[]) {
+  const milestones: any[] = []
+  const picked = new Set<string>()
+  const matchChapters = (tag: string, max = 3) => {
+    const t = String(tag || '').toLowerCase()
+    if (!t) return []
+    return idx
+      .map((c) => ({ c, score: (c.title.toLowerCase().includes(t) ? 5 : 0) + (c.blob.includes(t) ? 2 : 0) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, max)
+      .map((x) => x.c.title)
+  }
+  for (const w of weakPoints) {
+    const chaps = matchChapters(w.tag)
+    chaps.forEach((c) => picked.add(c))
+    milestones.push({
+      title: `补强：${w.tag}`,
+      chapters: chaps,
+      focus: w.tag,
+      tasks: [`系统理解「${w.tag}」的核心原理`, '完成相关习题并复盘错题'],
+      interviewGoal: String(w.tag).slice(0, 10)
+    })
+  }
+  const remainder = idx.map((c) => c.title).filter((c) => !picked.has(c))
+  if (remainder.length) {
+    milestones.push({
+      title: '系统进阶（按课程顺序）',
+      chapters: remainder,
+      focus: '综合提升',
+      tasks: ['按学习中心章节顺序系统过一遍', '每章学完做对应模拟卷验证掌握度'],
+      interviewGoal: '综合'
+    })
+  }
+  const summary = weakPoints.length
+    ? `基于你最近的模拟考试，最薄弱的是「${weakPoints[0].tag}」（出现 ${weakPoints[0].count} 次）。建议优先补强下列薄弱点，再按课程顺序系统进阶。`
+    : '暂无明显薄弱点，可按课程顺序系统进阶，并多做模拟卷检验实战水平。'
+  return { summary, milestones }
 }
 
 async function generatePlan(track: string, weakPoints: any[], chapters: string[]) {
