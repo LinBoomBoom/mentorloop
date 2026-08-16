@@ -43,7 +43,7 @@
 - [ ] A2 第三方登录假实现（任意 qrToken 可伪造登录）
 - [x] A3 `requireVip` 校验 expireAt → 已修（注：会话治理 A7 仍缺，见 P0#1）
 - [ ] A4 支付闭环未接入（仍 mock）
-- [ ] A5 全站无 rate limit
+- [x] A5 全站 rate limit（security.ts 内存滑动窗口；覆盖 auth/login|register|send-code、order/create、search、exam/submit、interview/ask、vip-path|resume|referral|interview 系列，及本轮补的 tts/asr/practice/account-delete/abandon/checkin/progress-toggle/wrong/skill-mastery/sandbox-confirm）
 - [x] A6 登录无防爆破（security.ts `getLoginLock` 已实现失败锁定）
 - [ ] A7 会话永不过期 + `sessions`/`auth_codes` 无清理
 - [ ] A8 输入无长度/类型限制（注册名、交卷笔试、提问）
@@ -54,7 +54,7 @@
 - [x] A13 无隐私政策页（privacy.vue 7 章节已完善）
 - [x] A14 密码策略弱（assertPassword 已强制 8+ 两类）
 - [x] P1#4 封禁/改密不踢下线（getUser 校验 banned 并清会话；本轮补 updateUser 改密/封禁清会话）
-- [ ] P1#5 LLM 与下单接口零限流（`vip/resume`、`interview/start|answer`、`order/create`、`exam/submit`、`payment/sandbox/confirm`）
+- [x] P1#5 LLM 与下单接口限流（vip/resume、interview/start|answer、order/create、exam/submit 此前已限；本轮补 vip-tts 30/60s、vip-asr 60/60s、payment/sandbox/confirm 按 IP 20/60s，无零限流项）
 - [ ] P1#6 考试倒计时纯前端可控（无 `exam/start`，服务端不记开考时间）
 
 ---
