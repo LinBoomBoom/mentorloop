@@ -5,7 +5,7 @@
       <div class="relative z-10">
         <div class="inline-flex items-center gap-2 chip !bg-white/20 !text-white mb-3"><Icon name="crown" :size="15" /> 会员中心</div>
         <h1 class="text-3xl font-extrabold">{{ auth.isVip ? '您已解锁全部专属特权' : '解锁专属特权' }}</h1>
-        <p class="mt-2 text-white/80 max-w-md">{{ auth.isVip ? '高阶试卷、AI 模拟面试、学习路径已全部开放，前往下方继续学习或管理你的会员。' : 'VIP 专属高阶试卷、AI 深度模拟面试、学习路径定制，助你高效上岸。' }}</p>
+        <p class="mt-2 text-white/80 max-w-md">{{ auth.isVip ? '高阶模拟试卷、个性化学习路径、错题本与题库复盘已全部开放，前往下方继续学习或管理你的会员。' : 'VIP 专属高阶模拟试卷、个性化学习路径定制、错题本与题库复盘，助你高效上岸。' }}</p>
         <div class="mt-4 inline-flex items-center gap-2 text-sm">当前身份：<b>{{ auth.isVip ? '👑 VIP 会员' : '免费用户' }}</b></div>
       </div>
     </div>
@@ -52,8 +52,10 @@
         </div>
         <p class="mt-2 text-xs text-muted">{{ p.desc }} · 一次性开通，到期不自动扣款</p>
         <ul class="mt-5 space-y-2.5 flex-1">
-          <li v-for="b in p.benefits" :key="b" class="flex items-start gap-2 text-sm text-sub">
-            <Icon name="checkCircle" :size="17" class="text-emerald-500 shrink-0 mt-0.5" /> <span>{{ b }}</span>
+          <li v-for="b in p.benefits" :key="b.key" class="flex items-start gap-2 text-sm" :class="b.implemented ? 'text-sub' : 'text-muted'">
+            <Icon :name="b.implemented ? 'checkCircle' : 'clock'" :size="17" :class="b.implemented ? 'text-emerald-500 shrink-0 mt-0.5' : 'text-amber-500 shrink-0 mt-0.5'" />
+            <span :class="b.implemented ? '' : 'opacity-70'">{{ b.label }}</span>
+            <a-tag v-if="!b.implemented" :bordered="false" class="!ml-0.5 !text-[10px] !px-1.5 !py-0 !bg-amber-500/10 !text-amber-600">敬请期待</a-tag>
           </li>
         </ul>
         <a-button type="primary" block class="mt-6" :disabled="!enabled || buying === p.id" @click="buy(p)">
