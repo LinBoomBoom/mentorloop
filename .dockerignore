@@ -4,9 +4,14 @@ node_modules
 .env
 .env.*
 .workbuddy
-data/*.db
-data/*.db-shm
-data/*.db-wal
+# 本地数据卷（SQLite/媒体/Piper 模型/备份/日志）不进镜像：
+# Dockerfile 已声明 VOLUME ["/app/data"]，运行时由宿主机持久卷挂载。
+data/
+*.vrm
+*.db
+*.db-shm
+*.db-wal
+*.bak
 *.log
 .git
 .github

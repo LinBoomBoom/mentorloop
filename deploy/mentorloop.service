@@ -1,0 +1,28 @@
+[Unit]
+Description=MentorLoop 全栈服务（Nuxt/Nitro 单实例）
+Documentation=https://github.com/your-org/mentorloop
+After=network.target
+
+[Service]
+Type=simple
+# 部署目录：将构建产物（含 .output/ 与 .env）放到此目录，并相应调整下方路径
+WorkingDirectory=/opt/mentorloop
+ExecStart=/usr/bin/node /opt/mentorloop/.output/server/index.mjs
+# 生产环境 + 通过 EnvironmentFile 注入 .env（含 SITE_URL / DB_PATH / DASHSCOPE_API_KEY 等）
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/mentorloop/.env
+# better-sqlite3 为单写，REST 单实例即可；若日后换 Postgres 可改 cluster + 多实例
+Restart=always
+RestartSec=3
+# 限制内存，防内存泄漏拖垮宿主机（按机器规格调整）
+MemoryMax=1G
+# 日志统一交给 journald，便于 `journalctl -u mentorloop`
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mentorloop
+# 如需降权运行（推荐）：创建专用用户并改 User=/Group=
+# User=mentorloop
+# Group=mentorloop
+
+[Install]
+WantedBy=multi-user.target
