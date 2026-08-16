@@ -79,10 +79,10 @@
 
 - [x] C1 `.env` 体系（`.env.example` + `.env` 已建；`sitemap.ts`/`robots.txt.ts`/`payment.ts` 均读 `process.env.SITE_URL`；SITE_URL 仍占位 `mentorloop.example.com` 属部署期配置非代码缺口）
 - [x] C2 健康检查接口（`server/routes/healthz.get.ts` 返回 status/db/uptime/memory；`session-touch.ts` 已放行 `/healthz`）
-- [ ] C3 Docker / PM2 / systemd 编排（Dockerfile✓ `ecosystem.config.cjs`✓ `Caddyfile`✓ 已存在；本轮收口：`.dockerignore` 补 `data/`、新增 systemd unit、Node 版本对齐 22、Caddyfile 域名部署期替换）
+- [x] C3 Docker / PM2 / systemd 编排（Dockerfile✓ `ecosystem.config.cjs`✓ `Caddyfile`✓；本轮收口：`.dockerignore` 排除 `data/`、新增 `deploy/mentorloop.service`、Docker+CI 对齐 `node:22-slim`、Caddyfile 域名部署期替换）
 - [x] C4 CI 跑 build（`.github/workflows/ci.yml` 已 `npm ci && npm test && npm run build`；"被注释"为旧快照失效）
 - [x] C5 日志 / 错误上报（`logger.ts` JSON 结构化 + 文件落地 + 分级；`plugins/error-log.ts` 全局 error hook）
-- [ ] C6 监控 / 告警（仅 healthz 探活，无组件级状态与告警接线；本轮交付：healthz 组件级状态 + `scripts/monitor-cron.mjs` + webhook 告警 + `docs/ops/monitoring.md`）
+- [x] C6 监控 / 告警（healthz 返回组件级状态 `{db,tts,diskFreePct}` + `ok|degraded`；`scripts/monitor-cron.mjs` 探活 + 可选 webhook 告警；`docs/ops/monitoring.md` 两套方案）
 
 ---
 
@@ -169,7 +169,7 @@
 |---|---|---|---|
 | 上线安全 P0 | 3 | ~16 | ①支付 ②LLM ③OAuth ④续费 |
 | 数据库后端 | 3 | 7 | — |
-| 运维部署 | 0 | 6 | ⑤部署形态 |
+| 运维部署 | 6 | 0 | Node 22 已对齐；Caddyfile 域名为部署期配置 |
 | 内容基座 | 1（后端树） | 14 | 量大、需专家落笔 |
 | VIP 价值线 | 1（呈现层） | 11 | ①支付 ②LLM |
 | 前端体验 | 局部 | 4 | — |
