@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { assertInput, InputError } from '../../utils/security'
 
 // 提问式问答：先在本地面试题库做高置信度匹配；未命中则走大模型开放式解答。
 // 关键点：匹配必须要求「题目与提问在主题上高度重合」，否则宁可交给 LLM，
@@ -10,8 +11,15 @@ export default defineEventHandler(async (event) => {
   const ip = getClientIp(event)
   const rl = rateLimit('interview-ask', user ? user.id : ip, 30, 60_000)
   if (!rl.ok) return json(event, 429, { error: `请求过于频繁，请 ${rl.retryAfter} 秒后重试` })
-  const { track, question } = await readBody(event)
-  if (!question) return json(event, 400, { error: '请输入问题' })
+  const { track, question: rawQuestion } = await readBody(event)
+  // A8：提问内容长度/类型校验（min:2 max:500），命中 InputError 返回 400
+  let question: string
+  try {
+    question = assertInput(rawQuestion, { name: '问题', required: true, min: 2, max: 500 })
+  } catch (e) {
+    if (e instanceof InputError) return json(event, 400, { error: e.message })
+    throw e
+  }
   const tracks = track ? [track] : ['frontend', 'backend', 'devops', 'ai']
 
   // 归一化：去空格与常见标点，便于中英文混合下的字符级重合比较

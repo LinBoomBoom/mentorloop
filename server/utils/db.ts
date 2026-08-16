@@ -809,6 +809,11 @@ function createDb() {
   // 启动清理：过期会话与验证码（到期回收由 getUser 兜底；此处避免无限堆积）
   db.prepare('DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < ?').run(Date.now())
   db.prepare('DELETE FROM auth_codes WHERE expires_at < ?').run(Date.now())
+  // A7：定时清理过期会话与验证码，避免重启间持续堆积（createDb 经 global 记忆化，仅执行一次，不会重复起定时器）
+  const CLEANUP_INTERVAL_MS = 15 * 60 * 1000
+  setInterval(() => {
+    try { cleanupExpired() } catch (e: any) { logWarn('cleanup.expired_failed', { error: e?.message }) }
+  }, CLEANUP_INTERVAL_MS)
   seedIfEmpty(db)
   return db
 }

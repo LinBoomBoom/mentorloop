@@ -47,9 +47,12 @@ export default defineEventHandler(async (event) => {
   const choiceScore = choiceRows.length ? Math.round(correct / choiceRows.length * 100) : 0
 
   const writtenRows = sqlite.prepare('SELECT * FROM exam_written WHERE set_id=?').all(setId)
-  const writtenReview = writtenRows.map((w: any) => ({
-    id: w.id, q: w.q, userAnswer: writtenAnswers[w.id] || '（未作答）', reference: w.reference, points: JSON.parse(w.points || '[]')
-  }))
+  const writtenReview = writtenRows.map((w: any) => {
+    // A8：笔试作答限长 5000 字符并 trim，非字符串/空则记（未作答），防止超长文本撑爆 DB
+    const raw = writtenAnswers[w.id]
+    const userAnswer = (typeof raw === 'string' && raw.trim()) ? raw.trim().slice(0, 5000) : '（未作答）'
+    return { id: w.id, q: w.q, userAnswer, reference: w.reference, points: JSON.parse(w.points || '[]') }
+  })
 
   const wrongTags: any = {}
   choiceReview.filter((c: any) => !c.right).forEach((c: any) => { wrongTags[c.tag] = (wrongTags[c.tag] || 0) + 1 })

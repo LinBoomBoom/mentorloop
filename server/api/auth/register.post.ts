@@ -11,8 +11,10 @@ export default defineEventHandler(async (event) => {
   const insertUser = (identifier: string, identifierType: string, password: string | null, nickname: string) => {
     const isEmail = identifierType === 'email'
     const id = uid()
+    // A8：昵称若有值则限长 32 字符（空则回退为账号标识），防止超长/异常昵称写入
+    const safeNick = nickname ? assertInput(nickname, { name: '昵称', max: 32 }) : ''
     sqlite.prepare('INSERT INTO users (id,username,nickname,password,email,phone,providers,vip,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
-      .run(id, identifier, nickname || identifier, password, isEmail ? identifier : null, isEmail ? null : identifier, '{}', JSON.stringify({ level: 0, expireAt: null }), Date.now())
+      .run(id, identifier, safeNick || identifier, password, isEmail ? identifier : null, isEmail ? null : identifier, '{}', JSON.stringify({ level: 0, expireAt: null }), Date.now())
     return sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
   }
 
