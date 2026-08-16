@@ -54,7 +54,8 @@ describe('开通/续费状态机 (fulfillOrder)', () => {
     const sub = getActiveSubscription(uid1)
     expect(sub).toBeTruthy()
     expect(sub.plan_id).toBe('yearly')
-    expect(sub.auto_renew).toBe(1)
+    // P0#2：当前为一次性付费（无自动续费），fulfillOrder 强制写入 auto_renew=0（见 db.ts:890/895）
+    expect(sub.auto_renew).toBe(0)
   })
 
   it('幂等：重复确认同一订单不会二次顺延/重复计费', () => {
