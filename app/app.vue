@@ -36,7 +36,7 @@ const theme = computed(() => ({
     borderRadius: 10,
     fontSize: 14,
     fontFamily:
-      'Sora, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif'
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif'
   },
   algorithm: isDark.value ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm
 }))
