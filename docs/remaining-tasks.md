@@ -77,12 +77,12 @@
 
 ## 4. 运维 / 部署（C 系列）
 
-- [ ] C1 无 `.env` 体系（SITE_URL 默认假域名进 sitemap）
-- [ ] C2 无健康检查接口
-- [ ] C3 无 Dockerfile / PM2 / systemd 编排
-- [ ] C4 CI 不跑 build（被注释）
-- [ ] C5 无日志/错误上报
-- [ ] C6 无监控/告警
+- [x] C1 `.env` 体系（`.env.example` + `.env` 已建；`sitemap.ts`/`robots.txt.ts`/`payment.ts` 均读 `process.env.SITE_URL`；SITE_URL 仍占位 `mentorloop.example.com` 属部署期配置非代码缺口）
+- [x] C2 健康检查接口（`server/routes/healthz.get.ts` 返回 status/db/uptime/memory；`session-touch.ts` 已放行 `/healthz`）
+- [ ] C3 Docker / PM2 / systemd 编排（Dockerfile✓ `ecosystem.config.cjs`✓ `Caddyfile`✓ 已存在；本轮收口：`.dockerignore` 补 `data/`、新增 systemd unit、Node 版本对齐 22、Caddyfile 域名部署期替换）
+- [x] C4 CI 跑 build（`.github/workflows/ci.yml` 已 `npm ci && npm test && npm run build`；"被注释"为旧快照失效）
+- [x] C5 日志 / 错误上报（`logger.ts` JSON 结构化 + 文件落地 + 分级；`plugins/error-log.ts` 全局 error hook）
+- [ ] C6 监控 / 告警（仅 healthz 探活，无组件级状态与告警接线；本轮交付：healthz 组件级状态 + `scripts/monitor-cron.mjs` + webhook 告警 + `docs/ops/monitoring.md`）
 
 ---
 
