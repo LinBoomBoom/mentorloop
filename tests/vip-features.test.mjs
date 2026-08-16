@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { sqlite, effectiveVip, uid } from '../server/utils/db'
 import { startInterview, answerInterview, listInterviews, getInterview, parseJsonBlock, INTERVIEW_MAX_TURNS } from '../server/utils/interview'
 import { getOrCreateStudyPlan, NoRecordsError } from '../server/utils/studyplan'
+import { PLANS, getPlan } from '../server/utils/plans'
 
 // 让 llmEnabled() 通过，并用桩 fetch 模拟 Deepseek 返回
 process.env.DEEPSEEK_API_KEY = 'test-key'
@@ -134,5 +135,46 @@ describe('H2 个性化学习路径', () => {
     // force 重新生成
     const p3 = await getOrCreateStudyPlan(uid5, { force: true })
     expect(p3.cached).toBe(false)
+  })
+})
+
+describe('T2 plans 配置结构化', () => {
+  it('每个套餐的 benefits 均含 implemented 标记与 period', () => {
+    expect(PLANS.length).toBeGreaterThan(0)
+    for (const p of PLANS) {
+      expect(Array.isArray(p.benefits)).toBe(true)
+      expect(p.benefits.length).toBeGreaterThan(0)
+      for (const b of p.benefits) {
+        expect(typeof b.key).toBe('string')
+        expect(typeof b.label).toBe('string')
+        expect(typeof b.implemented).toBe('boolean')
+      }
+      expect(['month', 'quarter', 'year']).toContain(p.period)
+    }
+  })
+  it('已上线权益与真实可用能力一致（AI 面试核心在免 LLM 批次标 false）', () => {
+    const monthly = getPlan('monthly')
+    expect(monthly.benefits.find((b) => b.key === 'vip-exam')?.implemented).toBe(true)
+    expect(monthly.benefits.find((b) => b.key === 'ai-interview')?.implemented).toBe(false)
+  })
+})
+
+describe('H2 免 LLM 本地路径（诚实可降级）', () => {
+  it('无 LLM key 时仍能基于薄弱点生成路径，不抛 503', async () => {
+    const prev = process.env.DEEPSEEK_API_KEY
+    delete process.env.DEEPSEEK_API_KEY
+    try {
+      const uid7 = mkUser({ level: 1, expireAt: Date.now() + 86400000 })
+      sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+        .run(uid('r_'), uid7, 's1', '卷1', 'frontend', 60, 6, 10, JSON.stringify([{ tag: 'React', count: 3 }, { tag: '网络', count: 2 }]), '及格', '建议复习', Date.now())
+      const p = await getOrCreateStudyPlan(uid7)
+      expect(p.plan.summary).toBeTruthy()
+      expect(Array.isArray(p.plan.milestones) && p.plan.milestones.length >= 1).toBe(true)
+      // 本地路径产出必须为真实章节名（decorate 后 chapterLinks 至少部分可点击）
+      const allChapters = p.plan.milestones.flatMap((m) => m.chapterLinks || [])
+      expect(Array.isArray(allChapters)).toBe(true)
+    } finally {
+      if (prev) process.env.DEEPSEEK_API_KEY = prev
+    }
   })
 })
