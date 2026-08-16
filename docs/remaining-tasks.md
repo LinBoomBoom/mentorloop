@@ -37,7 +37,7 @@
 
 下列待办项**不阻塞于资质/决策**，可优先推进（详见各节）：
 
-- **安全收口（§2.2）**：A7 会话定时清理（sessions/auth_codes 过期清扫）+ A8 输入长度/类型校验 + A10 搜索 LIKE 通配符转义 + P1#6 服务端考试计时
+- **安全收口（§2.2）**：A7/A8/A10/P1#6 已于 08-16 收尾（详见各条目 [x]）
 - **VIP 价值线（§6.1/6.3/6.4，免支付）**：T1 orders/subscriptions 表扩展 + T2 plans 配置化 + T3 3 套 VIP 专属试卷门禁 + T5 学习路径定制 + T10 个人中心 VIP 状态 + T11 埋点 + H2/H3/H4
 - **前端体验（§7）**：F1 模块总览虚拟滚动/TOC + F2 章节分节导航 + F3 考试页计时/题号导航 + F4 全局面包屑/目录抽屉
 - **管理后台（§8）**：G1–G7 全套 CRUD + 用户/VIP/订单管理 + 数据看板 + 审计日志
@@ -59,17 +59,17 @@
 - [ ] A4 支付闭环未接入（仍 mock）
 - [x] A5 全站 rate limit（security.ts 内存滑动窗口；覆盖 auth/login|register|send-code、order/create、search、exam/submit、interview/ask、vip-path|resume|referral|interview 系列，及本轮补的 tts/asr/practice/account-delete/abandon/checkin/progress-toggle/wrong/skill-mastery/sandbox-confirm）
 - [x] A6 登录无防爆破（security.ts `getLoginLock` 已实现失败锁定）
-- [ ] A7 会话永不过期 + `sessions`/`auth_codes` 无清理
-- [ ] A8 输入无长度/类型限制（注册名、交卷笔试、提问）
+- [x] A7 会话永不过期 + `sessions`/`auth_codes` 无清理 → 已补：`db.ts` `createDb()` 内 `setInterval` 每 15 分钟调 `cleanupExpired()` 定时清扫过期行（启动清理原已存在；`createDb` 经 global 记忆化仅执行一次，无重复定时器）
+- [x] A8 输入无长度/类型限制（注册名、交卷笔试、提问）→ 已补：① `register.post.ts` 昵称 `assertInput` 限长 32；② `submit.post.ts` 笔试作答截断至 5000 字符并 trim（非字符串/空记「未作答」）；③ `ask.post.ts` 提问 `assertInput` min:2/max:500，命中 `InputError` 返回 400
 - [x] A9 账号枚举（login 已统一中性文案"用户名或密码错误"）
-- [ ] A10 搜索 LIKE 通配符未转义（% / _ 全表匹配）
+- [x] A10 搜索 LIKE 通配符未转义（% / _ 全表匹配）→ 已落地：`security.ts` `likeWrap` + 查询 `ESCAPE '\''`（search.get.ts 与 interview/[track].get.ts 均用），本轮核对确认已生效
 - [x] A11 token 存 localStorage → 已迁 HttpOnly Cookie + CSP（security.ts + Cookie 鉴权）
 - [x] A12 注销账号闭环（auth/delete.post.ts 调 deleteAccount 级联清 8 表；account/index.vue 密码复核弹窗入口已完备）
 - [x] A13 无隐私政策页（privacy.vue 7 章节已完善）
 - [x] A14 密码策略弱（assertPassword 已强制 8+ 两类）
 - [x] P1#4 封禁/改密不踢下线（getUser 校验 banned 并清会话；本轮补 updateUser 改密/封禁清会话）
 - [x] P1#5 LLM 与下单接口限流（vip/resume、interview/start|answer、order/create、exam/submit 此前已限；本轮补 vip-tts 30/60s、vip-asr 60/60s、payment/sandbox/confirm 按 IP 20/60s，无零限流项）
-- [ ] P1#6 考试倒计时纯前端可控（无 `exam/start`，服务端不记开考时间）
+- [x] P1#6 考试倒计时纯前端可控（无 `exam/start`，服务端不记开考时间）→ 已落地：`exam_attempts` 表 + `started_at`；`exam/sets/[id].get.ts` GET 时建/复用 attempt 并记 `serverStartAt`，`submit.post.ts` 按 `started_at` 计算真实用时并钳制（`totalSec` 上限），本轮核对确认已生效
 - [x] P1#7 字体去外部依赖（main.css + nuxt.config 改用系统字体栈消除国内 FOUC；本轮清 app.vue 死引用 Sora、CSP font-src/img-src 移除 Google Fonts 域名）
 
 ---
@@ -192,7 +192,7 @@
 
 | 类别 | 已完成 | 待做 | 阻塞/卡点 |
 |---|---|---|---|
-| 上线安全 P0 | 12 | 6 | A4→①支付；A2→③OAuth；A7/A8/A10/P1#6 可立即开工 |
+| 上线安全 P0 | 19 | 2 | A4→①支付；A2→③OAuth |
 | 数据库后端 | 10 | 0 | — |
 | 运维部署 | 6 | 0 | Node 22 已对齐；Caddyfile 域名为部署期配置 |
 | 内容基座 | ✅ 全完成 | 0 | 知识树547节100%可溯源 + 题库73.6%带 source + 考卷19预留 source 列 |
@@ -208,11 +208,11 @@
 
 内容基座已收尾，下一步建议优先"不依赖资质的硬骨头 + 高价值功能"：
 
-**A. 安全收口（低成本高收益，建议首批）**
-1. A7 会话定时清理（sessions/auth_codes 过期清扫，防 A7 永不过期）
-2. A8 输入长度/类型校验（注册名、笔试作答、提问）
-3. A10 搜索 LIKE 通配符转义（% / _ 防全表匹配）
-4. P1#6 服务端考试计时（开考时间入库，倒计时不可纯前端控）
+**A. 安全收口（低成本高收益，已于 08-16 收尾 ✅）**
+1. A7 会话定时清理（sessions/auth_codes 过期清扫）→ ✅ 已落地
+2. A8 输入长度/类型校验（注册名、笔试作答、提问）→ ✅ 已落地
+3. A10 搜索 LIKE 通配符转义（% / _ 防全表匹配）→ ✅ 早已落地，本次核对确认
+4. P1#6 服务端考试计时（开考时间入库，倒计时不可纯前端控）→ ✅ 早已落地，本次核对确认
 
 **B. VIP 价值线（免支付，可独立交付）**
 5. T1 + T2 订单/订阅表扩展 + plans 配置化（权益 `implemented` 标记）
