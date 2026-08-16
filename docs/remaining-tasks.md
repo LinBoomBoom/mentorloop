@@ -1,6 +1,7 @@
 # MentorLoop 剩余未完成需求任务清单（跟踪文档）
 
 > 生成日期：2026-08-16 ｜ 整理：WorkBuddy
+> ⚠️ **状态核对（08-16）**：本清单初始基于 `launch-checklist(08-05)`，经读码 + 跑测试核对，起步集 6 项（P0#1/#2/#3、A11、A13、A14）与账号安全包（A6/A9/P1#4）此前已在 git 提交中落地；本轮（分支领先 13→14）闭合 P0#2 与 P1#4 的「改密踢下线」。下方已落地项已同步为 `[x]`。
 > 数据来源：`docs/master-plan.md`(08-02) · `docs/content-foundation-plan.md`(08-01) · `docs/vip-implementation-plan.md`(08-01) · `docs/launch-checklist.md`(08-05) + 近期工作记忆核对(08-15/16)
 > 用法：每个任务项 `[ ]` 待做 / `[x]` 已完成；勾选后提交并补 `docs/` 审稿记录。
 
@@ -33,9 +34,9 @@
 ## 2. 上线阻塞（P0，最高优先）
 
 ### 2.1 代码审查新发现（launch-checklist，尚未纳入 master-plan）
-- [ ] **P0#1** 登出不撤销服务端会话（`logout.post.ts` 只清本地 Cookie，`sessions` 仍有效 7 天）
-- [ ] **P0#2** `auto_renew=1` 硬编码 + VIP 页/账户页自相矛盾（合规高风险）
-- [ ] **P0#3** 交卷 nonce 全局唯一索引 → 跨用户 500/DoS（与 B10 重叠）
+- [x] **P0#1** 登出不撤销服务端会话 → 已落地（`logout.post.ts` 读 `AUTH_COOKIE` 并 `DELETE FROM sessions`）
+- [x] **P0#2** `auto_renew=1` 硬编码 + VIP 页/账户页自相矛盾 → 已闭合（本轮：fulfillOrder 写 0 + 测试断言同步 + 禁用 `subscription.enable` + 前端文案一致）
+- [x] **P0#3** 交卷 nonce 全局唯一索引 → 已修复（db.ts 复合唯一索引 `(user_id,set_id,submit_nonce)`）
 
 ### 2.2 安全合规（master-plan A 系列）
 - [x] A1 验证码明文回传（DEV_CODE）→ 已 gate
@@ -43,16 +44,16 @@
 - [x] A3 `requireVip` 校验 expireAt → 已修（注：会话治理 A7 仍缺，见 P0#1）
 - [ ] A4 支付闭环未接入（仍 mock）
 - [ ] A5 全站无 rate limit
-- [ ] A6 登录无防爆破（无限失败锁定）
+- [x] A6 登录无防爆破（security.ts `getLoginLock` 已实现失败锁定）
 - [ ] A7 会话永不过期 + `sessions`/`auth_codes` 无清理
 - [ ] A8 输入无长度/类型限制（注册名、交卷笔试、提问）
-- [ ] A9 账号枚举（注册/登录返回"用户已存在"）
+- [x] A9 账号枚举（login 已统一中性文案"用户名或密码错误"）
 - [ ] A10 搜索 LIKE 通配符未转义（% / _ 全表匹配）
-- [ ] A11 token 存 localStorage → 迁 HttpOnly Cookie + CSP
+- [x] A11 token 存 localStorage → 已迁 HttpOnly Cookie + CSP（security.ts + Cookie 鉴权）
 - [ ] A12 无用户注销账号（个保法删除权缺口）
-- [ ] A13 无隐私政策页
-- [ ] A14 密码策略弱（仅 6 位）→ 8+ 复杂度
-- [ ] P1#4 封禁/改密不踢下线（`getUser` 不校验 `banned`、改 banned/密码未清 `sessions`）
+- [x] A13 无隐私政策页（privacy.vue 7 章节已完善）
+- [x] A14 密码策略弱（assertPassword 已强制 8+ 两类）
+- [x] P1#4 封禁/改密不踢下线（getUser 校验 banned 并清会话；本轮补 updateUser 改密/封禁清会话）
 - [ ] P1#5 LLM 与下单接口零限流（`vip/resume`、`interview/start|answer`、`order/create`、`exam/submit`、`payment/sandbox/confirm`）
 - [ ] P1#6 考试倒计时纯前端可控（无 `exam/start`，服务端不记开考时间）
 
