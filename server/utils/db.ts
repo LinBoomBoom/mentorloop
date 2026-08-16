@@ -8,7 +8,7 @@ import { logWarn } from './logger'
 
 /* ---------------- 单例数据库 ---------------- */
 const g = globalThis as any
-const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'devmentor.db')
+export const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'devmentor.db')
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 
 /* ---------------- 版本化迁移（B8：替代脆弱的内联 CREATE + try/catch ALTER） ----------------
