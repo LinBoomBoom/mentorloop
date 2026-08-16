@@ -4,6 +4,8 @@
 
 export default defineEventHandler(async (event) => {
   if (USING_REAL_PAY) return json(event, 403, { error: '已接入真实支付，沙箱确认通道已关闭' })
+  const rl = rateLimit('sandbox-confirm', getClientIp(event), 20, 60_000)
+  if (!rl.ok) return json(event, 429, { error: `操作过于频繁，请 ${rl.retryAfter} 秒后重试` })
   const body = await readBody(event).catch(() => ({}))
   const orderId = body?.orderId
   if (!orderId) return json(event, 400, { error: '缺少 orderId' })
