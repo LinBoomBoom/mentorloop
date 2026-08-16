@@ -50,12 +50,13 @@
 - [x] A9 账号枚举（login 已统一中性文案"用户名或密码错误"）
 - [ ] A10 搜索 LIKE 通配符未转义（% / _ 全表匹配）
 - [x] A11 token 存 localStorage → 已迁 HttpOnly Cookie + CSP（security.ts + Cookie 鉴权）
-- [ ] A12 无用户注销账号（个保法删除权缺口）
+- [x] A12 注销账号闭环（auth/delete.post.ts 调 deleteAccount 级联清 8 表；account/index.vue 密码复核弹窗入口已完备）
 - [x] A13 无隐私政策页（privacy.vue 7 章节已完善）
 - [x] A14 密码策略弱（assertPassword 已强制 8+ 两类）
 - [x] P1#4 封禁/改密不踢下线（getUser 校验 banned 并清会话；本轮补 updateUser 改密/封禁清会话）
 - [x] P1#5 LLM 与下单接口限流（vip/resume、interview/start|answer、order/create、exam/submit 此前已限；本轮补 vip-tts 30/60s、vip-asr 60/60s、payment/sandbox/confirm 按 IP 20/60s，无零限流项）
 - [ ] P1#6 考试倒计时纯前端可控（无 `exam/start`，服务端不记开考时间）
+- [x] P1#7 字体去外部依赖（main.css + nuxt.config 改用系统字体栈消除国内 FOUC；本轮清 app.vue 死引用 Sora、CSP font-src/img-src 移除 Google Fonts 域名）
 
 ---
 
