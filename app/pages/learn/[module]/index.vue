@@ -107,33 +107,37 @@
             </div>
 
             <!-- 桌面端方向卡片条 -->
-            <div class="mb-5">
+            <div class="mb-5 min-w-0">
               <div class="text-xs text-muted mb-2">技术方向</div>
-              <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                <button
-                  @click="subtrack = ''"
-                  class="direction-card shrink-0"
-                  :class="!subtrack ? 'direction-card-active' : ''"
-                >
-                  <div class="w-6 h-6 rounded-md shrink-0" style="background: #D85A30"></div>
-                  <div class="text-left">
-                    <div class="font-medium text-sm">全部</div>
-                    <div class="text-xs text-muted">{{ module.chapters?.length || 0 }} 章 · {{ totalSectionCount }} 节</div>
-                  </div>
-                </button>
-                <button
-                  v-for="st in availableSubtracks"
-                  :key="st.id"
-                  @click="subtrack = st.id"
-                  class="direction-card shrink-0"
-                  :class="subtrack === st.id ? 'direction-card-active' : ''"
-                >
-                  <div class="w-6 h-6 rounded-md shrink-0" :style="{ background: st.color }"></div>
-                  <div class="text-left">
-                    <div class="font-medium text-sm">{{ st.name }}</div>
-                    <div class="text-xs text-muted">{{ st.chapterCount }} 章 · {{ st.sectionCount }} 节</div>
-                  </div>
-                </button>
+              <div class="relative min-w-0">
+                <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth">
+                  <button
+                    @click="subtrack = ''"
+                    class="direction-card shrink-0"
+                    :class="!subtrack ? 'direction-card-active' : ''"
+                  >
+                    <div class="w-6 h-6 rounded-md shrink-0" style="background: #D85A30"></div>
+                    <div class="text-left">
+                      <div class="font-medium text-sm">全部</div>
+                      <div class="text-xs text-muted">{{ module.chapters?.length || 0 }} 章 · {{ totalSectionCount }} 节</div>
+                    </div>
+                  </button>
+                  <button
+                    v-for="st in availableSubtracks"
+                    :key="st.id"
+                    @click="subtrack = st.id"
+                    class="direction-card shrink-0"
+                    :class="subtrack === st.id ? 'direction-card-active' : ''"
+                  >
+                    <div class="w-6 h-6 rounded-md shrink-0" :style="{ background: st.color }"></div>
+                    <div class="text-left">
+                      <div class="font-medium text-sm">{{ st.name }}</div>
+                      <div class="text-xs text-muted">{{ st.chapterCount }} 章 · {{ st.sectionCount }} 节</div>
+                    </div>
+                  </button>
+                </div>
+                <!-- 右侧渐变遮罩，提示可滚动 -->
+                <div class="absolute right-0 top-0 bottom-1 w-12 pointer-events-none bg-gradient-to-l from-[#faf9f7] to-transparent"></div>
               </div>
             </div>
 
