@@ -4,92 +4,214 @@
 
     <a-card v-if="!module"><a-skeleton active :paragraph="{ rows: 6 }" /></a-card>
     <template v-else>
-      <div class="lg:grid lg:grid-cols-[1fr_264px] lg:gap-6 items-start">
-      <div>
-      <h1 class="page-title">{{ module.name }}</h1>
-      <p class="text-muted text-sm mt-1 mb-4">{{ module.desc }}</p>
+      <!-- ========== 移动端：方向选择页（未选方向时） ========== -->
+      <div v-if="!subtrack" class="lg:hidden">
+        <h1 class="page-title">选择技术方向</h1>
+        <p class="text-muted text-sm mt-1 mb-6">先选一个方向，再专注学习该方向下的章节</p>
 
-      <div class="flex items-center gap-3 mb-5">
-        <a-input v-model:value="q" class="max-w-md flex-1" placeholder="搜索本节标题，如：事件循环、Flex…" aria-label="搜索本节小节">
-          <template #prefix><Icon name="search" :size="17" class="text-muted" /></template>
-        </a-input>
-        <a-button size="small" class="shrink-0" @click="toggleAll">{{ allCollapsed ? '展开全部' : '折叠全部' }}</a-button>
-        <a-button size="small" class="shrink-0" @click="drawerOpen = true"><Icon name="menu" :size="16" /> 目录</a-button>
+        <div class="grid grid-cols-2 gap-3">
+          <button
+            v-for="st in mobileSubtracks"
+            :key="st.id"
+            @click="pickSubtrack(st.id)"
+            class="text-left rounded-2xl border border-line bg-white p-4 transition hover:border-brand-coral/40 hover:bg-brand-coral/[.03]"
+          >
+            <div class="w-8 h-8 rounded-lg mb-3" :style="{ background: st.color }"></div>
+            <div class="font-bold text-sm">{{ st.name }}</div>
+            <div class="text-xs text-muted mt-1">{{ st.chapterCount }} 章 · {{ st.sectionCount }} 节</div>
+          </button>
+        </div>
       </div>
 
-      <a-card v-if="browseMode" class="mb-5 !bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
-        <div class="flex items-center gap-2 text-sm text-muted">
-          <Icon name="eye" :size="16" class="text-brand-coral shrink-0" /> 浏览模式：未登录也能查看全部章节。登录后开启「打卡」即可记录已掌握，全部章节随时可自由阅读。
+      <!-- ========== 移动端：章节列表页（已选方向时） ========== -->
+      <div v-else class="lg:hidden">
+        <!-- 顶部导航 -->
+        <div class="flex items-center justify-between mb-4">
+          <button @click="clearSubtrack" class="flex items-center gap-1 text-sm text-muted">
+            <Icon name="arrowLeft" :size="16" /> 方向
+          </button>
+          <div class="font-bold text-sm">{{ currentSubtrackName }}</div>
+          <button @click="mobileSearchOpen = !mobileSearchOpen" class="text-sm text-muted">
+            <Icon name="search" :size="16" />
+          </button>
         </div>
-      </a-card>
-      <a-card v-else class="mb-5 !bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
-        <div class="flex items-center gap-2 text-sm text-muted">
-          <Icon name="compass" :size="16" class="text-brand-coral shrink-0" /> 全部章节均可自由阅读，勾选「已掌握」即记录进度，按你自己的节奏推进。
+
+        <!-- 当前方向信息条 -->
+        <div class="flex items-center gap-3 mb-5 p-3 rounded-xl bg-ink/5">
+          <div class="w-8 h-8 rounded-lg shrink-0" :style="{ background: currentSubtrackColor }"></div>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-sm">{{ currentSubtrackName }}</div>
+            <div class="text-xs text-muted">{{ currentSubtrackCount.chapterCount }} 章 · {{ currentSubtrackCount.sectionCount }} 节</div>
+          </div>
+          <button @click="clearSubtrack" class="text-xs text-brand-coral font-medium shrink-0">切换</button>
         </div>
-      </a-card>
 
-      <a-card v-if="filteredChapters.length === 0" class="text-center" :body-style="{ padding: '40px' }">
-        <span class="text-muted text-sm">没有匹配「{{ q }}」的小节，换个关键词试试～</span>
-      </a-card>
+        <!-- 移动端搜索框 -->
+        <div v-if="mobileSearchOpen" class="mb-4">
+          <a-input v-model:value="q" placeholder="搜索本节标题…" aria-label="搜索本节小节">
+            <template #prefix><Icon name="search" :size="17" class="text-muted" /></template>
+          </a-input>
+        </div>
 
-      <div v-else class="space-y-5">
-        <a-card v-for="(ch, ci) in filteredChapters" :key="ch.id" class="reveal" :body-style="{ padding: '24px' }">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shrink-0"
-                 :style="{ background: module.color }">{{ ci + 1 }}</div>
-            <button type="button" class="min-w-0 flex-1 text-left" @click="toggleChapter(ch.id)">
-              <h3 class="font-bold">{{ ch.title }}</h3>
-              <p class="text-xs text-muted line-clamp-1">{{ ch.goal }}</p>
-            </button>
-            <span class="text-xs text-muted shrink-0">{{ (ch.sections || []).length }} 节</span>
-            <button type="button" @click="toggleChapter(ch.id)" :aria-label="isCollapsed(ch.id) ? '展开章节' : '折叠章节'"
-                    class="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-ink/5 text-muted transition">
-              <Icon :name="isCollapsed(ch.id) ? 'chevronRight' : 'chevronDown'" :size="18" />
-            </button>
-          </div>
-
-          <div v-if="!isCollapsed(ch.id)" class="grid sm:grid-cols-2 gap-3">
-            <NuxtLink v-for="(s, si) in chapterSections(ch)" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
-                      class="flex items-center gap-3 p-3 rounded-xl border transition"
-                      :class="isDone(progress, module.id, ch.id, s.id)
-                        ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-300'
-                        : 'bg-white border-line hover:border-emerald-200'">
-              <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                   :class="isDone(progress, module.id, ch.id, s.id) ? 'bg-emerald-500 text-white' : 'bg-ink/8 text-muted'">
-                <Icon v-if="isDone(progress, module.id, ch.id, s.id)" name="check" :size="14" />
-              </div>
-              <span class="text-sm font-medium truncate"
-                    :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-700' : 'text-sub'">{{ s.title }}</span>
-            </NuxtLink>
-          </div>
+        <!-- 章节列表 -->
+        <a-card v-if="filteredChapters.length === 0" class="text-center" :body-style="{ padding: '40px' }">
+          <span class="text-muted text-sm">没有匹配的小节，换个关键词试试～</span>
         </a-card>
-      </div>
-      </div>
-        <!-- 桌面端：本章目录（粘性侧栏） -->
-        <aside class="hidden lg:block sticky top-6">
-          <a-card :body-style="{ padding: '20px' }">
-            <div class="text-sm font-bold mb-3 flex items-center gap-1.5"><Icon name="book" :size="15" class="text-brand-coral" /> 本章目录</div>
-            <div class="space-y-3 max-h-[72vh] overflow-auto scrollbar-thin pr-1">
-              <div v-for="(ch, ci) in (module.chapters || [])" :key="ch.id" class="px-1 -mx-1">
-                <div class="text-xs font-semibold mb-1.5 leading-snug border-l-[3px] pl-2"
-                     :class="ch.id === activeChapterId ? 'text-ink border-brand-coral' : 'text-sub border-transparent'">{{ ci + 1 }}. {{ ch.title }}</div>
-                <div class="space-y-0.5">
-                  <NuxtLink v-for="s in (ch.sections || [])" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
-                            class="flex items-center gap-2 text-xs py-1 px-2 rounded-lg hover:bg-ink/5 transition min-w-0"
-                            :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-700 font-medium' : 'text-sub'">
-                    <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, ch.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
-                    <span class="break-words min-w-0">{{ s.title }}</span>
-                  </NuxtLink>
+        <div v-else class="space-y-5">
+          <a-card v-for="(ch, ci) in filteredChapters" :key="ch.id" class="reveal" :body-style="{ padding: '20px' }">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shrink-0"
+                   :style="{ background: module.color }">{{ ci + 1 }}</div>
+              <button type="button" class="min-w-0 flex-1 text-left" @click="toggleChapter(ch.id)">
+                <h3 class="font-bold text-sm">{{ ch.title }}</h3>
+                <p class="text-xs text-muted line-clamp-1">{{ ch.goal }}</p>
+              </button>
+              <span class="text-xs text-muted shrink-0">{{ (ch.sections || []).length }} 节</span>
+              <button type="button" @click="toggleChapter(ch.id)" :aria-label="isCollapsed(ch.id) ? '展开章节' : '折叠章节'"
+                      class="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-ink/5 text-muted transition">
+                <Icon :name="isCollapsed(ch.id) ? 'chevronRight' : 'chevronDown'" :size="18" />
+              </button>
+            </div>
+
+            <div v-if="!isCollapsed(ch.id)" class="space-y-2">
+              <NuxtLink v-for="(s, si) in chapterSections(ch)" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
+                        class="flex items-center gap-3 p-3 rounded-xl border transition"
+                        :class="isDone(progress, module.id, ch.id, s.id)
+                          ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-300'
+                          : 'bg-white border-line hover:border-emerald-200'">
+                <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                     :class="isDone(progress, module.id, ch.id, s.id) ? 'bg-emerald-500 text-white' : 'bg-ink/8 text-muted'">
+                  <Icon v-if="isDone(progress, module.id, ch.id, s.id)" name="check" :size="14" />
                 </div>
-              </div>
+                <span class="text-sm font-medium truncate"
+                      :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-700' : 'text-sub'">{{ s.title }}</span>
+              </NuxtLink>
             </div>
           </a-card>
-        </aside>
+        </div>
+      </div>
+
+      <!-- ========== 桌面端：同页方向筛选 + 章节列表 ========== -->
+      <div class="hidden lg:block">
+        <div class="lg:grid lg:grid-cols-[1fr_264px] lg:gap-6 items-start">
+          <div>
+            <h1 class="page-title">{{ module.name }}</h1>
+            <p class="text-muted text-sm mt-1 mb-4">{{ module.desc }}</p>
+
+            <div class="flex items-center gap-3 mb-5">
+              <a-input v-model:value="q" class="max-w-md flex-1" :placeholder="searchPlaceholder" aria-label="搜索本节小节">
+                <template #prefix><Icon name="search" :size="17" class="text-muted" /></template>
+              </a-input>
+              <a-button size="small" class="shrink-0" @click="toggleAll">{{ allCollapsed ? '展开全部' : '折叠全部' }}</a-button>
+              <a-button size="small" class="shrink-0" @click="drawerOpen = true"><Icon name="menu" :size="16" /> 目录</a-button>
+            </div>
+
+            <!-- 桌面端方向卡片条 -->
+            <div class="mb-5">
+              <div class="text-xs text-muted mb-2">技术方向</div>
+              <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                <button
+                  @click="subtrack = ''"
+                  class="direction-card shrink-0"
+                  :class="!subtrack ? 'direction-card-active' : ''"
+                >
+                  <div class="w-6 h-6 rounded-md shrink-0" style="background: #D85A30"></div>
+                  <div class="text-left">
+                    <div class="font-medium text-sm">全部</div>
+                    <div class="text-xs text-muted">{{ module.chapters?.length || 0 }} 章 · {{ totalSectionCount }} 节</div>
+                  </div>
+                </button>
+                <button
+                  v-for="st in availableSubtracks"
+                  :key="st.id"
+                  @click="subtrack = st.id"
+                  class="direction-card shrink-0"
+                  :class="subtrack === st.id ? 'direction-card-active' : ''"
+                >
+                  <div class="w-6 h-6 rounded-md shrink-0" :style="{ background: st.color }"></div>
+                  <div class="text-left">
+                    <div class="font-medium text-sm">{{ st.name }}</div>
+                    <div class="text-xs text-muted">{{ st.chapterCount }} 章 · {{ st.sectionCount }} 节</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <a-card v-if="browseMode" class="mb-5 !bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
+              <div class="flex items-center gap-2 text-sm text-muted">
+                <Icon name="eye" :size="16" class="text-brand-coral shrink-0" /> 浏览模式：未登录也能查看全部章节。登录后开启「打卡」即可记录已掌握，全部章节随时可自由阅读。
+              </div>
+            </a-card>
+            <a-card v-else class="mb-5 !bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
+              <div class="flex items-center gap-2 text-sm text-muted">
+                <Icon name="compass" :size="16" class="text-brand-coral shrink-0" /> 全部章节均可自由阅读，勾选「已掌握」即记录进度，按你自己的节奏推进。
+              </div>
+            </a-card>
+
+            <a-card v-if="filteredChapters.length === 0" class="text-center" :body-style="{ padding: '40px' }">
+              <span class="text-muted text-sm">没有匹配「{{ q }}」的小节，换个关键词试试～</span>
+            </a-card>
+
+            <div v-else class="space-y-5">
+              <a-card v-for="(ch, ci) in filteredChapters" :key="ch.id" class="reveal" :body-style="{ padding: '24px' }">
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shrink-0"
+                       :style="{ background: module.color }">{{ ci + 1 }}</div>
+                  <button type="button" class="min-w-0 flex-1 text-left" @click="toggleChapter(ch.id)">
+                    <h3 class="font-bold">{{ ch.title }}</h3>
+                    <p class="text-xs text-muted line-clamp-1">{{ ch.goal }}</p>
+                  </button>
+                  <span class="text-xs text-muted shrink-0">{{ (ch.sections || []).length }} 节</span>
+                  <button type="button" @click="toggleChapter(ch.id)" :aria-label="isCollapsed(ch.id) ? '展开章节' : '折叠章节'"
+                          class="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-ink/5 text-muted transition">
+                    <Icon :name="isCollapsed(ch.id) ? 'chevronRight' : 'chevronDown'" :size="18" />
+                  </button>
+                </div>
+
+                <div v-if="!isCollapsed(ch.id)" class="grid sm:grid-cols-2 gap-3">
+                  <NuxtLink v-for="(s, si) in chapterSections(ch)" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
+                            class="flex items-center gap-3 p-3 rounded-xl border transition"
+                            :class="isDone(progress, module.id, ch.id, s.id)
+                              ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-300'
+                              : 'bg-white border-line hover:border-emerald-200'">
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                         :class="isDone(progress, module.id, ch.id, s.id) ? 'bg-emerald-500 text-white' : 'bg-ink/8 text-muted'">
+                      <Icon v-if="isDone(progress, module.id, ch.id, s.id)" name="check" :size="14" />
+                    </div>
+                    <span class="text-sm font-medium truncate"
+                          :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-700' : 'text-sub'">{{ s.title }}</span>
+                  </NuxtLink>
+                </div>
+              </a-card>
+            </div>
+          </div>
+
+          <!-- 桌面端：本章目录（粘性侧栏） -->
+          <aside class="hidden lg:block sticky top-6">
+            <a-card :body-style="{ padding: '20px' }">
+              <div class="text-sm font-bold mb-3 flex items-center gap-1.5"><Icon name="book" :size="15" class="text-brand-coral" /> 本章目录</div>
+              <div class="space-y-3 max-h-[72vh] overflow-auto scrollbar-thin pr-1">
+                <div v-for="(ch, ci) in filteredChapters" :key="ch.id" class="px-1 -mx-1">
+                  <div class="text-xs font-semibold mb-1.5 leading-snug border-l-[3px] pl-2"
+                       :class="ch.id === activeChapterId ? 'text-ink border-brand-coral' : 'text-sub border-transparent'">{{ ci + 1 }}. {{ ch.title }}</div>
+                  <div class="space-y-0.5">
+                    <NuxtLink v-for="s in (ch.sections || [])" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
+                              class="flex items-center gap-2 text-xs py-1 px-2 rounded-lg hover:bg-ink/5 transition min-w-0"
+                              :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-700 font-medium' : 'text-sub'">
+                      <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="isDone(progress, module.id, ch.id, s.id) ? 'bg-emerald-500' : 'bg-ink/20'"></span>
+                      <span class="break-words min-w-0">{{ s.title }}</span>
+                    </NuxtLink>
+                  </div>
+                </div>
+              </div>
+            </a-card>
+          </aside>
+        </div>
       </div>
 
       <a-drawer v-model:open="drawerOpen" title="章节目录" placement="left" :width="300">
         <div class="space-y-4">
-          <div v-for="(ch, ci) in (module?.chapters || [])" :key="ch.id">
+          <div v-for="(ch, ci) in filteredChapters" :key="ch.id">
             <div class="font-semibold text-sm mb-1">{{ ci + 1 }}. {{ ch.title }}</div>
             <div class="space-y-0.5 pl-2">
               <NuxtLink v-for="s in (ch.sections || [])" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
@@ -105,6 +227,8 @@
 </template>
 
 <script setup lang="ts">
+import { MODULE_SUBTRACKS } from '~/data/moduleSubtracks'
+
 const route = useRoute()
 const { request } = useApi()
 const { isDone, chapterUnlocked: cu, sectionUnlocked: su } = useLearning()
@@ -136,6 +260,7 @@ watch(() => auth.isLoggedIn, async (v) => {
 // 章节折叠状态（默认全展开；SSR/CSR 初值一致，无 hydration mismatch）
 const collapsed = reactive<Record<string, boolean>>({})
 const drawerOpen = ref(false)
+const mobileSearchOpen = ref(false)
 const isCollapsed = (id: string) => !!collapsed[id]
 function toggleChapter(id: string) { collapsed[id] = !collapsed[id] }
 const allCollapsed = computed(() => {
@@ -148,10 +273,74 @@ function toggleAll() {
   chs.forEach((c) => { collapsed[c.id] = next })
 }
 
+// 技术方向筛选
+const subtrack = ref(typeof route.query.subtrack === 'string' ? route.query.subtrack : '')
+
+const availableSubtracks = computed(() => {
+  const conf = MODULE_SUBTRACKS[module.value?.id] || []
+  const counts = module.value?.subtracks || {}
+  return conf
+    .filter((s) => counts[s.id])
+    .map((s) => ({ ...s, ...counts[s.id] }))
+    .sort((a, b) => a.order - b.order)
+})
+
+const totalSectionCount = computed(() => {
+  return (module.value?.chapters || []).reduce((sum: number, ch: any) => sum + (ch.sections || []).length, 0)
+})
+
+const mobileSubtracks = computed(() => {
+  const all = {
+    id: '',
+    name: '全部',
+    color: '#D85A30',
+    chapterCount: module.value?.chapters?.length || 0,
+    sectionCount: totalSectionCount.value,
+    order: -1
+  }
+  return [all, ...availableSubtracks.value]
+})
+
+const currentSubtrack = computed(() => {
+  if (!subtrack.value) return null
+  return availableSubtracks.value.find((s) => s.id === subtrack.value) || null
+})
+
+const currentSubtrackName = computed(() => currentSubtrack.value?.name || '全部')
+const currentSubtrackColor = computed(() => currentSubtrack.value?.color || '#D85A30')
+const currentSubtrackCount = computed(() => {
+  if (currentSubtrack.value) return { chapterCount: currentSubtrack.value.chapterCount, sectionCount: currentSubtrack.value.sectionCount }
+  return { chapterCount: module.value?.chapters?.length || 0, sectionCount: totalSectionCount.value }
+})
+
+const searchPlaceholder = computed(() => {
+  return subtrack.value ? `在 ${currentSubtrackName.value} 中搜索…` : '搜索本节标题，如：事件循环、Flex…'
+})
+
+function pickSubtrack(id: string) {
+  subtrack.value = id
+  updateUrl()
+}
+
+function clearSubtrack() {
+  subtrack.value = ''
+  updateUrl()
+}
+
+function updateUrl() {
+  const query: Record<string, string> = {}
+  if (subtrack.value) query.subtrack = subtrack.value
+  if (q.value) query.q = q.value
+  navigateTo({ query }, { replace: true })
+}
+
 // 章节/小节搜索过滤（客户端，数据量小）
-const q = ref('')
+const q = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const filteredChapters = computed(() => {
-  const all = module.value?.chapters || []
+  let all = module.value?.chapters || []
+  if (subtrack.value) {
+    all = all.filter((ch: any) => ch.subtrack === subtrack.value)
+  }
   const kw = q.value.trim().toLowerCase()
   if (!kw) return all
   return all.filter((ch: any) => ch.title.toLowerCase().includes(kw) || (ch.sections || []).some((s: any) => s.title.toLowerCase().includes(kw)))
@@ -175,3 +364,26 @@ const activeChapterId = computed(() => {
   return null
 })
 </script>
+
+<style scoped>
+.direction-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 0.5px solid rgb(var(--line));
+  background: #fff;
+  transition: all 150ms ease;
+  min-width: 132px;
+}
+.direction-card:hover {
+  border-color: rgb(var(--brand-coral) / 0.4);
+  transform: translateY(-1px);
+}
+.direction-card-active {
+  border-color: rgb(var(--brand-coral));
+  background: rgb(var(--brand-coral) / 0.06);
+  box-shadow: inset 3px 0 0 0 rgb(var(--brand-coral));
+}
+</style>
