@@ -101,10 +101,23 @@
 
       <a-alert v-if="err" type="error" :message="err" show-icon class="mb-4" />
 
+      <!-- 题号导航 -->
+      <div v-if="phase === 'take'" class="mb-5">
+        <div class="text-xs font-semibold text-muted mb-2">答题进度（{{ answeredCount }} / {{ totalCount }}）</div>
+        <div class="flex flex-wrap gap-1.5">
+          <button v-for="(c, idx) in set.choices" :key="'c' + c.id" type="button" @click="gotoQ('c' + idx)"
+                  class="w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition border"
+                  :class="qState('choice', c, idx)">{{ idx + 1 }}</button>
+          <button v-for="(w, idx) in set.written" :key="'w' + w.id" type="button" @click="gotoQ('w' + idx)"
+                  class="w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition border"
+                  :class="qState('written', w, idx)">{{ set.choices.length + idx + 1 }}</button>
+        </div>
+      </div>
+
       <!-- 选择题 -->
       <h3 class="section-title mb-3">一、选择题（{{ set.choices.length }}）</h3>
       <div class="space-y-3 mb-8">
-        <a-card v-for="(c, idx) in set.choices" :key="c.id" :body-style="{ padding: '20px' }">
+        <a-card v-for="(c, idx) in set.choices" :key="c.id" :id="'q-c' + idx" :body-style="{ padding: '20px' }">
           <div class="flex items-center gap-3 mb-3">
             <a-tag shrink-0 :class="c.multi ? '!bg-violet-500/10 !text-violet-600' : '!bg-brand-coral/10 !text-brand-coral'" :bordered="false">
               {{ c.multi ? '多选' : '单选' }}
@@ -132,7 +145,7 @@
       <!-- 笔试题 -->
       <h3 class="section-title mb-3">二、笔试题（{{ set.written.length }}）</h3>
       <div class="space-y-3 mb-8">
-        <a-card v-for="(w, idx) in set.written" :key="w.id" :body-style="{ padding: '20px' }">
+        <a-card v-for="(w, idx) in set.written" :key="w.id" :id="'q-w' + idx" :body-style="{ padding: '20px' }">
           <p class="text-sm font-semibold leading-relaxed mb-3">
             <span class="text-muted mr-1">{{ idx + 1 }}.</span>{{ w.q }}
           </p>
@@ -323,6 +336,23 @@ const answeredCount = computed(() => {
   const w = (set.value?.written || []).filter((x: any) => String(writtenAnswers[x.id] || '').trim()).length
   return c + w
 })
+
+const currentQ = ref('')
+function qState(type: string, item: any, idx: number) {
+  const answered = type === 'choice'
+    ? (Array.isArray(choiceAnswers[item.id]) ? (choiceAnswers[item.id] as any[]).length > 0 : choiceAnswers[item.id] != null)
+    : String(writtenAnswers[item.id] || '').trim().length > 0
+  const cur = currentQ.value === (type === 'choice' ? 'c' + idx : 'w' + idx)
+  if (answered) return cur ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  return cur ? 'bg-brand-coral text-white border-brand-coral' : 'bg-white text-sub border-line hover:border-ink/20'
+}
+function gotoQ(qid: string) {
+  currentQ.value = qid
+  if (import.meta.client) {
+    const el = document.getElementById('q-' + qid)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+}
 
 const optLabel = (i: number) => String.fromCharCode(65 + i)
 const fmt = (s: number) => {
