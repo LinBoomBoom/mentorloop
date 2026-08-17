@@ -21,7 +21,7 @@
     </div>
 
     <div v-else class="grid md:grid-cols-3 gap-5 stagger">
-      <NuxtLink v-for="m in modules" :key="m.id" :to="`/learn/${m.id}`" class="block">
+      <div v-for="m in modules" :key="m.id" class="block cursor-pointer" @click="navigateTo(`/learn/${m.id}`)">
         <a-card class="hover:-translate-y-1 transition cursor-pointer group reveal !overflow-hidden" :body-style="{ padding: '24px' }">
           <!-- 方向色顶条：打破全站白卡雷同，一眼区分方向 -->
           <div class="card-rail -mx-6 -mt-6 mb-4" :style="{ background: `linear-gradient(90deg, ${m.color}, ${m.color}55)` }"></div>
@@ -30,19 +30,53 @@
           </div>
           <h3 class="font-bold text-lg">{{ m.name }}</h3>
           <p class="text-sm text-muted mt-1.5 line-clamp-2 min-h-[40px]">{{ m.desc }}</p>
+
+          <!-- 技术方向标签：直接展示，点击可深链到对应方向 -->
+          <div class="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-xs">
+            <NuxtLink
+              v-for="st in visibleSubtracks(m)"
+              :key="st.id"
+              :to="`/learn/${m.id}?subtrack=${st.id}`"
+              class="flex items-center gap-1.5 text-ink hover:underline"
+              @click.stop
+            >
+              <span class="w-1.5 h-1.5 rounded-full shrink-0" :style="{ background: st.color }"></span>
+              <span>{{ st.name }}</span>
+            </NuxtLink>
+            <span v-if="hiddenSubtrackCount(m) > 0" class="text-muted">+{{ hiddenSubtrackCount(m) }}</span>
+          </div>
+
           <div class="flex gap-2 mt-4 text-xs">
             <a-tag :style="{ background: m.color + '1a', color: 'rgb(var(--ink))', borderColor: 'transparent' }">{{ m.chapterCount }} 章</a-tag>
             <a-tag class="!bg-ink/5 !text-sub" :bordered="false">{{ m.sectionCount }} 节</a-tag>
           </div>
         </a-card>
-      </NuxtLink>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { MODULE_SUBTRACKS } from '~/data/moduleSubtracks'
+
 const { data } = await useFetch('/api/modules')
 const modules = computed(() => data.value?.modules || null)
+
+function visibleSubtracks(m: any) {
+  const conf = MODULE_SUBTRACKS[m.id] || []
+  const counts = m.subtracks || {}
+  return conf
+    .filter((s) => counts[s.id])
+    .slice(0, 6)
+    .map((s) => ({ ...s, ...counts[s.id] }))
+}
+
+function hiddenSubtrackCount(m: any) {
+  const conf = MODULE_SUBTRACKS[m.id] || []
+  const counts = m.subtracks || {}
+  const total = conf.filter((s) => counts[s.id]).length
+  return Math.max(0, total - 6)
+}
 
 useSeoMeta({
   title: '学习中心',

@@ -14,9 +14,24 @@ export default defineEventHandler((event) => {
   const secMap: any = {}
   for (const r of chRows) chMap[r.module_id] = r.c
   for (const r of secRows) secMap[r.module_id] = r.c
+
+  // 方向聚合：每个模块下各 subtrack 的章节/小节计数
+  const subRows = sqlite.prepare(
+    `SELECT c.module_id, c.subtrack, COUNT(DISTINCT c.id) AS chapterCount, COUNT(s.id) AS sectionCount
+     FROM chapters c LEFT JOIN sections s ON s.chapter_id = c.id
+     WHERE c.subtrack IS NOT NULL AND c.subtrack != ''
+     GROUP BY c.module_id, c.subtrack`
+  ).all() as any[]
+  const subMap: Record<string, Record<string, { chapterCount: number; sectionCount: number }>> = {}
+  for (const r of subRows) {
+    if (!subMap[r.module_id]) subMap[r.module_id] = {}
+    subMap[r.module_id][r.subtrack] = { chapterCount: r.chapterCount, sectionCount: r.sectionCount }
+  }
+
   const out = list.map((m: any) => ({
     id: m.id, name: m.name, icon: ICON_BY_ID[m.id] || 'code', color: m.color, desc: m.desc,
-    chapterCount: chMap[m.id] || 0, sectionCount: secMap[m.id] || 0
+    chapterCount: chMap[m.id] || 0, sectionCount: secMap[m.id] || 0,
+    subtracks: subMap[m.id] || {}
   }))
   return json(event, 200, { modules: out })
 })
