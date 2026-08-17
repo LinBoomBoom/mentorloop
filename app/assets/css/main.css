@@ -174,7 +174,7 @@ aside a.text-muted { color: rgb(var(--muted)) !important; }
   }
   .chip-tab:hover:not(.chip-tab-active):not(:disabled) { @apply border-brand-coral/40 text-brand-coral; }
   .chip-tab:disabled { @apply opacity-50 cursor-not-allowed; }
-  .chip-tab.chip-tab-active { @apply border-transparent bg-brand-coral text-white shadow-sm; }
+  .chip-tab.chip-tab-active { @apply border-transparent bg-brand-coral !text-white shadow-sm; }
   /* 小号变体（难度筛选、浏览方式等次级筛选） */
   .chip-tab-sm { @apply px-3 py-1 text-xs; }
 
