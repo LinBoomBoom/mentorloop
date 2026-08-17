@@ -14,6 +14,7 @@
           <template #prefix><Icon name="search" :size="17" class="text-muted" /></template>
         </a-input>
         <a-button size="small" class="shrink-0" @click="toggleAll">{{ allCollapsed ? '展开全部' : '折叠全部' }}</a-button>
+        <a-button size="small" class="shrink-0" @click="drawerOpen = true"><Icon name="menu" :size="16" /> 目录</a-button>
       </div>
 
       <a-card v-if="browseMode" class="mb-5 !bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
@@ -85,6 +86,20 @@
           </a-card>
         </aside>
       </div>
+
+      <a-drawer v-model:open="drawerOpen" title="章节目录" placement="left" :width="300">
+        <div class="space-y-4">
+          <div v-for="(ch, ci) in (module?.chapters || [])" :key="ch.id">
+            <div class="font-semibold text-sm mb-1">{{ ci + 1 }}. {{ ch.title }}</div>
+            <div class="space-y-0.5 pl-2">
+              <NuxtLink v-for="s in (ch.sections || [])" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
+                        @click="drawerOpen = false"
+                        class="block text-xs py-1 px-2 rounded hover:bg-ink/5"
+                        :class="isDone(progress, module.id, ch.id, s.id) ? 'text-emerald-700' : 'text-sub'">{{ s.title }}</NuxtLink>
+            </div>
+          </div>
+        </div>
+      </a-drawer>
     </template>
   </div>
 </template>
@@ -120,6 +135,7 @@ watch(() => auth.isLoggedIn, async (v) => {
 
 // 章节折叠状态（默认全展开；SSR/CSR 初值一致，无 hydration mismatch）
 const collapsed = reactive<Record<string, boolean>>({})
+const drawerOpen = ref(false)
 const isCollapsed = (id: string) => !!collapsed[id]
 function toggleChapter(id: string) { collapsed[id] = !collapsed[id] }
 const allCollapsed = computed(() => {
