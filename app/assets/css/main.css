@@ -291,6 +291,20 @@ aside a.text-muted { color: rgb(var(--muted)) !important; }
 .prose-dm { overflow-wrap: break-word; }
 .prose-dm a { word-break: break-all; }
 
+/* 阅读模式（F4·A7）：字号 S/M/L 缩放 + 限宽 + 护眼底色。
+   由 .prose-dm 上的 read-size-* / prose-read 类驱动，不改动既有固定字号规则（M=默认 15px）。 */
+.prose-read { max-width: 44rem; margin: 0 auto; }
+.prose-read.read-size-S p,
+.prose-read.read-size-S ul,
+.prose-read.read-size-S ol { font-size: 14px; line-height: 1.75rem; }
+.prose-read.read-size-L p,
+.prose-read.read-size-L ul,
+.prose-read.read-size-L ol { font-size: 18px; line-height: 2rem; }
+.prose-read.read-size-L h2 { font-size: 1.2rem; }
+.prose-read.read-size-L h3 { font-size: 1.05rem; }
+.prose-read.read-size-S h2 { font-size: 0.95rem; }
+.prose-read.read-size-S h3 { font-size: 0.8rem; }
+
 /* ============ 区块节奏兜底 ============
    页面里相邻的两个卡片/区块，若两侧都忘了写上下外边距，会直接贴死（边框相接）。
    这里给「普通块级容器内」的相邻块补一个统一呼吸间距。

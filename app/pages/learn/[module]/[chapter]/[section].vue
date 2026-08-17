@@ -38,9 +38,24 @@
           </div>
 
           <div class="text-xs text-muted mb-1">{{ chapter?.title }}</div>
+
+          <!-- 阅读模式（F4·A7）：字号 S/M/L + 护眼底色 + localStorage 持久化 -->
+          <div v-if="section" class="flex items-center justify-end gap-2 mb-1 -mt-1">
+            <span class="text-xs text-muted">阅读模式</span>
+            <button type="button" role="switch" :aria-checked="readMode" :aria-label="readMode ? '关闭阅读模式' : '开启阅读模式'"
+                    @click="readMode = !readMode"
+                    class="relative w-9 h-5 rounded-full transition-colors duration-200" :class="readMode ? 'bg-brand-coral' : 'bg-ink/20'">
+              <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="readMode ? 'translate-x-4' : ''"></span>
+            </button>
+            <div v-if="readMode" class="flex items-center rounded-lg border border-line overflow-hidden">
+              <button v-for="s in readSizes" :key="s" type="button" @click="readSize = s"
+                      class="px-2.5 py-1 text-xs transition-colors" :class="readSize === s ? 'bg-brand-coral text-white' : 'text-muted hover:bg-ink/5'">{{ s }}</button>
+            </div>
+          </div>
+
           <h1 class="page-title">{{ section.title }}</h1>
 
-      <a-card class="mt-5" :body-style="{ padding: '24px' }">
+      <a-card class="mt-5" :body-style="readBodyStyle">
         <div class="flex items-start gap-3 mb-5 p-4 rounded-xl" style="background:linear-gradient(120deg,rgba(255,94,126,.1),rgba(255,194,75,.1))">
           <Icon name="compass" :size="20" class="text-brand-coral mt-0.5 shrink-0" />
           <div>
@@ -70,7 +85,7 @@
             {{ freshState.left }} 天后复核
           </span>
         </div>
-        <div class="prose-dm" v-html="contentHtml"></div>
+        <div class="prose-dm" :class="readMode ? ('prose-read read-size-' + readSize) : ''" v-html="contentHtml"></div>
       </a-card>
 
       <a-card v-if="browseMode" class="mt-4 !bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
@@ -174,6 +189,29 @@ const { guard } = useLoginGate()
 const browseMode = computed(() => !auth.isLoggedIn)
 const isAdmin = computed(() => auth.user?.role === 'admin')
 const tocOpen = ref(false)
+
+// 阅读模式（F4·A7）：字号 S/M/L + 护眼底色 + 持久化。
+// SSR/CSR 初值保持一致（默认关 + M），onMounted 后再从 localStorage 读取，避免 hydration mismatch。
+const readMode = ref(false)
+const readSize = ref<'S' | 'M' | 'L'>('M')
+const readSizes = ['S', 'M', 'L'] as const
+const READ_KEY = 'ml-read-prefs'
+const readBodyStyle = computed(() => readMode.value
+  ? { padding: '24px', background: '#fbf6ec' }
+  : { padding: '24px' })
+function loadReadPrefs() {
+  try {
+    const raw = localStorage.getItem(READ_KEY)
+    if (!raw) return
+    const p = JSON.parse(raw)
+    if (typeof p.mode === 'boolean') readMode.value = p.mode
+    if (p.size === 'S' || p.size === 'M' || p.size === 'L') readSize.value = p.size
+  } catch (e) { /* 解析失败忽略，回退默认 */ }
+}
+onMounted(loadReadPrefs)
+watch([readMode, readSize], () => {
+  try { localStorage.setItem(READ_KEY, JSON.stringify({ mode: readMode.value, size: readSize.value })) } catch (e) { /* 隐私模式忽略 */ }
+})
 
 // 公开模块内容：SSR 加载
 const { data: modRes } = await useFetch(() => '/api/modules/' + route.params.module)
