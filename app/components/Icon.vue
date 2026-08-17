@@ -45,6 +45,7 @@ const ICONS: Record<string, string> = {
   layers: '<path d="M12 3 3 8l9 5 9-5z"/><path d="M3 13l9 5 9-5M3 16l9 5 9-5" opacity=".6"/>',
   bolt: '<path d="M13 2 4 14h6l-1 8 9-12h-6z"/>',
   chevronRight: '<path d="M9 6l6 6-6 6"/>',
+  chevronLeft: '<path d="M15 6l-6 6 6 6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   star: '<path d="m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6L12 17l-5.3 2.6 1.1-6L3.4 9.4l6-.8z"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',

@@ -93,8 +93,8 @@
 
       <!-- ========== 桌面端：同页方向筛选 + 章节列表 ========== -->
       <div class="hidden lg:block">
-        <div class="lg:grid lg:grid-cols-[1fr_264px] lg:gap-6 items-start">
-          <div>
+        <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_264px] lg:gap-6 items-start">
+          <div class="min-w-0">
             <h1 class="page-title">{{ module.name }}</h1>
             <p class="text-muted text-sm mt-1 mb-4">{{ module.desc }}</p>
 
@@ -106,11 +106,12 @@
               <a-button size="small" class="shrink-0" @click="drawerOpen = true"><Icon name="menu" :size="16" /> 目录</a-button>
             </div>
 
-            <!-- 桌面端方向卡片条 -->
+            <!-- 桌面端方向卡片条：横向滚动 + 左右箭头（鼠标无横向滚轮，必须有按钮） -->
             <div class="mb-5 min-w-0">
               <div class="text-xs text-muted mb-2">技术方向</div>
               <div class="relative min-w-0">
-                <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth">
+                <div ref="dirScroller" @scroll.passive="updateDirScroll"
+                     class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth">
                   <button
                     @click="subtrack = ''"
                     class="direction-card shrink-0"
@@ -136,8 +137,18 @@
                     </div>
                   </button>
                 </div>
-                <!-- 右侧渐变遮罩，提示可滚动 -->
-                <div class="absolute right-0 top-0 bottom-1 w-12 pointer-events-none bg-gradient-to-l from-[#faf9f7] to-transparent"></div>
+
+                <!-- 左右渐变遮罩：仅在该侧还有内容时出现 -->
+                <div v-show="dirCanLeft" class="dir-fade dir-fade-left"></div>
+                <div v-show="dirCanRight" class="dir-fade dir-fade-right"></div>
+
+                <!-- 左右滚动按钮 -->
+                <button v-show="dirCanLeft" @click="scrollDir(-1)" class="dir-nav dir-nav-left" aria-label="向左滚动方向列表">
+                  <Icon name="chevronLeft" :size="16" />
+                </button>
+                <button v-show="dirCanRight" @click="scrollDir(1)" class="dir-nav dir-nav-right" aria-label="向右滚动方向列表">
+                  <Icon name="chevronRight" :size="16" />
+                </button>
               </div>
             </div>
 
@@ -367,6 +378,40 @@ const activeChapterId = computed(() => {
   }
   return null
 })
+
+// ===== 桌面端方向条横向滚动控制 =====
+// 滚动条已隐藏，鼠标只有垂直滚轮，因此必须提供左右按钮才能真正滚动。
+// dirCanLeft / dirCanRight 同时驱动按钮与渐变遮罩的显隐，避免无内容一侧仍出现遮罩。
+const dirScroller = ref<HTMLElement | null>(null)
+const dirCanLeft = ref(false)
+const dirCanRight = ref(false)
+
+function updateDirScroll() {
+  const el = dirScroller.value
+  if (!el) return
+  dirCanLeft.value = el.scrollLeft > 4
+  dirCanRight.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 4
+}
+
+function scrollDir(delta: number) {
+  const el = dirScroller.value
+  if (!el) return
+  el.scrollBy({ left: delta * Math.max(220, el.clientWidth * 0.7), behavior: 'smooth' })
+}
+
+let dirRo: ResizeObserver | null = null
+onMounted(async () => {
+  await nextTick()
+  updateDirScroll()
+  if (typeof ResizeObserver !== 'undefined' && dirScroller.value) {
+    dirRo = new ResizeObserver(() => updateDirScroll())
+    dirRo.observe(dirScroller.value)
+  }
+})
+onBeforeUnmount(() => { dirRo?.disconnect(); dirRo = null })
+
+// 模块数据异步到达 / 方向数量变化后需重新测量
+watch(availableSubtracks, async () => { await nextTick(); updateDirScroll() })
 </script>
 
 <style scoped>
@@ -398,4 +443,47 @@ const activeChapterId = computed(() => {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* 两侧渐变遮罩：用 --canvas 变量，自动跟随亮/暗主题 */
+.dir-fade {
+  position: absolute;
+  top: 0;
+  bottom: 4px;
+  width: 48px;
+  pointer-events: none;
+  z-index: 1;
+}
+.dir-fade-left {
+  left: 0;
+  background: linear-gradient(to right, rgb(var(--canvas)), rgb(var(--canvas) / 0));
+}
+.dir-fade-right {
+  right: 0;
+  background: linear-gradient(to left, rgb(var(--canvas)), rgb(var(--canvas) / 0));
+}
+
+/* 左右滚动按钮 */
+.dir-nav {
+  position: absolute;
+  top: calc(50% - 2px);
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #fff;
+  border: 0.5px solid rgb(var(--line));
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+  color: rgb(var(--muted));
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.dir-nav:hover {
+  color: rgb(var(--brand-coral));
+  border-color: rgb(var(--brand-coral) / 0.4);
+}
+.dir-nav-left { left: 0; }
+.dir-nav-right { right: 0; }
 </style>
