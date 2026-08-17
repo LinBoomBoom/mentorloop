@@ -500,22 +500,6 @@ function retake() {
   if (import.meta.client) window.location.reload()
 }
 
-// 离开答卷页（关闭标签页 / 浏览器关闭 / SPA 路由跳转）时作废当前 active attempt，
-// 使倒计时随离开而「注销」，再次进入即为全新计时，不会被后台静默自动交卷。
-// 用 sendBeacon 保证在页面卸载瞬间也能可靠发出（fetch 在 unload 时会被中断）。
-function abandonAttempt() {
-  if (!attemptId.value || phase.value !== 'take' || submitting.value) return
-  const url = '/api/exam/attempt/abandon'
-  const payload = JSON.stringify({ attemptId: attemptId.value })
-  try {
-    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-      navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }))
-    } else if (import.meta.client) {
-      fetch(url, { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' }, keepalive: true }).catch(() => {})
-    }
-  } catch (e) { /* 注销失败不应阻断用户离开 */ }
-}
-
 // 公开试卷：SSR 加载（预览题目），无需登录即可浏览
 const mounted = ref(false)
 const { data: setRes, error: fetchError, refresh } = await useFetch(() => '/api/exam/sets/' + route.params.id)
