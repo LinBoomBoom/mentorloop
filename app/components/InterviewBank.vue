@@ -62,10 +62,10 @@
       <!-- 方向页与技术页共用同一行 chip：方向页"全部"高亮，技术页当前技术高亮，二者视觉一致 -->
       <div v-else-if="techOptions.length" class="flex gap-2 mb-4 flex-wrap items-center">
         <span class="text-xs text-muted mr-1">技术：</span>
-        <NuxtLink :to="`/interview/${activeTrack}/`" class="chip-tab chip-tab-sm" :class="!techFilter ? 'chip-tab-active' : ''">全部</NuxtLink>
+        <NuxtLink :to="`/interview/${activeTrack}/`" class="chip-tab chip-tab-sm text-ink" :class="!techFilter ? 'chip-tab-active' : ''">全部</NuxtLink>
         <NuxtLink v-for="t in techOptions" :key="t.tech"
                   :to="`/interview/${activeTrack}/${techToSlug(t.tech)}`"
-                  class="chip-tab chip-tab-sm"
+                  class="chip-tab chip-tab-sm text-ink"
                   :class="t.tech === techFilter ? 'chip-tab-active' : ''">{{ t.tech }} <span class="opacity-60">{{ t.count }}</span></NuxtLink>
       </div>
 
