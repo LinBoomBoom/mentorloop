@@ -13,9 +13,12 @@
       <h1 class="page-title">{{ module.name }}</h1>
       <p class="text-muted text-sm mt-1 mb-4">{{ module.desc }}</p>
 
-      <a-input v-model:value="q" class="mb-5 max-w-md" placeholder="搜索本节标题，如：事件循环、Flex…" aria-label="搜索本节小节">
-        <template #prefix><Icon name="search" :size="17" class="text-muted" /></template>
-      </a-input>
+      <div class="flex items-center gap-3 mb-5">
+        <a-input v-model:value="q" class="max-w-md flex-1" placeholder="搜索本节标题，如：事件循环、Flex…" aria-label="搜索本节小节">
+          <template #prefix><Icon name="search" :size="17" class="text-muted" /></template>
+        </a-input>
+        <a-button size="small" class="shrink-0" @click="toggleAll">{{ allCollapsed ? '展开全部' : '折叠全部' }}</a-button>
+      </div>
 
       <a-card v-if="browseMode" class="mb-5 !bg-brand-coral/5 !border-brand-coral/15" :body-style="{ padding: '16px' }">
         <div class="flex items-center gap-2 text-sm text-muted">
@@ -37,13 +40,18 @@
           <div class="flex items-center gap-3 mb-4">
             <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shrink-0"
                  :style="{ background: module.color }">{{ ci + 1 }}</div>
-            <div class="min-w-0">
+            <button type="button" class="min-w-0 flex-1 text-left" @click="toggleChapter(ch.id)">
               <h3 class="font-bold">{{ ch.title }}</h3>
               <p class="text-xs text-muted line-clamp-1">{{ ch.goal }}</p>
-            </div>
+            </button>
+            <span class="text-xs text-muted shrink-0">{{ (ch.sections || []).length }} 节</span>
+            <button type="button" @click="toggleChapter(ch.id)" :aria-label="isCollapsed(ch.id) ? '展开章节' : '折叠章节'"
+                    class="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-ink/5 text-muted transition">
+              <Icon :name="isCollapsed(ch.id) ? 'chevronRight' : 'chevronDown'" :size="18" />
+            </button>
           </div>
 
-          <div class="grid sm:grid-cols-2 gap-3">
+          <div v-if="!isCollapsed(ch.id)" class="grid sm:grid-cols-2 gap-3">
             <NuxtLink v-for="(s, si) in chapterSections(ch)" :key="s.id" :to="`/learn/${module.id}/${ch.id}/${s.id}`"
                       class="flex items-center gap-3 p-3 rounded-xl border transition"
                       :class="isDone(progress, module.id, ch.id, s.id)
@@ -113,6 +121,20 @@ const progress = ref<any>({})
 watch(() => auth.isLoggedIn, async (v) => {
   if (v) { try { progress.value = (await request('/api/progress')).progress || {} } catch (e) {} }
 }, { immediate: true })
+
+// 章节折叠状态（默认全展开；SSR/CSR 初值一致，无 hydration mismatch）
+const collapsed = reactive<Record<string, boolean>>({})
+const isCollapsed = (id: string) => !!collapsed[id]
+function toggleChapter(id: string) { collapsed[id] = !collapsed[id] }
+const allCollapsed = computed(() => {
+  const chs = (module.value?.chapters || []) as any[]
+  return chs.length > 0 && chs.every((c) => collapsed[c.id])
+})
+function toggleAll() {
+  const chs = (module.value?.chapters || []) as any[]
+  const next = !allCollapsed.value
+  chs.forEach((c) => { collapsed[c.id] = next })
+}
 
 // 章节/小节搜索过滤（客户端，数据量小）
 const q = ref('')
