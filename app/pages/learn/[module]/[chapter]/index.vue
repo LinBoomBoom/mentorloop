@@ -1,5 +1,8 @@
 <template>
   <div>
+    <div v-if="chapter" class="fixed top-0 inset-x-0 z-30 h-1 pointer-events-none">
+      <div class="h-full bg-brand-coral transition-[width] duration-150 ease-out" :style="{ width: readPct + '%' }" />
+    </div>
     <NuxtLink :to="`/learn/${mid}`" class="text-sm text-muted mb-3 inline-flex items-center gap-1 hover:text-ink transition">
       <Icon name="arrowLeft" :size="14" /> 返回 {{ module?.name }}
     </NuxtLink>
@@ -73,4 +76,14 @@ const chapterMastered = computed(() => {
   if (secs.length === 0) return false
   return secs.every((s: any) => isDone(progress.value, mid.value, ch.id, s.id))
 })
+
+// F2：阅读进度条（顶部 fixed 细条，基于页面滚动比例；SSR/CSR 初值均为 0，无 hydration mismatch）
+const readPct = ref(0)
+function onScroll() {
+  if (!import.meta.client) return
+  const h = document.documentElement.scrollHeight - window.innerHeight
+  readPct.value = h > 0 ? Math.min(100, Math.max(0, Math.round((window.scrollY / h) * 100))) : 0
+}
+onMounted(() => { if (import.meta.client) { window.addEventListener('scroll', onScroll, { passive: true }); onScroll() } })
+onBeforeUnmount(() => { if (import.meta.client) window.removeEventListener('scroll', onScroll) })
 </script>
