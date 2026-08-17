@@ -109,7 +109,7 @@
             <!-- 桌面端方向卡片条 -->
             <div class="mb-5">
               <div class="text-xs text-muted mb-2">技术方向</div>
-              <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+              <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 <button
                   @click="subtrack = ''"
                   class="direction-card shrink-0"
@@ -374,16 +374,24 @@ const activeChapterId = computed(() => {
   border-radius: 12px;
   border: 0.5px solid rgb(var(--line));
   background: #fff;
-  transition: all 150ms ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
   min-width: 132px;
 }
 .direction-card:hover {
   border-color: rgb(var(--brand-coral) / 0.4);
-  transform: translateY(-1px);
+  background: rgb(var(--brand-coral) / 0.03);
 }
 .direction-card-active {
   border-color: rgb(var(--brand-coral));
-  background: rgb(var(--brand-coral) / 0.06);
-  box-shadow: inset 3px 0 0 0 rgb(var(--brand-coral));
+  background: rgb(var(--brand-coral) / 0.08);
+}
+
+/* 隐藏横向滚动条，保留滚动功能 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 </style>
