@@ -113,7 +113,7 @@
                 <div ref="dirScroller" @scroll.passive="updateDirScroll"
                      class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth">
                   <button
-                    @click="subtrack = ''"
+                    @click="selectSubtrack($event, '')"
                     class="direction-card shrink-0"
                     :class="!subtrack ? 'direction-card-active' : ''"
                   >
@@ -126,7 +126,7 @@
                   <button
                     v-for="st in availableSubtracks"
                     :key="st.id"
-                    @click="subtrack = st.id"
+                    @click="selectSubtrack($event, st.id)"
                     class="direction-card shrink-0"
                     :class="subtrack === st.id ? 'direction-card-active' : ''"
                   >
@@ -397,6 +397,16 @@ function scrollDir(delta: number) {
   const el = dirScroller.value
   if (!el) return
   el.scrollBy({ left: delta * Math.max(220, el.clientWidth * 0.7), behavior: 'smooth' })
+}
+
+function selectSubtrack(e: MouseEvent, id: string) {
+  subtrack.value = id
+  updateUrl()
+  // 点击后将被点击的 tab 平滑滚动到横向可视区域中间，便于查看后续方向
+  const btn = e.currentTarget as HTMLElement | null
+  const scroller = dirScroller.value
+  if (!btn || !scroller) return
+  btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
 }
 
 let dirRo: ResizeObserver | null = null
