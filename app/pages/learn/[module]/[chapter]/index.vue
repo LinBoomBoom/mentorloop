@@ -3,9 +3,7 @@
     <div v-if="chapter" class="fixed top-0 inset-x-0 z-30 h-1 pointer-events-none">
       <div class="h-full bg-brand-coral transition-[width] duration-150 ease-out" :style="{ width: readPct + '%' }" />
     </div>
-    <NuxtLink :to="`/learn/${mid}`" class="text-sm text-muted mb-3 inline-flex items-center gap-1 hover:text-ink transition">
-      <Icon name="arrowLeft" :size="14" /> 返回 {{ module?.name }}
-    </NuxtLink>
+    <Breadcrumb :items="[{ label: '学习中心', to: '/learn', icon: 'home' }, { label: module?.name || '', to: '/learn/' + mid }, { label: chapter?.title || '' }]" />
 
     <a-card v-if="!chapter"><a-skeleton active :paragraph="{ rows: 4 }" /></a-card>
     <template v-else>

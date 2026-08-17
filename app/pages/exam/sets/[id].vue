@@ -16,9 +16,7 @@
     </ClientOnly>
 
     <!-- 返回 -->
-    <NuxtLink to="/exam" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-brand-coral transition mb-5">
-      <Icon name="arrowLeft" :size="16" /> 返回试卷列表
-    </NuxtLink>
+    <Breadcrumb :items="[{ label: '模拟答卷', to: '/exam', icon: 'clipboard' }, { label: set?.name || '' }]" />
 
     <!-- 加载 -->
     <a-card v-if="phase === 'loading'"><a-skeleton active :paragraph="{ rows: 6 }" /></a-card>

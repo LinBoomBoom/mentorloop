@@ -1,10 +1,6 @@
 <template>
   <div>
-    <nav class="text-sm text-muted mb-3 flex items-center gap-1.5 flex-wrap" aria-label="面包屑">
-      <NuxtLink to="/learn" class="hover:text-ink transition inline-flex items-center gap-1"><Icon name="home" :size="14" /> 学习中心</NuxtLink>
-      <Icon name="chevronRight" :size="14" class="opacity-60" />
-      <span class="text-ink font-medium">{{ module?.name }}</span>
-    </nav>
+    <Breadcrumb :items="[{ label: '学习中心', to: '/learn', icon: 'home' }, { label: module?.name || '' }]" />
 
     <a-card v-if="!module"><a-skeleton active :paragraph="{ rows: 6 }" /></a-card>
     <template v-else>
