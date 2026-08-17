@@ -1,7 +1,8 @@
 // 健康检查逻辑（C6）：抽离为纯函数便于单测，healthz 路由与 monitor-cron 复用。
 import fs from 'node:fs'
 import path from 'node:path'
-import { sqlite, DB_PATH } from './db'
+import { sqlite } from './db'
+import { DB_PATH } from './paths'
 
 export interface HealthReport {
   status: 'ok' | 'degraded'

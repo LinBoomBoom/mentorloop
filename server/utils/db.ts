@@ -5,10 +5,12 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { getHeader, getCookie, setCookie, setResponseStatus, createError } from 'h3'
 import { logWarn } from './logger'
+import { SEED_PATH, DB_PATH } from './paths'
+// 注意：DB_PATH 统一由 ./paths 定义并导出，本文件仅引用，**不要**在此 re-export，
+// 否则 Nitro 会报 "Duplicated imports DB_PATH"（db.ts 与 paths.ts 同时导出）。
 
 /* ---------------- 单例数据库 ---------------- */
 const g = globalThis as any
-export const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'devmentor.db')
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 
 /* ---------------- 版本化迁移（B8：替代脆弱的内联 CREATE + try/catch ALTER） ----------------
@@ -471,7 +473,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       // ① 以种子为准回正 type / difficulty / weight（种子是内容唯一真源）。
       //    只改与种子不一致的行；三者必须一起对齐，否则会留下 hot 题却带 hard 难度这类残缺状态。
       try {
-        const file = path.join(process.cwd(), 'data', 'seed-content.json')
+        const file = SEED_PATH
         if (fs.existsSync(file)) {
           const seed = JSON.parse(fs.readFileSync(file, 'utf-8'))
           const wanted = new Map<string, { type: string; difficulty: string; weight: number }>()
@@ -612,7 +614,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       if ((db.prepare('SELECT COUNT(*) c FROM interview_questions').get() as any).c === 0) return
       // 存量库以种子为真源回填（幂等，只改不一致的行）
       try {
-        const file = path.join(process.cwd(), 'data', 'seed-content.json')
+        const file = SEED_PATH
         if (!fs.existsSync(file)) return
         const seed = JSON.parse(fs.readFileSync(file, 'utf-8'))
         const upd = db.prepare(
@@ -763,7 +765,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       addCol('exam_written')
       if ((db.prepare('SELECT COUNT(*) c FROM interview_questions').get() as any).c === 0) return
       try {
-        const file = path.join(process.cwd(), 'data', 'seed-content.json')
+        const file = SEED_PATH
         if (!fs.existsSync(file)) return
         const seed = JSON.parse(fs.readFileSync(file, 'utf-8'))
         const updQ = db.prepare('UPDATE interview_questions SET source=? WHERE id=?')
@@ -821,7 +823,7 @@ function createDb() {
 function seedIfEmpty(db: any) {
   const c = (db.prepare('SELECT COUNT(*) AS c FROM modules').get() as any).c
   if (c > 0) return
-  const file = path.join(process.cwd(), 'data', 'seed-content.json')
+  const file = SEED_PATH
   if (!fs.existsSync(file)) return
   const content = JSON.parse(fs.readFileSync(file, 'utf-8'))
   const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')

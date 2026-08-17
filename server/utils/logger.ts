@@ -1,13 +1,12 @@
 // 结构化日志（C5 可观测性地基）
 // 生产环境可写文件（data/logs/），开发仅控制台。错误钩子 server/plugins/error-log.ts 复用本模块。
 import fs from 'node:fs'
-import path from 'node:path'
+import { LOG_DIR } from './paths'
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 const LEVELS: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 }
 const currentLevel = LEVELS[(process.env.LOG_LEVEL as LogLevel)] || LEVELS.info
 
-const LOG_DIR = process.env.LOG_DIR || path.join(process.cwd(), 'data', 'logs')
 let fileEnabled = false
 try {
   if (process.env.NODE_ENV === 'production' || process.env.LOG_TO_FILE === 'true') {

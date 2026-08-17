@@ -5,6 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
+import { TTS_CACHE_DIR, PIPER_BIN, PIPER_MODELS_DIR } from './paths'
 
 export interface SttResult { text: string; confidence?: number }
 export interface TtsResult { audio: Buffer; mime: string; ext: string }
@@ -129,7 +130,6 @@ export const ALIYUN_VOICE_CATALOG: VoiceMeta[] = [
   { id: 'longshu_v3',    label: '龙书',   gender: 'male',   trait: '沉稳青年' },
   { id: 'loongbella_v3', label: 'Bella',  gender: 'female', trait: '精准干练' }
 ]
-export const TTS_CACHE_DIR = path.join(process.cwd(), 'data', 'media', 'tts')
 
 // ---- Mock TTS（离线/测试用，生成合法 WAV 蜂鸣，保证音频链路可跑、可单测） ----
 class MockTtsProvider implements TtsProvider {
@@ -258,10 +258,7 @@ class AliyunTtsProvider implements TtsProvider {
 
 // ---- 本地 Piper 离线神经网络 TTS（不依赖任何云服务，所有访客一致、可永久离线） ----
 // 二进制与中文模型由 `npm run setup:piper` 下载到 data/piper/（不纳入版本库）。
-const PIPER_BIN = process.env.PIPER_BIN || (process.platform === 'win32'
-  ? path.join(process.cwd(), 'data', 'piper', 'piper.exe')
-  : path.join(process.cwd(), 'data', 'piper', 'piper'))
-const PIPER_MODELS_DIR = process.env.PIPER_MODELS_DIR || path.join(process.cwd(), 'data', 'piper', 'models')
+// PIPER_BIN / PIPER_MODELS_DIR 由 ./paths 统一解析（桌面端受 DATA_DIR 控制）。
 
 // 真实可用的 Piper 中文神经网络嗓音（由 `npm run setup:piper` 下载到 data/piper/models/）。
 // id 用于前端选择 + 服务端缓存 key；model 为 onnx 文件名（不含扩展名）。
