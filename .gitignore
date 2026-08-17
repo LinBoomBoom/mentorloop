@@ -44,3 +44,12 @@ data/*.db-wal
 # Seed / DB backups produced during content authoring
 data/*.bak*
 *.bak*
+
+# Electron 构建产物（安装包 / 解包目录）
+release/
+dist_electron/
+
+# Electron 应用图标（由 npm run make:icon 生成，构建前自动产出）
+build/icon.png
+build/icon.ico
+build/icon.icns

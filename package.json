@@ -2,6 +2,7 @@
   "name": "mentorloop",
   "private": true,
   "type": "module",
+  "main": "electron/main.mjs",
   "scripts": {
     "dev": "node scripts/run-nuxt.mjs dev",
     "build": "node scripts/run-nuxt.mjs build",
@@ -23,7 +24,12 @@
     "backup": "node scripts/backup-db.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "setup:piper": "node scripts/setup-piper.mjs"
+    "setup:piper": "node scripts/setup-piper.mjs",
+    "make:icon": "node scripts/make-icon.mjs",
+    "electron:dev": "node scripts/electron-dev.mjs",
+    "preelectron:build": "node scripts/make-icon.mjs",
+    "electron:build": "node scripts/run-nuxt.mjs build && electron-builder",
+    "dist:electron": "electron-builder"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
@@ -48,6 +54,8 @@
     "autoprefixer": "10.4.20",
     "postcss": "8.4.47",
     "tailwindcss": "3.4.19",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
   }
 }

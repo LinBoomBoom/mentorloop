@@ -1,0 +1,36 @@
+# Electron 打包配置（Windows NSIS + macOS DMG；Linux 暂未覆盖）。
+# 运行模型：系统 Node 子进程拉起 Nuxt 的 Nitro 服务，BrowserWindow 加载同源 localhost。
+appId: com.mentorloop.desktop
+productName: MentorLoop
+copyright: Copyright © 2026 MentorLoop
+directories:
+  output: release
+  buildResources: build
+files:
+  - electron
+  - .output
+  - data/seed-content.json
+  - package.json
+# 启用 asar 提升完整性；但「系统 Node 子进程」运行 Nitro 服务时，子进程（无 asar 模块）
+# 必须从真实磁盘读取 .output / node_modules / data，故这些路径必须 asarUnpack 解包。
+# 注：此架构下 asar 主要保护 electron/ 层，不会显著缩小安装包（服务端依赖需留在磁盘）。
+asar: true
+asarUnpack:
+  - .output/**          # 运行时依赖在 .output/server/node_modules，必须解包到真实磁盘
+  - "**/*.node"         # 原生模块（better-sqlite3 等）必须解包
+  - data/**
+win:
+  target: nsis
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+mac:
+  target: dmg
+  icon: build/icon.icns
+  category: public.app-category.education
+dmg:
+  title: MentorLoop
