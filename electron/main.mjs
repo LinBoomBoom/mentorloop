@@ -6,7 +6,8 @@
 // - 生产态（打包后）：用**本机 Node 子进程**拉起 Nuxt 的 Nitro 服务入口
 //   .output/server/index.mjs（监听 127.0.0.1:PORT），再由 BrowserWindow 加载同源地址。
 //   选「系统 Node 子进程」而非 Electron 进程内 import，是为了避开 better-sqlite3 等
-//   原生模块的 ABI 重建（无需 electron-rebuild）。代价：最终分发的桌面端要求用户机装有 Node。
+//   原生模块的 ABI 重建（无需 electron-rebuild）。打包时通过 extraResources 内置 node.exe，
+//   目标机无需另行安装 Node（见 resolveNodeBin）。
 //
 // 桌面专属能力（首期 + 后续可选）：
 // - 系统托盘（Tray）：最小化到托盘 / 双击恢复 / 退出。
@@ -37,6 +38,16 @@ function baseDir() {
 }
 function resolveAppFile(rel) {
   return path.join(baseDir(), rel)
+}
+
+// 打包态优先用内置 node（resources/extraResources/node.exe），目标机无需安装 Node；
+// 未打包（dev）或内置缺失时回退系统 node / MENTORLOOP_NODE_BIN。
+function resolveNodeBin() {
+  if (app.isPackaged) {
+    const bundled = path.join(process.resourcesPath, 'extraResources', 'node.exe')
+    if (fs.existsSync(bundled)) return bundled
+  }
+  return process.env.MENTORLOOP_NODE_BIN || 'node'
 }
 
 // 1x1 透明 PNG，作为托盘图标兜底（正常情况使用 build/icon.png）。
@@ -118,7 +129,7 @@ async function startLocalServer() {
     fs.copyFileSync(seedSrc, seedDst)
   }
 
-  const nodeBin = process.env.MENTORLOOP_NODE_BIN || 'node'
+  const nodeBin = resolveNodeBin()
   // cwd 必须为 resourcesPath（打包态）/ 项目根（dev 态），保证子进程能从真实磁盘解析 node_modules。
   serverProcess = spawn(nodeBin, [serverEntry], {
     cwd: dir,
@@ -176,7 +187,7 @@ async function loadApp(win) {
   }
   dialog.showErrorBox(
     '本地服务启动失败',
-    `无法在 ${PROD_URL} 启动内置 Nitro 服务。\n请确认本机已安装 Node.js（版本需与构建时一致，当前基于 Node ${process.versions.node} ABI），并重试。`
+    `无法在 ${PROD_URL} 启动内置 Nitro 服务。\n请确认安装包完整（内置 node 缺失或 better-sqlite3 原生模块异常），并重试。`
   )
 }
 

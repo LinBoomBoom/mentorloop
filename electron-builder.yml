@@ -11,10 +11,22 @@ files:
   - .output
   - data/seed-content.json
   - package.json
+# 内置 node（extraResources/node.exe，由 scripts/bundle-node.mjs 在构建期复制）与托盘图标
+# 必须落在真实磁盘（非 asar），故走 extraResources 而非 files。
+extraResources:
+  - from: extraResources
+    to: extraResources
+  - from: build
+    to: build
 # 启用 asar 提升完整性；但「系统 Node 子进程」运行 Nitro 服务时，子进程（无 asar 模块）
 # 必须从真实磁盘读取 .output / node_modules / data，故这些路径必须 asarUnpack 解包。
 # 注：此架构下 asar 主要保护 electron/ 层，不会显著缩小安装包（服务端依赖需留在磁盘）。
 asar: true
+# 系统 Node 子进程架构：Electron 主进程只负责拉窗，不加载 better-sqlite3 等原生模块；
+# 原生模块由 .output/server/node_modules 内的系统 Node 在运行时加载。因此打包阶段无需
+# electron-builder 调用 node-gyp 重建原生模块，避免目标机缺少 Visual Studio 时失败。
+# npmRebuild:false 是 electron-builder 25.x 的合法字段（禁止为 electron ABI 重建 better-sqlite3 等原生模块）。
+npmRebuild: false
 asarUnpack:
   - .output/**          # 运行时依赖在 .output/server/node_modules，必须解包到真实磁盘
   - "**/*.node"         # 原生模块（better-sqlite3 等）必须解包

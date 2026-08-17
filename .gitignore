@@ -48,6 +48,8 @@ data/*.bak*
 # Electron 构建产物（安装包 / 解包目录）
 release/
 dist_electron/
+# 构建期内置的 node 二进制（由 scripts/bundle-node.mjs 复制，按构建机 node 版本生成，不入库）
+extraResources/
 
 # Electron 应用图标（由 npm run make:icon 生成，构建前自动产出）
 build/icon.png

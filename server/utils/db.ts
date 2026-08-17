@@ -812,10 +812,14 @@ function createDb() {
   db.prepare('DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < ?').run(Date.now())
   db.prepare('DELETE FROM auth_codes WHERE expires_at < ?').run(Date.now())
   // A7：定时清理过期会话与验证码，避免重启间持续堆积（createDb 经 global 记忆化，仅执行一次，不会重复起定时器）
-  const CLEANUP_INTERVAL_MS = 15 * 60 * 1000
-  setInterval(() => {
-    try { cleanupExpired() } catch (e: any) { logWarn('cleanup.expired_failed', { error: e?.message }) }
-  }, CLEANUP_INTERVAL_MS)
+  // 构建阶段（nuxt build / generate）由 run-nuxt.mjs 注入 MENTORLOOP_BUILD_PHASE=1，
+  // 此时不启动定时器，否则 setInterval 会让构建进程事件循环无法退出。
+  if (!process.env.MENTORLOOP_BUILD_PHASE) {
+    const CLEANUP_INTERVAL_MS = 15 * 60 * 1000
+    setInterval(() => {
+      try { cleanupExpired() } catch (e: any) { logWarn('cleanup.expired_failed', { error: e?.message }) }
+    }, CLEANUP_INTERVAL_MS)
+  }
   seedIfEmpty(db)
   return db
 }

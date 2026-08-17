@@ -9,6 +9,11 @@
 // 该 wrapper 仅为 Nuxt 子进程清空 NODE_OPTIONS，使上述构建缓存清理走原生
 // 删除路径。对没有注入 shim 的普通机器无害（NODE_OPTIONS 本就为空）。
 //
+// 额外处理：构建阶段（build/generate）由 run-nuxt.mjs 注入 MENTORLOOP_BUILD_PHASE=1，
+// 使 server/utils/db.ts 跳过 setInterval 清理定时器，避免构建进程事件循环无法退出。
+// 但 nuxt build 在 Windows 上仍可能因其它原因（如 rolldown worker 未释放）不退出，
+// 因此 electron:build 使用 scripts/electron-build-all.mjs 通过文件检测兜底。
+//
 // 用法：node scripts/run-nuxt.mjs <dev|build|generate|preview> [额外参数]
 
 import { spawn } from 'node:child_process'
@@ -25,7 +30,9 @@ if (args.length === 0) {
 }
 
 const bin = resolve(root, 'node_modules/nuxt/bin/nuxt.mjs')
+const isBuildPhase = args[0] === 'build' || args[0] === 'generate'
 const env = { ...process.env, NODE_OPTIONS: '' }
+if (isBuildPhase) env.MENTORLOOP_BUILD_PHASE = '1'
 
 const child = spawn(process.execPath, [bin, ...args], {
   cwd: root,

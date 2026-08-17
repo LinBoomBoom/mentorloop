@@ -1,6 +1,9 @@
 {
   "name": "mentorloop",
+  "version": "1.0.0",
   "private": true,
+  "description": "MentorLoop — AI 面试陪练与学习导师桌面端",
+  "author": "MentorLoop",
   "type": "module",
   "main": "electron/main.mjs",
   "scripts": {
@@ -27,9 +30,8 @@
     "setup:piper": "node scripts/setup-piper.mjs",
     "make:icon": "node scripts/make-icon.mjs",
     "electron:dev": "node scripts/electron-dev.mjs",
-    "preelectron:build": "node scripts/make-icon.mjs",
-    "electron:build": "node scripts/run-nuxt.mjs build && electron-builder",
-    "dist:electron": "electron-builder"
+    "electron:build": "node scripts/electron-build-all.mjs",
+    "dist:electron": "node scripts/electron-build.mjs"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
