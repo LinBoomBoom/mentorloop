@@ -141,7 +141,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
           id TEXT PRIMARY KEY, name TEXT, icon TEXT, color TEXT, desc TEXT, position INTEGER
         );
         CREATE TABLE IF NOT EXISTS chapters (
-          id TEXT PRIMARY KEY, module_id TEXT, title TEXT, goal TEXT, position INTEGER
+          id TEXT PRIMARY KEY, module_id TEXT, title TEXT, goal TEXT, position INTEGER, subtrack TEXT
         );
         CREATE TABLE IF NOT EXISTS sections (
           id TEXT PRIMARY KEY, chapter_id TEXT, title TEXT, direction TEXT, content TEXT, position INTEGER
@@ -282,7 +282,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
 
       recreate('chapters',
         `CREATE TABLE chapters (
-          id TEXT PRIMARY KEY, module_id TEXT, title TEXT, goal TEXT, position INTEGER,
+          id TEXT PRIMARY KEY, module_id TEXT, title TEXT, goal TEXT, position INTEGER, subtrack TEXT,
           FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
         )`)
       recreate('sections',
@@ -825,8 +825,59 @@ function seedIfEmpty(db: any) {
   if (!fs.existsSync(file)) return
   const content = JSON.parse(fs.readFileSync(file, 'utf-8'))
   const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
-  const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position) VALUES (?,?,?,?,?)')
+  const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
   const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+
+  // 根据章节标题/ID 推断技术方向，用于模块页方向筛选与首页方向标签
+  function assignChapterSubtrack(moduleId: string, chapterId: string, title: string): string | null {
+    const t = (title || '').toLowerCase()
+    if (moduleId === 'frontend') {
+      if (chapterId.startsWith('hm-')) return 'harmony'
+      if (chapterId.startsWith('nat-')) return 'native'
+      if (chapterId.startsWith('xp-')) return 'cross'
+      if (chapterId.startsWith('mp-')) return 'miniprogram'
+      if (chapterId.startsWith('dt-')) return 'desktop'
+      if (chapterId.startsWith('vz-')) return 'visualization'
+      if (t.includes('web 基础') || t.includes('html')) return 'web'
+      if (t.includes('css')) return 'css'
+      if (t.includes('typescript') || t.includes('ts') || t.includes('echarts')) return 'typescript'
+      if (t.includes('react')) return 'react'
+      if (t.includes('vue') || t.includes('uni-app')) return 'vue'
+      if (t.includes('javascript') || t.includes('异步') || t.includes('dom') || t.includes('浏览器')) return 'javascript'
+      if (t.includes('工程化') || t.includes('构建') || t.includes('node') || t.includes('架构') || t.includes('设计模式') || t.includes('测试') || t.includes('状态管理') || t.includes('pwa') || t.includes('动画')) return 'engineering'
+      if (t.includes('性能')) return 'performance'
+      if (t.includes('安全')) return 'security'
+      return 'engineering'
+    }
+    if (moduleId === 'backend') {
+      if (t.includes('java') || t.includes('jvm') || t.includes('spring')) return 'java'
+      if (t.includes('node')) return 'nodejs'
+      if (t.includes('mysql') || t.includes('数据库') || t.includes('sql')) return 'mysql'
+      if (t.includes('redis') || t.includes('缓存')) return 'redis'
+      if (t.includes('消息') || t.includes('mq') || t.includes('队列')) return 'mq'
+      if (t.includes('微服务') || t.includes('分布式')) return 'micro'
+      if (t.includes('系统') || t.includes('设计') || t.includes('架构')) return 'system'
+      return 'java'
+    }
+    if (moduleId === 'devops') {
+      if (t.includes('linux')) return 'linux'
+      if (t.includes('网络') || t.includes('tcp') || t.includes('https')) return 'network'
+      if (t.includes('docker') || t.includes('容器')) return 'docker'
+      if (t.includes('k8s') || t.includes('kubernetes')) return 'k8s'
+      if (t.includes('ci') || t.includes('cd') || t.includes('发布') || t.includes('部署')) return 'cicd'
+      if (t.includes('监控') || t.includes('sre') || t.includes('可观测')) return 'sre'
+      return 'linux'
+    }
+    if (moduleId === 'ai') {
+      if (t.includes('prompt') || t.includes('提示')) return 'prompt'
+      if (t.includes('rag') || t.includes('检索')) return 'rag'
+      if (t.includes('eval') || t.includes('评估')) return 'eval'
+      if (t.includes('agent') || t.includes('工具调用')) return 'agent'
+      if (t.includes('部署') || t.includes('成本') || t.includes('推理')) return 'deploy'
+      return 'prompt'
+    }
+    return null
+  }
   // 题型 / 权重 / 难度必须在插入时写死，原因见下方 insQ.run 处注释
   const insQ = db.prepare(
     'INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,weight,difficulty,tech,subtrack,skill) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
@@ -838,7 +889,7 @@ function seedIfEmpty(db: any) {
     content.modules.forEach((m: any, mi: number) => {
       insMod.run(m.id, m.name, m.icon, m.color, m.desc, mi)
       m.chapters.forEach((ch: any, ci: number) => {
-        insCh.run(ch.id, m.id, ch.title, ch.goal, ci)
+        insCh.run(ch.id, m.id, ch.title, ch.goal, ci, ch.subtrack || assignChapterSubtrack(m.id, ch.id, ch.title))
         ch.sections.forEach((s: any, si: number) => {
           insSec.run(s.id, ch.id, s.title, s.direction, s.content, si)
         })
