@@ -100,7 +100,7 @@
             <div class="flex items-start gap-3">
               <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5" :class="qTab === 'hot' ? 'bg-amber-500/15 text-amber-600' : 'bg-brand-coral/10 text-brand-coral'">{{ qTab === 'hot' ? 'Q' : 'S' }}</span>
               <div class="flex-1 min-w-0">
-                <div class="font-medium text-sm leading-snug line-clamp-2 md:line-clamp-none group-hover:text-brand-coral transition">{{ item.q }}</div>
+                <div class="font-medium text-sm leading-snug line-clamp-2 md:line-clamp-none text-ink group-hover:text-brand-coral transition">{{ item.q }}</div>
                 <div class="flex items-center gap-1.5 mt-2 flex-wrap">
                   <a-tag class="!text-[10px]" :class="diffMeta(item.difficulty).cls" :bordered="false">{{ diffMeta(item.difficulty).label }}</a-tag>
                   <a-tag class="!text-[10px] !bg-ink/5 !text-sub" :bordered="false">{{ item.tech }}</a-tag>

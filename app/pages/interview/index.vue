@@ -28,7 +28,7 @@
                 class="reveal group rounded-2xl border border-line p-5 hover:border-brand-coral/50 hover:shadow-[0_10px_30px_-18px_rgba(225,29,72,.6)] transition">
         <div class="flex items-center gap-3 mb-3">
           <span class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shrink-0" :style="{ background: TRACK_COLORS[t] }">{{ TRACK_NAMES[t][0] }}</span>
-          <div class="font-bold text-[15px]">{{ TRACK_NAMES[t] }}面试题</div>
+          <div class="font-bold text-[15px] text-ink">{{ TRACK_NAMES[t] }}面试题</div>
         </div>
         <p class="text-xs text-muted mb-3 leading-relaxed">
           高频必刷题 {{ (overview.tracks[t]?.hot || 0) }} 道 · 特殊场景题 {{ (overview.tracks[t]?.special || 0) }} 道
