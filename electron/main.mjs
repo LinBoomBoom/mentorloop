@@ -25,6 +25,24 @@ const DEV_URL = 'http://localhost:3000'
 const PORT = process.env.MENTORLOOP_PORT || '3210'
 const PROD_URL = `http://127.0.0.1:${PORT}`
 
+// 冷启动占位页（dev / prod 共用），确保窗口立即可见、永不纯黑。
+const LOADING_HTML =
+  '<html><body style="font-family:sans-serif;background:#0f0f12;color:#e5e7eb;' +
+  'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:12px">' +
+  '<div style="width:34px;height:34px;border:3px solid #2a2a30;border-top-color:#ff5e7e;border-radius:50%;animation:spin 1s linear infinite"></div>' +
+  '<h3 style="margin:0;font-weight:600">MentorLoop 正在启动本地服务…</h3>' +
+  '<style>@keyframes spin{to{transform:rotate(360deg)}}</style>' +
+  '</body></html>'
+async function showLoading(win, url) {
+  try {
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(LOADING_HTML))
+  } catch (e) {
+    console.error('[electron] 加载占位页失败，改用 about:blank：', e?.message)
+    try { await win.loadURL('about:blank') } catch { /* ignore */ }
+  }
+  if (!win.isVisible()) win.show()
+}
+
 let mainWindow = null
 let serverProcess = null
 let tray = null
@@ -105,10 +123,13 @@ function createWindow() {
 }
 
 async function waitForServer(url, timeoutMs = 30000) {
+  // 用静态资源 _payload.json 做健康探针：它是构建产物必带的静态文件，不依赖 SSR 渲染，
+  // 可避免「服务刚起来、首屏 SSR 仍在建库/预热」时偶发空响应导致窗口纯黑。
+  const probe = url.replace(/\/$/, '') + '/_payload.json'
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     try {
-      const res = await fetch(url)
+      const res = await fetch(probe)
       if (res.ok) return true
     } catch { /* 服务还没起来，继续等 */ }
     await new Promise((r) => setTimeout(r, 400))
@@ -120,6 +141,15 @@ async function waitForServer(url, timeoutMs = 30000) {
 async function startLocalServer() {
   const dir = baseDir()
   const serverEntry = path.join(dir, '.output', 'server', 'index.mjs')
+  // 路径断言：打包后 .output 必须落在真实磁盘（resources/.output），否则 node 子进程读不到入口会静默失败。
+  if (!fs.existsSync(serverEntry)) {
+    console.error('[electron] Nitro 服务入口缺失：', serverEntry)
+    dialog.showErrorBox(
+      '内置服务入口缺失',
+      `找不到 Nitro 服务入口：\n${serverEntry}\n\n请确认安装包完整（.output 未被正确打包到真实磁盘）。`
+    )
+    return
+  }
   const dataDir = path.join(app.getPath('userData'), 'mentorloop-data')
   fs.mkdirSync(path.join(dataDir, 'data'), { recursive: true })
 
@@ -178,6 +208,7 @@ async function loadApp(win) {
     dialog.showErrorBox('开发服务器未就绪', '请在终端运行 `npm run dev` 确认 nuxt dev 能正常启动（检查 3000 端口 / 依赖是否完整）。')
     return
   }
+  await showLoading(win, PROD_URL)
   await startLocalServer()
   const ok = await waitForServer(PROD_URL)
   if (ok) {

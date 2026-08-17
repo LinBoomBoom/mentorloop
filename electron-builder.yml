@@ -6,31 +6,40 @@ copyright: Copyright © 2026 MentorLoop
 directories:
   output: release
   buildResources: build
+# 仅把 electron/（主进程）与 package.json 打进 app.asar。
+# 主进程运行时只需 electron（Electron 运行时内置，无需 node_modules）与 node 内置模块，
+# 故用白名单 + 显式取反 node_modules，盖掉 electron-builder 对 package.json dependencies 的
+# 强制拷贝（否则前端依赖 zrender/echarts 等会被全量塞进 app.asar/node_modules，安装包暴涨）。
+# .output / data 走 extraResources 落真实磁盘，由 node 子进程在运行时读取。
 files:
-  - electron
-  - .output
-  - data/seed-content.json
-  - package.json
-# 内置 node（extraResources/node.exe，由 scripts/bundle-node.mjs 在构建期复制）与托盘图标
-# 必须落在真实磁盘（非 asar），故走 extraResources 而非 files。
+  - "electron"
+  - "package.json"
+  - "!node_modules/**/*"
+  - "!**/node_modules/**"
+# extraResources 内的文件会被原样拷贝到 resources/ 下的真实磁盘，永不进 asar：
+# - node.exe：内置运行 Nitro 的系统 Node（由 scripts/bundle-node.mjs 在构建期复制）
+# - build/：托盘图标（resources/build/）
+# - .output/：Nitro 服务入口与运行时依赖（resources/.output/）—— main.mjs 的 baseDir() 据此解析
+# - data/：种子内容（resources/data/）—— main.mjs 据此拷入用户数据目录
 extraResources:
   - from: extraResources
     to: extraResources
   - from: build
     to: build
-# 启用 asar 提升完整性；但「系统 Node 子进程」运行 Nitro 服务时，子进程（无 asar 模块）
-# 必须从真实磁盘读取 .output / node_modules / data，故这些路径必须 asarUnpack 解包。
-# 注：此架构下 asar 主要保护 electron/ 层，不会显著缩小安装包（服务端依赖需留在磁盘）。
-asar: true
+  - from: .output
+    to: .output
+  - from: data
+    to: data
+# asar: false —— 本项目桌面端不依赖 asar 完整性校验（无 electron-updater 自动更新），
+# 关闭后可彻底跳过 electron-builder 对 MentorLoop.exe 写入 asar 完整性哈希这一步，
+# 避免 Windows Defender 实时扫描刚解包的 exe 时持锁导致打包致命失败（UNKNOWN: open MentorLoop.exe）。
+# 关闭后 electron/ 与 package.json 直接落在 resources/app/ 真实磁盘，main.mjs 用 process.resourcesPath / __dirname 解析，与 asar 无关。
+asar: false
 # 系统 Node 子进程架构：Electron 主进程只负责拉窗，不加载 better-sqlite3 等原生模块；
 # 原生模块由 .output/server/node_modules 内的系统 Node 在运行时加载。因此打包阶段无需
 # electron-builder 调用 node-gyp 重建原生模块，避免目标机缺少 Visual Studio 时失败。
 # npmRebuild:false 是 electron-builder 25.x 的合法字段（禁止为 electron ABI 重建 better-sqlite3 等原生模块）。
 npmRebuild: false
-asarUnpack:
-  - .output/**          # 运行时依赖在 .output/server/node_modules，必须解包到真实磁盘
-  - "**/*.node"         # 原生模块（better-sqlite3 等）必须解包
-  - data/**
 win:
   target: nsis
   icon: build/icon.ico
