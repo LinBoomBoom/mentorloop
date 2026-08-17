@@ -314,6 +314,28 @@ const vipBlocked = ref(false)
 const submitting = ref(false)
 const choiceAnswers = reactive<Record<string, any>>({})
 const writtenAnswers = reactive<Record<string, any>>({})
+
+// A4 断点续考：离开时把已选答案存 localStorage 草稿，再进同 attempt 恢复（复用 serverStartAt 计时）
+function draftKey() { return attemptId.value ? 'exam-draft:' + attemptId.value : '' }
+function saveDraft() {
+  if (!import.meta.client || !attemptId.value) return
+  try { localStorage.setItem(draftKey(), JSON.stringify({ c: choiceAnswers, w: writtenAnswers })) } catch (e) {}
+}
+function restoreDraft() {
+  if (!import.meta.client || !attemptId.value) return
+  try {
+    const raw = localStorage.getItem(draftKey())
+    if (!raw) return
+    const d = JSON.parse(raw)
+    if (d.c) Object.assign(choiceAnswers, d.c)
+    if (d.w) Object.assign(writtenAnswers, d.w)
+  } catch (e) {}
+}
+function clearDraft() {
+  if (!import.meta.client || !attemptId.value) return
+  try { localStorage.removeItem(draftKey()) } catch (e) {}
+}
+watch(() => [choiceAnswers, writtenAnswers], saveDraft, { deep: true })
 const dur = ref(0)
 const timeLeft = ref(0)
 let timer: any = null
@@ -454,9 +476,10 @@ async function submit() {
     })
     // 防御：若响应缺少 record（数据缺失/接口异常），不要进入空白复盘，
     // 而是抛错走 catch —— 保留答题页并提示用户重试，避免"整页空白、题目答案全无"。
-    if (!res || !res.record) throw new Error('复盘数据为空，请重试')
-    record.value = res.record
-    phase.value = 'review'
+      if (!res || !res.record) throw new Error('复盘数据为空，请重试')
+      record.value = res.record
+      phase.value = 'review'
+      clearDraft()
     // 交卷后整块视图被替换，若不回到顶部，用户仍停在页面中段会误以为「还在加载」
     await nextTick()
     if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -475,6 +498,7 @@ async function submit() {
 
 function retake() {
   // P1-6：重做需生成新的服务端 attempt，直接刷新页面以获取新 attemptId 并清空本地状态最稳妥
+  clearDraft()
   if (import.meta.client) window.location.reload()
 }
 
@@ -508,10 +532,11 @@ watch(setRes, (v: any) => {
     // 客户端 initTimer() 再按服务端开考时间修正 → hydration mismatch。
     // 计时器只在挂载后（客户端）启动，绝不在 SSR 可执行路径里改状态。
     timeLeft.value = dur.value * 60
-    if (!route.query.record && phase.value === 'loading') {
-      phase.value = 'take'
-      if (mounted.value) initTimer()
-    }
+        if (!route.query.record && phase.value === 'loading') {
+          phase.value = 'take'
+          if (mounted.value) initTimer()
+          restoreDraft()
+        }
   } else if (v?.error || fetchError.value) {
     err.value = v?.error || fetchError.value?.message || '试卷加载失败'
     phase.value = 'error'
@@ -534,19 +559,19 @@ onMounted(async () => {
   }
   // 首屏 hydration 完成后再启动倒计时，避免计时器读数进入 SSR 快照
   if (phase.value === 'take' && dur.value) initTimer()
-  // 关闭标签页 / 浏览器关闭：随页面卸载注销 attempt
+  // 关闭标签页 / 浏览器关闭：随页面卸载保存草稿（保留 attempt，支持断点续考）
   if (import.meta.client) {
-    window.addEventListener('pagehide', abandonAttempt)
-    window.addEventListener('beforeunload', abandonAttempt)
+    window.addEventListener('pagehide', saveDraft)
+    window.addEventListener('beforeunload', saveDraft)
   }
 })
 onBeforeUnmount(() => {
   stopTimer()
-  // SPA 路由跳转离开答卷页（如点「返回试卷列表」）也会触发：注销当前 attempt
-  abandonAttempt()
+  // SPA 路由跳转离开答卷页（如点「返回试卷列表」）：保存草稿以便断点续考（保留 attempt 计时）
+  saveDraft()
   if (import.meta.client) {
-    window.removeEventListener('pagehide', abandonAttempt)
-    window.removeEventListener('beforeunload', abandonAttempt)
+    window.removeEventListener('pagehide', saveDraft)
+    window.removeEventListener('beforeunload', saveDraft)
   }
 })
 </script>
