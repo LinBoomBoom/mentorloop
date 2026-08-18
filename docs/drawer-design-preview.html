@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>技能详情抽屉 — 设计目标（内联 style 版）</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#f5f5f5; display:flex; justify-content:center; padding:20px; }
+  .drawer { width:420px; height:720px; background:#fff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.12); overflow-y:auto; position:relative; }
+</style>
+</head>
+<body>
+<div class="drawer">
+
+<!-- ===== 技能点详情（内联 style 版） ===== -->
+<div style="position:relative">
+  <!-- Header：渐变饰条 + 标题 + 关闭按钮 + 元标签 + 描述 -->
+  <div style="position:relative">
+    <div style="height:3px;background:linear-gradient(90deg,#e11d48,#be185d)"></div>
+    <button type="button" style="position:absolute;top:12px;right:14px;z-index:10;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;cursor:pointer;color:#737373;font-size:16px" aria-label="关闭">&times;</button>
+    <div style="padding:20px 20px 16px">
+      <h2 style="font-size:19px;font-weight:800;color:#171717;line-height:1.25;margin:0;padding-right:32px">HTML 语义化与标签</h2>
+      <!-- 元标签行 -->
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px">
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;border:1px solid rgba(22,163,74,.27);background:rgba(22,163,74,.05);color:#16a34a">
+          <span style="width:6px;height:6px;border-radius:50%;display:inline-block;background:#16a34a"></span>初级
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:#fffbeb;color:#b45309;border:1px solid rgba(251,191,36,.7)">
+          <span style="font-size:10px">★</span> 必会
+        </span>
+        <span style="font-size:11px;color:#a3a3a3;margin-left:4px">HTML/CSS 基础</span>
+      </div>
+      <!-- 描述信息框 -->
+      <div style="margin-top:12px;border-radius:10px;padding:10px 14px;background:#fafafa;border:1px solid rgba(229,229,229,.7);line-height:1.65">
+        <p style="font-size:13px;color:#525252;margin:0">form / table / 列表等语义标签，结构清晰，利于 SEO 与读屏。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分隔线 -->
+  <div style="margin:0 20px;height:1px;background:rgba(229,229,229,.5)"></div>
+
+  <!-- 面试题区：编号卡片列表 -->
+  <div style="padding:20px 20px 12px">
+    <!-- 区头 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(225,29,72,.1)">&#128196;</span>
+        <span style="font-size:13.5px;font-weight:700;color:#171717">相关面试题</span>
+        <span style="font-size:11px;color:#a3a3a3;font-weight:500">6 道</span>
+      </div>
+      <a href="#" style="color:#e11d48;text-decoration:none;font-size:12px;font-weight:600">去题库练习 &rarr;</a>
+    </div>
+
+    <!-- 题目卡片列表 -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+
+      <!-- Q1 折叠态 -->
+      <div style="border-radius:12px;border:1px solid #e5e5e5;background:#fff;overflow:hidden;transition:all .2s">
+        <button type="button" style="width:100%;text-align:left;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;border:none;background:transparent;cursor:pointer">
+          <span style="flex-shrink:0;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:3px;background:#fafafa;border:1px solid #e5e5e5;color:#a3a3a3">1</span>
+          <span style="flex:1;min-width:0">
+            <span style="font-size:13px;line-height:1.65;color:#171717;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+              请解释什么是 HTML 语义化？为什么说它"利于 SEO 与读屏"？请至少举出 5 个语义化标签并说明其用途。例如
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;table&gt;</code>
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;ul&gt;</code>
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;dl&gt;</code> 等。
+            </span>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px">
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;border:1px solid #f1f5f9;background:rgba(248,250,252,.8);color:#64748b">常规</span>
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;background:rgba(225,29,72,.07);color:#e11d48;border:1px solid rgba(225,29,72,.12)">CSS/HTML</span>
+              <span style="color:rgba(115,115,115,.6);margin-left:auto;font-size:12px">&#9660;</span>
+            </div>
+          </span>
+        </button>
+      </div>
+
+      <!-- Q2 折叠态 -->
+      <div style="border-radius:12px;border:1px solid #e5e5e5;background:#fff;overflow:hidden">
+        <button type="button" style="width:100%;text-align:left;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;border:none;background:transparent;cursor:pointer">
+          <span style="flex-shrink:0;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:3px;background:#fafafa;border:1px solid #e5e5e5;color:#a3a3a3">2</span>
+          <span style="flex:1;min-width:0">
+            <span style="font-size:13px;line-height:1.65;color:#171717;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;table&gt;</code>
+              标签在语义化和可访问性方面有哪些关键属性？请写出一个带表头、表体和表尾的完整表格示例，并说明
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;thead&gt;</code>
+              、
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;tbody&gt;</code>
+              、
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;tfoot&gt;</code>
+              的作用。
+            </span>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px">
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;border:1px solid #f1f5f9;background:rgba(248,250,252,.8);color:#64748b">常规</span>
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;background:rgba(225,29,72,.07);color:#e11d48;border:1px solid rgba(225,29,72,.12)">CSS/HTML</span>
+              <span style="color:rgba(115,115,115,.6);margin-left:auto;font-size:12px">&#9660;</span>
+            </div>
+          </span>
+        </button>
+      </div>
+
+      <!-- Q3 展开态示例 -->
+      <div style="border-radius:12px;border:1px solid #e5e5e5;background:#fff;overflow:hidden">
+        <button type="button" style="width:100%;text-align:left;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;border:none;background:transparent;cursor:pointer">
+          <span style="flex-shrink:0;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:3px;background:#e11d48;color:#fff;border:1px solid #e11d48">3</span>
+          <span style="flex:1;min-width:0">
+            <span style="font-size:13px;line-height:1.65;color:#171717">
+              在 HTML 中，
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;ul&gt;</code>
+              、
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;ol&gt;</code>
+              、
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;dl&gt;</code>
+              三种列表各自的语义是什么？在什么场景下应优先选择
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;dl&gt;</code>
+              而非
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;ul&gt;</code>
+              ？请给出一个
+              <code style="font-family:ui-monospace,monospace;font-size:11.5px;background:rgba(225,29,72,.1);color:#991c1c;padding:1px 5px;border-radius:4px">&lt;dl&gt;</code>
+              的典型应用场景代码。
+            </span>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px">
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;border:1px solid #f1f5f9;background:rgba(248,250,252,.8);color:#64748b">常规</span>
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;background:rgba(225,29,72,.07);color:#e11d48;border:1px solid rgba(225,29,72,.12)">CSS/HTML</span>
+              <span style="color:rgba(115,115,115,.6);margin-left:auto;font-size:12px">&#9650;</span>
+            </div>
+          </span>
+        </button>
+        <!-- 展开答案区 -->
+        <div style="margin:0 14px 12px 0;border-radius:8px;border-left:2.5px solid rgba(225,29,72,.5);background:rgba(225,29,72,.04);padding:12px 14px;font-size:12.5px;line-height:1.65;color:#262626">
+          <p><strong>三种列表的语义区别：</strong></p>
+          <ul style="padding-left:18px;margin:6px 0">
+            <li><strong>&lt;ul&gt; (Unordered List)</strong>：无序列表，表示项目之间没有特定顺序。适用于菜单、特性列表等。</li>
+            <li><strong>&lt;ol&gt; (Ordered List)</strong>：有序列表，表示项目有明确顺序。适用于步骤、排行榜等。</li>
+            <li><strong>&lt;dl&gt; (Definition List)</strong>：定义列表，表示键值对（术语+描述）。适用于 FAQ、词汇表、元数据等。</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Q4-Q6 半透明暗示折叠态 -->
+      <div style="border-radius:12px;border:1px solid #e5e5e5;background:#fff;overflow:hidden;opacity:.55">
+        <button type="button" style="width:100%;text-align:left;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;border:none;background:transparent;cursor:pointer">
+          <span style="flex-shrink:0;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:3px;background:#fafafa;border:1px solid #e5e5e5;color:#a3a3a3">4</span>
+          <span style="flex:1;min-width:0">
+            <span style="font-size:13px;line-height:1.65;color:#171717;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">请对比 &lt;form&gt; 表单中 'GET' 和 'POST' 两种提交方式的区别？...</span>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px">
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;border:1px solid #fde68a;background:rgba(254,243,199,.8);color:#d97706">较难</span>
+              <span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:5px;background:rgba(225,29,72,.07);color:#e11d48;border:1px solid rgba(225,29,72,.12)">CSS/HTML</span>
+              <span style="color:rgba(115,115,115,.6);margin-left:auto;font-size:12px">&#9660;</span>
+            </div>
+          </span>
+        </button>
+      </div>
+      <div style="border-radius:12px;border:1px solid #e5e5e5;background:#fff;overflow:hidden;opacity:.4">
+        <button type="button" style="width:100%;text-align:left;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;border:none;background:transparent;cursor:pointer">
+          <span style="flex-shrink:0;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:3px;background:#fafafa;border:1px solid #e5e5e5;color:#a3a3a3">5</span>
+          <span style="flex:1;min-width:0"><span style="font-size:13px;line-height:1.65;color:#171717;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">在实际项目中，你如何判断一个页面结构是否"语义化合格"？...</span></span>
+        </button>
+      </div>
+      <div style="border-radius:12px;border:1px solid #e5e5e5;background:#fff;overflow-hidden;opacity:.3">
+        <button type="button" style="width:100%;text-align:left;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;border:none;background:transparent;cursor:pointer">
+          <span style="flex-shrink:0;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:3px;background:#fafafa;border:1px solid #e5e5e5;color:#a3a3a3">6</span>
+          <span style="flex:1;min-width:0"><span style="font-size:13px;line-height:1.65;color:#171717;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">请解释 &lt;div&gt; 和 &lt;span&gt; 与语义化标签（如 &lt;section&gt;...）在默认样式和语义上的本质区别？...</span></span>
+        </button>
+      </div>
+
+      <!-- 查看全部 -->
+      <a href="#" style="display:block;padding:8px 0 0 !important;margin-top:4px !important;font-size:12px !important;text-align:center;color:#e11d48;text-decoration:none">
+        查看全部 6 道并练习 <span style="opacity:.6">&rarr;</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- 分隔线 -->
+  <div style="margin:0 20px;height:1px;background:rgba(229,229,229,.5)"></div>
+
+  <!-- 掌握度 & 行动 -->
+  <div style="padding:20px 20px 16px">
+    <div style="border-radius:12px;background:linear-gradient(135deg,#fafafa,#fafafa80);border:1px solid #e5e5e5;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#ecfdf5">&#10003;</span>
+          <span style="font-size:13.5px;font-weight:700;color:#171717">我的掌握度</span>
+        </div>
+        <span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid rgba(107,114,128,.27);background:rgba(107,114,128,.05);color:#6b7280">未开始</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button style="flex:1;padding:6px 16px;border-radius:8px;border:none;background:#e11d48;color:#fff;font-size:13px;font-weight:600;cursor:pointer">标记已掌握</button>
+        <button style="padding:6px 16px;border-radius:8px;border:1px solid #e5e5e5;background:#fff;color:#171717;font-size:13px;cursor:pointer">去自测 &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部页脚 -->
+  <div style="padding:14px 20px;background:#fafafa80;border-top:1px solid rgba(229,229,229,.6)">
+    <div style="display:flex;align-items:center;font-size:11px;color:#a3a3a3;gap:16px">
+      <span>赛道：<span style="color:#525252;font-weight:500">HTML/CSS 基础</span></span>
+      <span>方向：<span style="color:#525252;font-weight:500">前端开发</span></span>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

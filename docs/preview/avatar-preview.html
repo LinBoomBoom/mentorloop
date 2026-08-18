@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>P4 数字人头像预览（DiceBear）</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background: #fafafa; padding: 24px; color: #111; }
+  h1 { font-size: 18px; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #6b7280; margin-bottom: 18px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); width: 220px; }
+  .name { font-weight: 600; margin-top: 8px; font-size: 14px; }
+  .desc { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .avatar-wrap { width: 192px; height: 192px; margin: 0 auto; position: relative; border-radius: 24px; overflow: hidden; }
+  .avatar-wrap svg { width: 100%; height: 100%; display: block; }
+  /* 性别配色叠层 */
+  .huayan .avatar-wrap { background: linear-gradient(160deg, #fff1f3 0%, #fde7eb 55%, #fcd5db 100%); }
+  .xiao_ya .avatar-wrap { background: linear-gradient(160deg, #fff1f3 0%, #fde7eb 55%, #fcd5db 100%); }
+  .chaowen .avatar-wrap { background: linear-gradient(160deg, #ecfeff 0%, #cffafe 55%, #a5f3fc 100%); }
+  /* 嘴型光斑示例（华嫣在 speaking 时） */
+  .mouth-glow {
+    position: absolute; left: 50%; top: 73%; transform: translate(-50%, -50%);
+    width: 60px; height: 28px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(225,29,72,.6) 0%, rgba(225,29,72,.2) 50%, transparent 80%);
+    filter: blur(6px); mix-blend-mode: screen; pointer-events: none;
+  }
+  .mouth-glow.cyan { background: radial-gradient(circle, rgba(14,165,183,.6) 0%, rgba(14,165,183,.2) 50%, transparent 80%); }
+</style>
+</head>
+<body>
+<h1>P4 数字人头像预览（DiceBear v9 本地引擎）</h1>
+<div class="sub">3 个 voiceId → 3 种人物风格（lorelei / personas / openPeeps）；嘴部光斑示意 speaking 状态</div>
+<div class="row">
+
+    <div class="card huayan">
+      <div class="avatar-wrap" id="huayan-wrap">
+        <object type="image/svg+xml" data="avatars/huayan.svg" style="width:100%;height:100%"></object>
+        <div class="mouth-glow"></div>
+      </div>
+      <div class="name">华嫣 · 温柔知性女声</div>
+      <div class="desc">seed=huayan-ml-01 · style=lorelei</div>
+    </div>
+
+    <div class="card xiao_ya">
+      <div class="avatar-wrap" id="xiao_ya-wrap">
+        <object type="image/svg+xml" data="avatars/xiao_ya.svg" style="width:100%;height:100%"></object>
+        <div class="mouth-glow"></div>
+      </div>
+      <div class="name">小雅 · 清亮自然女声</div>
+      <div class="desc">seed=xiao-ya-ml-02 · style=personas</div>
+    </div>
+
+    <div class="card chaowen">
+      <div class="avatar-wrap" id="chaowen-wrap">
+        <object type="image/svg+xml" data="avatars/chaowen.svg" style="width:100%;height:100%"></object>
+        <div class="mouth-glow cyan"></div>
+      </div>
+      <div class="name">朝文 · 沉稳磁性男声</div>
+      <div class="desc">seed=chaowen-ml-03 · style=openPeeps</div>
+    </div>
+
+  </div>
+</body>
+</html>
