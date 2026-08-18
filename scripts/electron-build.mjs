@@ -22,6 +22,7 @@ await prepWinCodeSign()
 
 const child = spawn(process.execPath, [cli], {
   stdio: 'inherit',
-  env: process.env,
+  // 清空沙箱注入的 safe-delete shim，避免 electron-builder 清理临时文件时被拦截。
+  env: { ...process.env, NODE_OPTIONS: '' },
 })
 child.on('exit', (code) => process.exit(code ?? 0))

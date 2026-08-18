@@ -25,19 +25,39 @@ const DEV_URL = 'http://localhost:3000'
 const PORT = process.env.MENTORLOOP_PORT || '3210'
 const PROD_URL = `http://127.0.0.1:${PORT}`
 
-// 冷启动占位页（dev / prod 共用），确保窗口立即可见、永不纯黑。
-const LOADING_HTML =
+// 兜底占位页：当 electron/splash.html 缺失或损坏时启用，确保窗口立即可见、永不纯黑。
+const FALLBACK_LOADING_HTML =
   '<html><body style="font-family:sans-serif;background:#0f0f12;color:#e5e7eb;' +
   'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:12px">' +
   '<div style="width:34px;height:34px;border:3px solid #2a2a30;border-top-color:#ff5e7e;border-radius:50%;animation:spin 1s linear infinite"></div>' +
   '<h3 style="margin:0;font-weight:600">MentorLoop 正在启动本地服务…</h3>' +
   '<style>@keyframes spin{to{transform:rotate(360deg)}}</style>' +
   '</body></html>'
-async function showLoading(win, url) {
+
+// 读取品牌化启动屏并注入版本号，返回 data URL（无需外部资源，加载最稳定）。
+function buildSplashUrl() {
+  const splashPath = path.join(__dirname, 'splash.html')
   try {
-    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(LOADING_HTML))
+    let html = fs.readFileSync(splashPath, 'utf-8')
+    const version = app.getVersion() || ''
+    if (version) {
+      html = html.replace(
+        '<div class="version" id="version"></div>',
+        `<div class="version" id="version">v${version}</div>`
+      )
+    }
+    return 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
   } catch (e) {
-    console.error('[electron] 加载占位页失败，改用 about:blank：', e?.message)
+    console.error('[electron] splash.html 读取失败，使用兜底占位页：', e?.message)
+    return 'data:text/html;charset=utf-8,' + encodeURIComponent(FALLBACK_LOADING_HTML)
+  }
+}
+
+async function showLoading(win) {
+  try {
+    await win.loadURL(buildSplashUrl())
+  } catch (e) {
+    console.error('[electron] 加载启动页失败，改用 about:blank：', e?.message)
     try { await win.loadURL('about:blank') } catch { /* ignore */ }
   }
   if (!win.isVisible()) win.show()
@@ -182,18 +202,8 @@ async function startLocalServer() {
 
 async function loadApp(win) {
   if (isDev) {
-    // 先尝试加载一个本地 loading 占位页（data URL 失败也能兜底），确保窗口立即可见。
-    const loadingHtml =
-      '<html><body style="font-family:sans-serif;background:#0f0f12;color:#e5e7eb;' +
-      'display:flex;align-items:center;justify-content:center;height:100vh;margin:0">' +
-      '<h3>正在启动本地开发服务…<br><small style="opacity:.6">http://localhost:3000</small></h3>' +
-      '</body></html>'
-    try {
-      await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(loadingHtml))
-    } catch (e) {
-      console.error('[electron] loading 占位页加载失败，改用 about:blank 兜底：', e?.message)
-      try { await win.loadURL('about:blank') } catch { /* ignore */ }
-    }
+    // 先显示品牌化启动屏，再轮询 dev 服务；失败时有 buildSplashUrl 内部兜底。
+    await showLoading(win)
     if (!win.isVisible()) win.show() // 双保险：loading 或兜底层都把窗口亮出来
     console.log('[electron] 轮询 dev 服务', DEV_URL, '（最长 120s）')
     const ok = await waitForServer(DEV_URL, 120000) // dev 首启较慢，放宽到 120s
@@ -208,7 +218,7 @@ async function loadApp(win) {
     dialog.showErrorBox('开发服务器未就绪', '请在终端运行 `npm run dev` 确认 nuxt dev 能正常启动（检查 3000 端口 / 依赖是否完整）。')
     return
   }
-  await showLoading(win, PROD_URL)
+  await showLoading(win)
   await startLocalServer()
   const ok = await waitForServer(PROD_URL)
   if (ok) {

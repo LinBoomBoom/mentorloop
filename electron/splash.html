@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MentorLoop</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: #0b0b0f;
+    }
+    .splash {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255, 94, 126, 0.18), transparent 50%),
+        radial-gradient(circle at 50% 100%, rgba(99, 102, 241, 0.12), transparent 45%),
+        linear-gradient(180deg, #0f0f14 0%, #0a0a0d 100%);
+    }
+    .glow {
+      position: absolute;
+      width: 360px;
+      height: 360px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 94, 126, 0.15), transparent 70%);
+      animation: pulse 4s ease-in-out infinite;
+      z-index: 0;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
+    .card {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      padding: 48px 56px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(12px);
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #ff5e7e 0%, #ff8a9b 100%);
+      box-shadow: 0 10px 30px rgba(255, 94, 126, 0.35);
+    }
+    .logo svg {
+      width: 34px;
+      height: 34px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .brand {
+      text-align: center;
+    }
+    .brand h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #fff 0%, #ffccd5 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .brand p {
+      margin-top: 6px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 2px;
+    }
+    .spinner {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.08);
+      border-top-color: #ff5e7e;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.45);
+      min-height: 20px;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .status .dots::after {
+      content: '';
+      animation: dots 1.4s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+      100% { content: ''; }
+    }
+    .version {
+      position: absolute;
+      bottom: 18px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.22);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="splash">
+    <div class="glow"></div>
+    <div class="card">
+      <div class="logo">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div class="brand">
+        <h1>MentorLoop</h1>
+        <p>学面一体 · 智能导师</p>
+      </div>
+      <div class="spinner"></div>
+      <div class="status">正在启动本地服务<span class="dots"></span></div>
+    </div>
+    <div class="version" id="version"></div>
+  </div>
+  <script>
+    // 如果主进程通过 searchParams 注入版本，则显示；否则保持空。
+    const v = new URLSearchParams(location.search).get('v') || '';
+    if (v) document.getElementById('version').textContent = 'v' + v;
+  </script>
+</body>
+</html>
