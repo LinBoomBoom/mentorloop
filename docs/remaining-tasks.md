@@ -7,7 +7,9 @@
 
 > ✅ **全站格式已统一（2026-08-16 收尾）**：四模块知识树（547 节）现已 **100%** 采用 `(可溯源)` 块格式（前端 298 / 后端 143 / 运维 69 / AI 37）。此前"后端 75% / AI 81%"的缺口（后端 36 + AI 7 节旧 `来源=官方` 内联格式）已通过 `scripts/_upgrade-beai.mjs` + `_upgrade-beai2.mjs` 补齐并入库（commit 18f1700）。
 
-> ✅ **前端体验 F1–F4 + 管理后台 G1–G7 已落地（2026-08-17）**：F1 模块总览折叠/搜索（A1）、F2 章节 sticky 阅读进度条（A2）、F3 考试页题号导航网格（A3）+ 断点续考 localStorage 草稿（A4）、F4 面包屑组件（A5）/ 模块页目录抽屉（A6）/ 章节页阅读模式字号 S/M/L+限宽+护眼底色+持久化（A7）/ 返回顶部（default 布局全局挂载）；G1–G7 经读码核对 `server/utils/adminDispatch.ts` 确认 CRUD / 用户 / VIP / 订单 / 看板 / 审计日志全量落地（无新代码，仅状态同步）。详见 §7 / §8 / §9。
+> ✅ **前端体验 F1–F4 + 管理后台 G1–G7 已落地（2026-08-17）**：F1 模块总览折叠/搜索（A1）、F2 章节 sticky 阅读进度条（A2）、F3 考试页题号导航网格（A3）+ 断点续考 localStorage 草稿（A4）、F4 面包屑组件（A5）/ 模块页目录抽屉（A6）/ 章节页阅读模式字号 S/M/L+限宽+护眼底色+持久化（A7）/ 返回顶部（default 布局全局挂载）；G1–G7 经读码核对 `server/utils/adminDispatch.ts` 确认 CRUD / 用户 / VIP / 订单 / 看板 / 审计日志全量落地（无新代码，仅状态同步）
+
+> 🔎 **08-18 代码对账（文档已过时警告）**：本清单截至 08-17，经对照实际代码（`app/pages/*`、`server/api/*`、`server/utils/*`）+ `data/devmentor.db` 复核，发现多项标 `[ ]` 的项**实际已落地**（08-17 后 commit）：**T10 个人中心 VIP 状态**（account/index.vue：会员状态/订单/注销/VIP专属导航）、**H3 1v1 简历诊断**（resume/diag.vue + vip/resume.post.ts）、**H4 内推资源库**（referral.ts CRUD + referral 页 + admin/referrals.vue）、**H2 学习路径**（T5/learn-path 覆盖）。DB 实测考卷 19 套、面试题 6565（4835 带 source=73.6%）。面试题表已改用 `weight`(3/5)+`difficulty`(normal/medium/hard) 建模，"hot/special 分桶"描述已过时，D3/E2 需按新模型重审。§9 进度看板已部分过时，正确口径见 §12。。详见 §7 / §8 / §9。
 
 ---
 
@@ -157,14 +159,14 @@
 - [ ] T9 `plans` 启用 + 前端接真实购买
 
 ### 6.3 体验 / 度量 / 实验
-- [ ] T10 个人中心 VIP 状态 / 管理入口
+- [x] T10 个人中心 VIP 状态 / 管理入口（`app/pages/account/index.vue` 已含会员状态卡/订单记录/注销/VIP专属功能导航，08-18 代码对账确认）
 - [ ] T11 埋点事件（转化/留存/使用）
 - [ ] T12 价格 A/B 框架 + 年包联动重定价（**暂缓，暂不降价**）
 
 ### 6.4 其它 VIP 权益（master-plan H）
-- [ ] H2 学习路径定制（可由 T5 覆盖）
-- [ ] H3 1v1 简历诊断（上传 + AI/人工）
-- [ ] H4 内推资源库（资源 CRUD + 展示）
+- [x] H2 学习路径定制（T5 `learn/path` 已覆盖，08-18 确认）
+- [x] H3 1v1 简历诊断（resume/diag.vue + vip/resume.post.ts，VIP 门禁+限流已落地；核心诊断需 LLM key=决策②）
+- [x] H4 内推资源库（referral.ts 全 CRUD + referral 页 + admin/referrals.vue，08-18 确认）
 
 ---
 
@@ -228,6 +230,26 @@
 支付 / LLM / OAuth / 续费 / 部署 待决策项①–⑤拍板后铺开（A4 / T6–T9 / T4 核心 / A2 等）。
 
 ---
+
+## 12. 08-18 代码对账结果（文档校准）
+
+经对照 `app/pages/*`、`server/api/*`、`server/utils/*` 与 `data/devmentor.db` 实测：
+
+### 12.1 文档标 `[ ]` 但实际已落地（08-17 后 commit）
+- T10 个人中心 VIP 状态 → `app/pages/account/index.vue`（会员状态卡/订单/注销/VIP专属导航）
+- H2 学习路径 → `app/pages/learn/path`（T5 覆盖）
+- H3 1v1 简历诊断 → `app/pages/resume/diag.vue` + `server/api/vip/resume.post.ts`（VIP 门禁+限流；诊断核心待 LLM key）
+- H4 内推资源库 → `server/utils/referral.ts` + `app/pages/referral/index.vue` + `app/pages/admin/referrals.vue`
+
+### 12.2 真正剩余的未完成任务（去重后）
+1. **T11 埋点事件（转化/留存/使用）** —— 全代码库无 analytics/events 表与埋点代码，**唯一明确的未阻塞工程任务**。
+2. **决策阻塞项①–⑤**（支付/LLM key/OAuth/续费/部署）：A4·A2·T4核心·T6–T9 卡住，需你拍板。
+3. **内容质量 D4/E3/E2**：需按官方源 + 领域专家分批审查（当前面试题表已用 `weight`+`difficulty` 建模，D3 原"题级 level vs 套卷 level"口径已不适用，需重审）。
+
+### 12.3 数据库实测基线（验收对比）
+- 考卷 19 套：初级4 / 初中级2 / 中级5 / 高级8；免费11 / VIP8。
+- 面试题 6565：frontend2105 / backend2087 / devops1374 / ai999；difficulty normal2710·medium3210·hard645；weight 3→5920、5→645；带 source 4835（73.6%）。
+- referrals / referral_applications 表已建（H4 后端就绪）。
 
 ## 11. 执行纪律（沿用项目约定）
 
