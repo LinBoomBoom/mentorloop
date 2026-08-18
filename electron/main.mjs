@@ -189,11 +189,10 @@ async function startLocalServer() {
       HOST: '127.0.0.1',
       DATA_DIR: dataDir,
       NODE_ENV: 'production',
-      // Piper 语音引擎与中文模型随安装包落在 resources/data/piper（dev 态为项目根 data/piper），
-      // 只读引用、不复制到用户目录；TTS 音频缓存仍写 DATA_DIR 下。不注入时 paths.ts 默认指向
-      // 用户数据目录里的空路径，桌面端 TTS 会静默不可用。
-      PIPER_BIN: path.join(dir, 'data', 'piper', process.platform === 'win32' ? 'piper.exe' : 'piper'),
-      PIPER_MODELS_DIR: path.join(dir, 'data', 'piper', 'models'),
+      // TTS 纯云端方案（2026-08-18 拍板）：安装包不打 Piper（省约 219MB），
+      // 语音统一走阿里云 CosyVoice；key 在 nuxt build 时经 runtimeConfig 烘焙进 .output，
+      // 服务端 speech.ts 经 useRuntimeConfig().dashscopeApiKey 读取，无需再注入密钥。
+      TTS_PROVIDER: 'aliyun',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,

@@ -23,8 +23,8 @@ const env = {
   HOST: '127.0.0.1',
   DATA_DIR: dataDir,
   NODE_ENV: 'production',
-  PIPER_BIN: path.join(resDir, 'data', 'piper', 'piper.exe'),
-  PIPER_MODELS_DIR: path.join(resDir, 'data', 'piper', 'models'),
+  // 与打包版 main.mjs 注入保持一致：TTS 纯云端（阿里云），不打 Piper。
+  TTS_PROVIDER: 'aliyun',
 }
 
 console.log('[smoke] DATA_DIR =', dataDir)
@@ -87,7 +87,15 @@ console.log('[smoke] 错误密码正确拒绝(401) ✓')
 // 4. 带 cookie 访问 /api/auth/me
 const meRes = await fetch(BASE + '/api/auth/me', { headers: { cookie: login.setCookie.split(';')[0] } })
 const me = await meRes.json().catch(() => null)
+
 if (meRes.status !== 200 || !me?.user) exit(1, `[smoke] FAIL: /api/auth/me 未识别会话 ${meRes.status}`)
 console.log('[smoke] 会话保持 ✓ /api/auth/me 返回', me.user.username)
 
-exit(0, '[smoke] ALL PASS：打包产物的 注册→登录→会话 全链路正常 ✓')
+// 5. TTS 纯云端方案验证：provider 必须是 aliyun 且 key 已烘焙进包（voices 接口会回报配置状态）
+const vRes = await fetch(BASE + '/api/vip/interview/voices', { headers: { cookie: login.setCookie.split(';')[0] } })
+const v = await vRes.json().catch(() => null)
+if (vRes.status !== 200 || v?.provider !== 'aliyun') exit(1, `[smoke] FAIL: TTS provider 异常 ${vRes.status} ${JSON.stringify(v)}`)
+if (!v.aliyunConfigured) exit(1, '[smoke] FAIL: 阿里云 key 未烘焙进包（runtimeConfig.dashscopeApiKey 为空）')
+console.log(`[smoke] TTS provider=aliyun ✓ key 已配置(尾号 ${v.aliyunKeyTail}) ✓ 音色 ${v.voices?.length} 个`)
+
+exit(0, '[smoke] ALL PASS：打包产物的 注册→登录→会话→TTS配置 全链路正常 ✓')
