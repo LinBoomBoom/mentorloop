@@ -30,7 +30,7 @@ const FALLBACK_LOADING_HTML =
   '<html><body style="font-family:sans-serif;background:#0f0f12;color:#e5e7eb;' +
   'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:12px">' +
   '<div style="width:34px;height:34px;border:3px solid #2a2a30;border-top-color:#ff5e7e;border-radius:50%;animation:spin 1s linear infinite"></div>' +
-  '<h3 style="margin:0;font-weight:600">MentorLoop 正在启动本地服务…</h3>' +
+  '<h3 style="margin:0;font-weight:600">MentorLoop</h3>' +
   '<style>@keyframes spin{to{transform:rotate(360deg)}}</style>' +
   '</body></html>'
 
