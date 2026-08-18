@@ -20,7 +20,10 @@ files:
 # - node.exe：内置运行 Nitro 的系统 Node（由 scripts/bundle-node.mjs 在构建期复制）
 # - build/：托盘图标（resources/build/）
 # - .output/：Nitro 服务入口与运行时依赖（resources/.output/）—— main.mjs 的 baseDir() 据此解析
-# - data/：种子内容（resources/data/）—— main.mjs 据此拷入用户数据目录
+# - data/seed-content.json：课程种子（main.mjs 首启拷入用户数据目录）
+# - data/piper/：本地 TTS 引擎与中文模型（main.mjs 经 PIPER_BIN / PIPER_MODELS_DIR 直接指向此处，只读不复制）
+# 注意：绝不打包 data/ 下的 devmentor.db、.bak、-shm/-wal、media 缓存、backups ——
+# 这些是开发数据/运行时产物，打进安装包既泄漏开发账号隐私又白白增加约 106MB 体积。
 extraResources:
   - from: extraResources
     to: extraResources
@@ -28,8 +31,10 @@ extraResources:
     to: build
   - from: .output
     to: .output
-  - from: data
-    to: data
+  - from: data/seed-content.json
+    to: data/seed-content.json
+  - from: data/piper
+    to: data/piper
 # asar: false —— 本项目桌面端不依赖 asar 完整性校验（无 electron-updater 自动更新），
 # 关闭后可彻底跳过 electron-builder 对 MentorLoop.exe 写入 asar 完整性哈希这一步，
 # 避免 Windows Defender 实时扫描刚解包的 exe 时持锁导致打包致命失败（UNKNOWN: open MentorLoop.exe）。

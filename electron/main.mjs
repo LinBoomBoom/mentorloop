@@ -189,6 +189,11 @@ async function startLocalServer() {
       HOST: '127.0.0.1',
       DATA_DIR: dataDir,
       NODE_ENV: 'production',
+      // Piper 语音引擎与中文模型随安装包落在 resources/data/piper（dev 态为项目根 data/piper），
+      // 只读引用、不复制到用户目录；TTS 音频缓存仍写 DATA_DIR 下。不注入时 paths.ts 默认指向
+      // 用户数据目录里的空路径，桌面端 TTS 会静默不可用。
+      PIPER_BIN: path.join(dir, 'data', 'piper', process.platform === 'win32' ? 'piper.exe' : 'piper'),
+      PIPER_MODELS_DIR: path.join(dir, 'data', 'piper', 'models'),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
