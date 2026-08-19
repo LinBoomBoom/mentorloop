@@ -21,49 +21,44 @@ export const TRACK_COLORS: Record<Track, string> = {
   ai: '#8b5cf6'
 }
 
-// tech（真实名）→ slug。覆盖当前全部 37 个技术子类 + 跨方向「综合」。
-// 注：JavaScript/TS 已拆为 JavaScript + TypeScript；CSS/HTML 已拆为 CSS + HTML；
-//     Java/Spring 已拆为 Java + Spring + 后端通用（更细分类利于 SEO 收录）。
+// tech（真实名）→ slug。覆盖 P1 归一化后的全部 27 个库内 tech + 4 个 official 方向 techName。
+// 必须与 interview_questions.tech 的实际取值（及 learningTaxonomy 的 techName）保持一致。
+// 中文 tech 必须显式给定 slug，否则 fallbackSlug 会将其压成空串而全部碰撞到 'general'。
 const TECH_SLUG_MAP: Record<string, string> = {
   // frontend
   'JavaScript': 'javascript',
   'TypeScript': 'typescript',
-  '工程化/构建': 'engineering-build',
-  '浏览器/渲染': 'browser-rendering',
   'CSS': 'css',
-  'HTML': 'html',
-  '性能优化': 'performance',
+  'Web 基础': 'web-basic',
   'React': 'react',
   'Vue': 'vue',
-  '网络/HTTP': 'network-http',
+  '工程化': 'engineering',
+  '性能优化': 'performance',
   '安全': 'security',
   // backend
   'Java': 'java',
-  'Spring': 'spring',
-  '后端通用': 'backend-general',
-  '系统设计': 'system-design',
-  '分布式/微服务': 'distributed-microservices',
-  'MySQL/数据库': 'mysql-database',
-  '网络/TCP': 'network-tcp',
-  '并发/多线程': 'concurrency',
+  'Node.js': 'nodejs',
+  'Python': 'python',
+  'Go': 'go',
+  'MySQL': 'mysql',
+  'Redis': 'redis',
+  'MongoDB': 'mongodb',
+  '微服务': 'microservices',
   '消息队列': 'message-queue',
-  'Redis/缓存': 'redis-cache',
+  '系统设计': 'system-design',
   // devops
-  '监控/SRE': 'monitoring-sre',
-  'CI/CD/发布': 'cicd',
-  'Kubernetes': 'kubernetes',
-  'Linux/排查': 'linux-troubleshooting',
-  '网络/TCP/HTTPS': 'network-tcp-https',
-  'Nginx/网关': 'nginx-gateway',
+  'Linux': 'linux',
+  '网络': 'network',
   '容器/Docker': 'docker',
+  'Kubernetes': 'kubernetes',
+  'CI/CD': 'cicd',
+  'SRE': 'sre',
   // ai
-  '应用与部署': 'app-deploy',
-  '评估/Eval': 'eval',
-  '模型基础/训练': 'model-training',
+  'Prompt': 'prompt',
   'RAG': 'rag',
-  'Agent/工具调用': 'agent-tool',
-  'Embedding/向量': 'embedding',
-  '提示工程/Prompt': 'prompt-engineering',
+  'Agent': 'agent',
+  'Eval': 'eval',
+  '部署与成本': 'deployment-cost',
   // 跨方向
   '综合': 'general'
 }
