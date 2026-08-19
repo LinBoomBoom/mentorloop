@@ -46,6 +46,19 @@ export const SUBTRACKS = {
     urls: ['https://www.electronjs.org/docs/latest', 'https://v2.tauri.app/'] },
   visualization: { module: 'frontend', label: '可视化', prefix: 'vz', note: 'ECharts / D3 / WebGL 可视化',
     urls: ['https://echarts.apache.org/', 'https://d3js.org/'] },
+  // —— P5：fe-web 核心方向补章（章数由官方文档结构决定，不写死）——
+  'web-html':  { module: 'frontend', label: 'Web', subtrack: 'web', prefix: 'ht', note: 'HTML 语义化/表单/多媒体/无障碍',
+    urls: ['https://developer.mozilla.org/zh-CN/docs/Web/HTML', 'https://web.dev/learn/html'] },
+  'css-core':  { module: 'frontend', label: 'CSS', subtrack: 'css', prefix: 'cs', note: 'CSS 布局/动画/架构/现代特性',
+    urls: ['https://developer.mozilla.org/zh-CN/docs/Web/CSS', 'https://web.dev/learn/css'] },
+  'react-core': { module: 'frontend', label: 'React', subtrack: 'react', prefix: 'rx', note: 'React 框架（官方 Learn + Reference）',
+    urls: ['https://react.dev/learn', 'https://react.dev/reference/react'] },
+  'vue-core':  { module: 'frontend', label: 'Vue', subtrack: 'vue', prefix: 'vu', note: 'Vue 3 框架（响应式/组件/Router/Pinia）',
+    urls: ['https://vuejs.org/guide/introduction.html', 'https://router.vuejs.org/', 'https://pinia.vuejs.org/'] },
+  'web-security': { module: 'frontend', label: '安全', subtrack: 'security', prefix: 'sc', note: 'Web 安全（XSS/CSRF/认证授权）',
+    urls: ['https://owasp.org/www-community/attacks/', 'https://developer.mozilla.org/zh-CN/docs/Web/Security'] },
+  'web-perf':  { module: 'frontend', label: '性能', subtrack: 'performance', prefix: 'pf', note: 'Web 性能（关键渲染路径/Web Vitals）',
+    urls: ['https://web.dev/learn/performance', 'https://developer.mozilla.org/zh-CN/docs/Web/Performance'] },
   // —— 后续批次（本次不跑，保留扩展位）——
   // bigdata: { module:'backend', label:'大数据', prefix:'bd', urls:[...] },
   // game: { module:'backend', label:'游戏服务端', prefix:'gm', urls:[...] },
@@ -94,9 +107,24 @@ function extractJson(text) {
   const s = text.indexOf('{'); const e = text.lastIndexOf('}')
   if (s === -1 || e === -1) throw new Error('无法从 LLM 输出提取 JSON')
   let raw = text.slice(s, e + 1)
-  try { return JSON.parse(raw) } catch { /* 去掉可能的尾随逗号 */ }
-  raw = raw.replace(/,\s*([}\]])/g, '$1')
-  return JSON.parse(raw)
+  try { return JSON.parse(raw) } catch { /* 进入修复流程 */ }
+  // 常见 LLM 非法 JSON 的就地修复（按优先级累积尝试）
+  const repairs = [
+    (x) => x.replace(/,\s*([}\]])/g, '$1'),     // 尾随逗号
+    (x) => x.replace(/"\s*"/g, '","'),          // 相邻字符串缺逗号
+    (x) => x.replace(/\}\s*\{/g, '},{'),        // 相邻对象缺逗号
+    (x) => x.replace(/\]\s*\[/g, '],['),        // 相邻数组缺逗号
+    (x) => x.replace(/\}\s*"/g, '},"'),         // } 后字符串缺逗号
+    (x) => x.replace(/\]\s*"/g, '],"'),         // ] 后字符串缺逗号
+    (x) => x.replace(/"\s*\{/g, '",{'),         // 字符串后对象缺逗号
+    (x) => x.replace(/"\s*\[/g, '",['),         // 字符串后数组缺逗号
+  ]
+  let cur = raw
+  for (const step of repairs) {
+    try { return JSON.parse(cur) } catch { /* 继续下一步 */ }
+    cur = step(cur)
+  }
+  return JSON.parse(cur) // 仍失败则抛原错误，交由上层 LLM 重试
 }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 async function pool(items, n, fn) {
@@ -112,8 +140,8 @@ async function pool(items, n, fn) {
 // ---------------- 大纲生成（plan） ----------------
 const PLAN_SYSTEM = `你是一位资深技术教育课程设计师。你会根据一个技术领域的官方学习路径，设计一套结构化的中文学习大纲。
 要求：
-1. 大纲必须"镜像"该技术的官方文档/学习路径的章节组织（从基础到进阶），不要随意编造顺序。
-2. 章节数由官方内容体量决定（通常 5~10 章；体量小的 3~4 章也可），每章 3~6 个小节。
+1. 大纲必须"镜像"该技术的官方文档/学习路径的章节组织（从基础到进阶），不要随意编造顺序，也不要为了凑数而合并或拆分官方章节。
+2. 章节数完全由官方内容体量决定：官网有多少章就列多少章（不预设数量、不设上下限）；每章 3~6 个小节。
 3. 每个小节给出：title（小节标题）、direction（用"能……"开头的掌握目标，一句话）、outline（2~4 个要点，说明这节要讲什么、锚定哪些官方主题）。
 只输出 JSON，不要任何解释。`
 
@@ -194,8 +222,18 @@ function getSubtrack(id) {
 async function doPlan(id) {
   const st = getSubtrack(id)
   console.log(`[plan] ${id} (${st.note}) …`)
-  const txt = await chat([{ role: 'system', content: PLAN_SYSTEM }, { role: 'user', content: planUser(st) }], { temperature: 0.4, maxTokens: 3000 })
-  const plan = extractJson(txt)
+  let messages = [{ role: 'system', content: PLAN_SYSTEM }, { role: 'user', content: planUser(st) }]
+  let txt = await chat(messages, { temperature: 0.4, maxTokens: 3000 })
+  let plan
+  try {
+    plan = extractJson(txt)
+  } catch (e) {
+    // LLM 偶发输出非法 JSON：追加纠正提示再试一次，避免整方向失败
+    console.warn(`  [plan] 首次 JSON 解析失败，追加纠正提示重试：${e.message}`)
+    messages = [...messages, { role: 'assistant', content: txt }, { role: 'user', content: '你刚才的输出不是合法 JSON，请只输出一个合法 JSON 对象，数组元素之间必须用英文逗号分隔，不要有任何解释文字。' }]
+    txt = await chat(messages, { temperature: 0.2, maxTokens: 3000 })
+    plan = extractJson(txt)
+  }
   if (!plan.chapters || !plan.chapters.length) throw new Error('plan 未返回 chapters')
   fs.writeFileSync(draftPath(id), JSON.stringify(plan, null, 2))
   console.log(`[plan] 完成：${plan.chapters.length} 章 / ${plan.chapters.reduce((n, c) => n + (c.sections?.length || 0), 0)} 节 → ${draftPath(id)}`)
@@ -257,6 +295,7 @@ function doApply(id) {
     id: `${st.prefix}-c${ci + 1}`,
     title: `${st.label} · ${c.title}`,
     goal: c.goal,
+    subtrack: st.subtrack || st.prefix,
     sections: (c.sections || []).map((s, si) => ({
       id: s.id || `${st.prefix}-c${ci + 1}-s${si + 1}`,
       title: s.title,
@@ -283,12 +322,12 @@ function doApply(id) {
   const dbFile = path.join(ROOT, 'data/devmentor.db')
   const db = new Database(dbFile)
   const maxPos = db.prepare('SELECT COALESCE(MAX(position),-1) AS p FROM chapters WHERE module_id=?').get(st.module).p
-  const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position) VALUES (?,?,?,?,?)')
+  const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
   const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
   const tx = db.transaction(() => {
     let pos = maxPos + 1
     for (const ch of chapters) {
-      insCh.run(ch.id, st.module, ch.title, ch.goal, pos++)
+      insCh.run(ch.id, st.module, ch.title, ch.goal, pos++, ch.subtrack)
       ch.sections.forEach((s, si) => insSec.run(s.id, ch.id, s.title, s.direction, s.content, si))
     }
   })
