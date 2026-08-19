@@ -31,19 +31,19 @@
           <h3 class="font-bold text-lg">{{ m.name }}</h3>
           <p class="text-sm text-muted mt-1.5 line-clamp-2 min-h-[40px]">{{ m.desc }}</p>
 
-          <!-- 技术方向标签：直接展示，点击可深链到对应方向 -->
-          <div class="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-xs">
+          <!-- 方向标签：按 LEARNING_TAXONOMY 计算，与模块页一致（大类 → 子方向，phantom 隐藏） -->
+          <div class="flex flex-wrap gap-x-3 gap-y-1.5 mt-3 text-xs">
             <NuxtLink
-              v-for="st in visibleSubtracks(m)"
-              :key="st.id"
-              :to="`/learn/${m.id}?subtrack=${st.id}`"
+              v-for="d in visibleDirections(m)"
+              :key="d.id"
+              :to="`/learn/${m.id}?group=${d.groupId}&direction=${d.id}`"
               class="flex items-center gap-1.5 text-ink hover:underline"
               @click.stop
             >
-              <span class="w-1.5 h-1.5 rounded-full shrink-0" :style="{ background: st.color }"></span>
-              <span>{{ st.name }}</span>
+              <span class="w-1.5 h-1.5 rounded-full shrink-0" :style="{ background: d.color }"></span>
+              <span>{{ d.name }}</span>
             </NuxtLink>
-            <span v-if="hiddenSubtrackCount(m) > 0" class="text-muted">+{{ hiddenSubtrackCount(m) }}</span>
+            <span v-if="hiddenDirectionCount(m) > 0" class="text-muted">+{{ hiddenDirectionCount(m) }}</span>
           </div>
 
           <div class="flex gap-2 mt-4 text-xs">
@@ -57,25 +57,36 @@
 </template>
 
 <script setup lang="ts">
-import { MODULE_SUBTRACKS } from '~/data/moduleSubtracks'
+import { LEARNING_TAXONOMY, getGroups } from '~/data/learningTaxonomy'
 
 const { data } = await useFetch('/api/modules')
 const modules = computed(() => data.value?.modules || null)
 
-function visibleSubtracks(m: any) {
-  const conf = MODULE_SUBTRACKS[m.id] || []
-  const counts = m.subtracks || {}
-  return conf
-    .filter((s) => counts[s.id])
-    .slice(0, 6)
-    .map((s) => ({ ...s, ...counts[s.id] }))
+// 把某模块的所有子方向（带所属大类信息）摊平，并附上章节计数
+function flattenDirections(m: any) {
+  const counts = m?.subtracks || {}
+  const groups = LEARNING_TAXONOMY[m.id] || []
+  const out: { id: string; groupId: string; name: string; color: string; count: number }[] = []
+  for (const g of groups) {
+    for (const d of g.directions) {
+      const count = d.chapterSubtracks.reduce(
+        (s: number, st: string) => s + (counts[st]?.chapterCount || 0),
+        0
+      )
+      // phantom：非官方方向且 0 章 → 不展示
+      if (!d.official && count === 0) continue
+      out.push({ id: d.id, groupId: g.id, name: d.name, color: g.color, count })
+    }
+  }
+  return out
 }
 
-function hiddenSubtrackCount(m: any) {
-  const conf = MODULE_SUBTRACKS[m.id] || []
-  const counts = m.subtracks || {}
-  const total = conf.filter((s) => counts[s.id]).length
-  return Math.max(0, total - 6)
+function visibleDirections(m: any) {
+  return flattenDirections(m).slice(0, 6)
+}
+
+function hiddenDirectionCount(m: any) {
+  return Math.max(0, flattenDirections(m).length - 6)
 }
 
 useSeoMeta({
