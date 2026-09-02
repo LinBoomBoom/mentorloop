@@ -166,25 +166,25 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
     { id: 'ai-app', name: 'AI 应用工程师（LLM / RAG / Agent）', color: '#8b5cf6', order: 0,
       summary: '把大模型能力落地为可产品化的应用。',
       chapterSubtracks: ['rag', 'prompt', 'agent'],
-      techNames: ['RAG', 'Agent', 'Eval', 'Prompt', '部署与成本', '容器/Docker'] },
+      techNames: ['RAG', 'Agent', 'Eval', 'Prompt', '部署与成本'] },
     { id: 'ai-infra', name: 'AI Infra / 推理优化工程师', color: '#6366f1', order: 1,
       summary: '让大模型跑得更快更省：推理引擎、显存与算力优化。',
       chapterSubtracks: ['deploy'],
-      techNames: ['容器/Docker', '部署与成本', 'Eval'] },
+      techNames: ['部署与成本', 'Eval'] },
     { id: 'ai-mlops', name: 'MLOps / 机器学习平台', color: '#0ea5e9', order: 2,
       summary: '让模型可训练、可部署、可监控地规模化运行。',
       chapterSubtracks: ['eval'],
-      techNames: ['容器/Docker', 'Eval', '部署与成本', 'RAG'] },
+      techNames: ['Eval', '部署与成本', 'RAG'] },
     // 暂无内置章节
     { id: 'ai-algo', name: '算法工程师（CV / NLP / 推荐）', color: '#d946ef', order: 3,
       summary: '研究与落地机器学习模型，偏科研与建模。',
-      chapterSubtracks: [], techNames: ['部署与成本', '容器/Docker', 'Eval', 'RAG'] },
+      chapterSubtracks: [], techNames: ['部署与成本', 'Eval', 'RAG'] },
     { id: 'ai-data', name: '训练数据 / 标注平台工程师', color: '#14b8a6', order: 4,
       summary: '为模型准备高质量语料与特征。',
-      chapterSubtracks: [], techNames: ['Eval', '容器/Docker', '部署与成本', 'RAG', 'Prompt'] },
+      chapterSubtracks: [], techNames: ['Eval', '部署与成本', 'RAG', 'Prompt'] },
     { id: 'ai-edge', name: '端侧 AI 工程师', color: '#f59e0b', order: 5,
       summary: '把模型塞进手机 / 车机 / IoT 设备。',
-      chapterSubtracks: [], techNames: ['容器/Docker', '部署与成本', 'Eval'] }
+      chapterSubtracks: [], techNames: ['部署与成本', 'Eval'] }
   ]
 }
 
