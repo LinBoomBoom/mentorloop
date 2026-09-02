@@ -48,7 +48,11 @@ export const SUBTRACK_DISPLAY: Record<string, string> = {
   uniapp: 'uni-app',
   k8s: 'Kubernetes',
   algo: '算法',
-  searchmw: '搜索/中间件'
+  searchmw: '搜索/中间件',
+  mobile: '移动端',
+  nodefull: 'Node 全栈',
+  cloud: '云平台',
+  secops: '安全运维'
 }
 
 export interface SubTopic {
@@ -104,13 +108,13 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
     // 以下赛道暂无内置章节，学习中心隐藏；题库仍可访问
     { id: 'fe-mobile', name: '移动端工程师（H5 / 响应式）', color: '#0ea5e9', order: 8,
       summary: '专注移动浏览器与混合容器环境，做响应式适配与移动体验优化。',
-      chapterSubtracks: [], techNames: ['性能优化', 'JavaScript', 'CSS', '网络', '工程化', '安全', 'Web 基础'] },
+      chapterSubtracks: ['mobile'], techNames: ['性能优化', 'JavaScript', 'CSS', '网络', '工程化', '安全', 'Web 基础'] },
     { id: 'fe-uniapp', name: 'uni-app 工程师', color: '#10b981', order: 9,
       summary: '一套代码编译到小程序 / App / H5。',
       chapterSubtracks: [], techNames: ['工程化', 'JavaScript', '性能优化', '网络', 'Vue', 'CSS'] },
     { id: 'fe-node', name: 'Node.js 全栈工程师', color: '#16a34a', order: 10,
       summary: '以前端为主、用 Node 打通 BFF 与服务端。',
-      chapterSubtracks: [], techNames: ['JavaScript', '工程化', '性能优化', '安全', '网络', 'TypeScript'] }
+      chapterSubtracks: ['nodefull'], techNames: ['JavaScript', '工程化', '性能优化', '安全', '网络', 'TypeScript'] }
   ],
 
   backend: [
@@ -160,10 +164,10 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       chapterSubtracks: [], techNames: ['Kubernetes', '容器/Docker', 'Linux', '网络', 'SRE', 'CI/CD'] },
     { id: 'op-cloud', name: '云平台工程师', color: '#3b82f6', order: 4,
       summary: '公有云 / 私有云的资源、网络、成本与安全治理。',
-      chapterSubtracks: [], techNames: ['SRE', 'Linux', '网络', 'CI/CD', 'Kubernetes', '容器/Docker'] },
+      chapterSubtracks: ['cloud'], techNames: ['SRE', 'Linux', '网络', 'CI/CD', 'Kubernetes', '容器/Docker'] },
     { id: 'op-sec', name: '安全运维工程师', color: '#ef4444', order: 5,
       summary: '防护、检测与响应，保障系统与数据安全。',
-      chapterSubtracks: [], techNames: ['安全', 'Linux', '网络', '容器/Docker'] }
+      chapterSubtracks: ['secops'], techNames: ['安全', 'Linux', '网络', '容器/Docker'] }
   ],
 
   ai: [
