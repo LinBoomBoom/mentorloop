@@ -44,7 +44,11 @@ export const SUBTRACK_DISPLAY: Record<string, string> = {
   prompt: 'Prompt',
   agent: 'Agent',
   deploy: '部署与成本',
-  eval: 'Eval'
+  eval: 'Eval',
+  uniapp: 'uni-app',
+  k8s: 'Kubernetes',
+  algo: '算法',
+  searchmw: '搜索/中间件'
 }
 
 export interface SubTopic {
@@ -131,7 +135,7 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       chapterSubtracks: [], techNames: ['网络', '系统设计', '微服务', 'Redis', 'Java', '消息队列', 'MySQL'] },
     { id: 'be-search', name: '搜索 / 中间件工程师', color: '#8b5cf6', order: 5,
       summary: '检索系统与消息、缓存等基础中间件的深度使用与调优。',
-      chapterSubtracks: [], techNames: ['系统设计', '微服务', '消息队列', 'Redis', 'Java', '网络'] },
+      chapterSubtracks: ['searchmw'], techNames: ['系统设计', '微服务', '消息队列', 'Redis', 'Java', '网络'] },
     { id: 'be-test', name: '测试开发工程师（SDET）', color: '#ec4899', order: 6,
       summary: '用开发能力做质量保障：自动化框架、测试平台与线上质量度量。',
       chapterSubtracks: [], techNames: ['系统设计', 'Java', '网络', '微服务', 'MySQL'] }
@@ -178,7 +182,7 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
     // 暂无内置章节
     { id: 'ai-algo', name: '算法工程师（CV / NLP / 推荐）', color: '#d946ef', order: 3,
       summary: '研究与落地机器学习模型，偏科研与建模。',
-      chapterSubtracks: [], techNames: ['部署与成本', 'Eval', 'RAG'] },
+      chapterSubtracks: ['algo'], techNames: ['部署与成本', 'Eval', 'RAG'] },
     { id: 'ai-data', name: '训练数据 / 标注平台工程师', color: '#14b8a6', order: 4,
       summary: '为模型准备高质量语料与特征。',
       chapterSubtracks: [], techNames: ['Eval', '部署与成本', 'RAG', 'Prompt'] },

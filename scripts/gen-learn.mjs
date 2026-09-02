@@ -19,6 +19,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
+import { createRequire } from 'node:module'
 
 const ROOT = process.cwd()
 const ENV = loadEnv()
@@ -38,8 +39,6 @@ export const SUBTRACKS = {
     urls: ['https://developer.apple.com/documentation/', 'https://developer.android.com/guide'] },
   'cross-platform': { module: 'frontend', label: '跨端', prefix: 'xp', note: 'Flutter / React Native 跨端',
     urls: ['https://docs.flutter.dev/', 'https://reactnative.dev/docs/getting-started'] },
-  'uni-app':   { module: 'frontend', label: 'uni-app', prefix: 'ua', note: 'uni-app 跨端框架',
-    urls: ['https://uniapp.dcloud.net.cn/', 'https://zh.uniapp.dcloud.net.cn/'] },
   miniprogram: { module: 'frontend', label: '小程序', prefix: 'mp', note: '微信小程序',
     urls: ['https://developers.weixin.qq.com/miniprogram/dev/framework/', 'https://developers.weixin.qq.com/miniprogram/dev/guide/'] },
   desktop:     { module: 'frontend', label: '桌面', prefix: 'dt', note: 'Electron / Tauri 桌面端',
@@ -59,17 +58,34 @@ export const SUBTRACKS = {
     urls: ['https://owasp.org/www-community/attacks/', 'https://developer.mozilla.org/zh-CN/docs/Web/Security'] },
   'web-perf':  { module: 'frontend', label: '性能', subtrack: 'performance', prefix: 'pf', note: 'Web 性能（关键渲染路径/Web Vitals）',
     urls: ['https://web.dev/learn/performance', 'https://developer.mozilla.org/zh-CN/docs/Web/Performance'] },
-  // —— 后续批次（本次不跑，保留扩展位）——
-  // bigdata: { module:'backend', label:'大数据', prefix:'bd', urls:[...] },
-  // game: { module:'backend', label:'游戏服务端', prefix:'gm', urls:[...] },
-  // search: { module:'backend', label:'搜索中间件', prefix:'sr', urls:[...] },
-  // sdet: { module:'backend', label:'SDET', prefix:'sd', urls:[...] },
-  // cloud: { module:'devops', label:'云平台', prefix:'cl', urls:[...] },
-  // algo: { module:'ai', label:'算法', prefix:'al', urls:[...] },
-  // mlops: { module:'ai', label:'MLOps', prefix:'ml', urls:[...] },
-  // traindata: { module:'ai', label:'训练数据', prefix:'td', urls:[...] },
-  // infr: { module:'ai', label:'AI Infra', prefix:'ai', urls:[...] },  // 注意 ai- 与现有 ai 模块前缀可能撞，apply 时另处理
-  // edge: { module:'ai', label:'端侧AI', prefix:'ed', urls:[...] },
+  // —— Task 2：13 个空赛道补齐（章数由官方文档结构决定，不写死）——
+  // 每条 subtrack 值需与 LEARNING_TAXONOMY 对应赛道的 chapterSubtracks 对齐，apply 后才会在学习中心可见。
+  'fe-mobile':  { module: 'frontend', label: '移动端', prefix: 'mb', subtrack: 'mobile', note: '移动端 H5 / 响应式适配',
+    urls: ['https://developer.mozilla.org/zh-CN/docs/Learn/CSS/CSS_layout/Responsive_Design', 'https://web.dev/learn/responsive-design'] },
+  'fe-uniapp':  { module: 'frontend', label: 'uni-app', prefix: 'ua', subtrack: 'uniapp', note: 'uni-app 跨端框架（小程序/App/H5 一套代码）',
+    urls: ['https://uniapp.dcloud.net.cn/', 'https://zh.uniapp.dcloud.net.cn/'] },
+  'fe-node':    { module: 'frontend', label: 'Node 全栈', prefix: 'nd', subtrack: 'nodefull', note: 'Node.js 服务端 / BFF',
+    urls: ['https://nodejs.org/docs/latest/api/', 'https://nodejs.org/en/learn'] },
+  'be-data':    { module: 'backend', label: '大数据', prefix: 'bd', subtrack: 'bigdata', note: '数仓 / 离线实时 / BI 供数',
+    urls: ['https://spark.apache.org/docs/latest/', 'https://kafka.apache.org/documentation/', 'https://hive.apache.org/'] },
+  'be-game':    { module: 'backend', label: '游戏服务端', prefix: 'gm', subtrack: 'gameserver', note: '高并发长连接 / 实时同步',
+    urls: ['https://colyseus.io/docs/', 'https://nodejs.org/en/learn'] },
+  'be-search':  { module: 'backend', label: '搜索中间件', prefix: 'sr', subtrack: 'searchmw', note: '检索系统 / 缓存中间件',
+    urls: ['https://www.elastic.co/guide/index.html', 'https://redis.io/docs/latest/'] },
+  'be-test':    { module: 'backend', label: 'SDET', prefix: 'sd', subtrack: 'sdet', note: '自动化测试框架 / 测试平台',
+    urls: ['https://playwright.dev/docs/intro', 'https://www.selenium.dev/documentation/'] },
+  'op-k8s':     { module: 'devops', label: 'Kubernetes', prefix: 'k8', subtrack: 'k8s', note: '云原生 / K8s 容器平台',
+    urls: ['https://kubernetes.io/docs/', 'https://kubernetes.io/docs/concepts/'] },
+  'op-cloud':   { module: 'devops', label: '云平台', prefix: 'cl', subtrack: 'cloud', note: '公有云 / 私有云资源治理',
+    urls: ['https://docs.aws.amazon.com/', 'https://learn.microsoft.com/'] },
+  'op-sec':     { module: 'devops', label: '安全运维', prefix: 'os', subtrack: 'secops', note: '防护 / 检测 / 响应',
+    urls: ['https://owasp.org/www-community/', 'https://www.cisa.gov/'] },
+  'ai-algo':    { module: 'ai', label: '算法', prefix: 'al', subtrack: 'algo', note: 'CV / NLP / 推荐模型',
+    urls: ['https://pytorch.org/docs/stable/', 'https://scikit-learn.org/stable/documentation.html', 'https://www.tensorflow.org/learn'] },
+  'ai-data':    { module: 'ai', label: '训练数据', prefix: 'td', subtrack: 'traindata', note: '语料 / 标注 / 特征',
+    urls: ['https://huggingface.co/docs/datasets', 'https://www.tensorflow.org/datasets'] },
+  'ai-edge':    { module: 'ai', label: '端侧AI', prefix: 'ed', subtrack: 'edgeai', note: '手机 / 车机 / IoT 模型部署',
+    urls: ['https://www.tensorflow.org/lite', 'https://developer.apple.com/machine-learning/'] },
 }
 
 // ---------------- 基础设施 ----------------
@@ -103,11 +119,22 @@ async function chat(messages, opts = {}) {
   if (u) costTotal += (Number(u.completion_tokens) || 0) + (Number(u.prompt_tokens) || 0)
   return data?.choices?.[0]?.message?.content?.trim() || ''
 }
+const require = createRequire(import.meta.url)
+let _jsonrepair = null
+try { _jsonrepair = require('jsonrepair') } catch { /* 可选依赖：缺失时回退到正则修复 */ }
+
 function extractJson(text) {
   const s = text.indexOf('{'); const e = text.lastIndexOf('}')
   if (s === -1 || e === -1) throw new Error('无法从 LLM 输出提取 JSON')
   let raw = text.slice(s, e + 1)
   try { return JSON.parse(raw) } catch { /* 进入修复流程 */ }
+  // 优先用 jsonrepair 做结构化修复（缺失逗号 / 截断 / 尾随逗号等 LLM 常见畸形）
+  if (_jsonrepair) {
+    try {
+      const repairFn = _jsonrepair.default || _jsonrepair
+      return JSON.parse(repairFn(raw))
+    } catch { /* 回退到正则修复 */ }
+  }
   // 常见 LLM 非法 JSON 的就地修复（按优先级累积尝试）
   const repairs = [
     (x) => x.replace(/,\s*([}\]])/g, '$1'),     // 尾随逗号
@@ -223,7 +250,7 @@ async function doPlan(id) {
   const st = getSubtrack(id)
   console.log(`[plan] ${id} (${st.note}) …`)
   let messages = [{ role: 'system', content: PLAN_SYSTEM }, { role: 'user', content: planUser(st) }]
-  let txt = await chat(messages, { temperature: 0.4, maxTokens: 3000 })
+  let txt = await chat(messages, { temperature: 0.4, maxTokens: 8000 })
   let plan
   try {
     plan = extractJson(txt)
