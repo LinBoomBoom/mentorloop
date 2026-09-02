@@ -787,6 +787,20 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
         tx()
       } catch { /* 种子缺失或损坏时跳过，不阻塞启动 */ }
     }
+  },
+  {
+    version: 21,
+    name: 'interview-ai-tech-docker-heal',
+    up: (db) => {
+      // 数据自愈：legacy 扩充把大量「AI 工程」赛道面试题错打成 tech='容器/Docker'。
+      // 容器在 AI 语境基本对应「模型部署 / 推理服务打包」，归入「部署与成本」最贴合，
+      // 且 部署与成本 已在 ai 各赛道 techNames 合法集合内（二级技术筛选可用）。
+      // 作用域严格限定 track='ai'：AI 模块共 370 道（含 subtrack 为空的 134 道），
+      // 绝不波及 devops 的 79 道正经 容器/Docker（运维保留，不在本迁移范围）。
+      // 幂等：空表跳过（seedIfEmpty 插入已无此脏标签）；已登记版本不重复执行。
+      if ((db.prepare('SELECT COUNT(*) c FROM interview_questions').get() as any).c === 0) return
+      db.prepare("UPDATE interview_questions SET tech='部署与成本' WHERE track='ai' AND tech='容器/Docker'").run()
+    }
   }
 ]
 
