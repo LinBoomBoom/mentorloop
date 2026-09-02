@@ -16,83 +16,58 @@
           <a-button size="small" class="shrink-0" @click="drawerOpen = true"><Icon name="menu" :size="16" /> 目录</a-button>
         </div>
 
-        <!-- ========== 第一层：方向大类（可换行 chip，无横向滚动） ========== -->
+        <!-- ========== 第一层：技能赛道（单选，严格对齐路线图 track） ========== -->
         <div class="mb-4">
-          <div class="text-xs text-muted mb-2">方向大类</div>
+          <div class="text-xs text-muted mb-2">技能赛道</div>
           <div class="flex flex-wrap gap-2">
             <button
-              @click="selectGroup('')"
+              @click="selectTrack('')"
               class="group-chip"
-              :class="!activeGroupId ? 'group-chip-active' : ''"
-              :style="!activeGroupId ? groupActiveStyle(null) : {}"
+              :class="!activeTrackId ? 'group-chip-active' : ''"
+              :style="!activeTrackId ? groupActiveStyle(module.color) : {}"
             >
               <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: module.color }"></span>
               全部
               <span class="text-xs text-muted">{{ module.chapters?.length || 0 }}</span>
             </button>
             <button
-              v-for="g in groups"
-              :key="g.id"
-              @click="selectGroup(g.id)"
+              v-for="t in contentTracks"
+              :key="t.id"
+              @click="selectTrack(t.id)"
               class="group-chip"
-              :class="activeGroupId === g.id ? 'group-chip-active' : ''"
-              :style="activeGroupId === g.id ? groupActiveStyle(g.color) : {}"
+              :class="activeTrackId === t.id ? 'group-chip-active' : ''"
+              :style="activeTrackId === t.id ? groupActiveStyle(t.color) : {}"
             >
-              <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: g.color }"></span>
-              {{ g.name }}
-              <span class="text-xs text-muted">{{ groupCount(g) }}</span>
+              <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: t.color }"></span>
+              {{ t.name }}
+              <span class="text-xs text-muted">{{ trackCount(t) }}</span>
             </button>
           </div>
         </div>
 
-        <!-- ========== 第二层：当前大类的子方向 ========== -->
-        <div v-if="activeGroupId && activeGroup" class="mb-5">
-          <div class="text-xs text-muted mb-2">
-            {{ activeGroup.name }} ·
-            <span v-if="isFilterGroup">可多选筛选</span>
-            <span v-else>选择子方向</span>
-          </div>
+        <!-- ========== 第二层：当前赛道的子主题（单选） ========== -->
+        <div v-if="activeTrack" class="mb-5">
+          <div class="text-xs text-muted mb-2">{{ activeTrack.name }} · 选择子主题</div>
           <div class="flex flex-wrap gap-2">
-            <!-- 大类「全部」：展示该大类下所有章节 -->
             <button
-              @click="selectGroupAll"
+              @click="selectSub('')"
               class="dir-chip"
-              :class="isGroupAll ? 'dir-chip-active' : ''"
-              :style="isGroupAll ? dirActiveStyle(activeGroup.color) : {}"
+              :class="!activeSubId ? 'dir-chip-active' : ''"
+              :style="!activeSubId ? dirActiveStyle(activeTrack.color) : {}"
             >
-              全部{{ activeGroup.name }}
+              全部{{ activeTrack.name }}
             </button>
-
-            <!-- filter 模式：多选 chip -->
-            <template v-if="isFilterGroup">
-              <button
-                v-for="d in visibleDirections(activeGroup)"
-                :key="d.id"
-                @click="toggleFilter(d.id)"
-                class="dir-chip"
-                :class="filterIds.includes(d.id) ? 'dir-chip-active' : ''"
-                :style="filterIds.includes(d.id) ? dirActiveStyle(activeGroup.color) : {}"
-              >
-                {{ d.name }}
-                <span class="text-xs opacity-70">{{ dirCount(d) }}</span>
-              </button>
-            </template>
-
-            <!-- nav 模式：单选 tab -->
-            <template v-else>
-              <button
-                v-for="d in visibleDirections(activeGroup)"
-                :key="d.id"
-                @click="selectNav(d.id)"
-                class="dir-chip"
-                :class="navDirectionId === d.id ? 'dir-chip-active' : ''"
-                :style="navDirectionId === d.id ? dirActiveStyle(activeGroup.color) : {}"
-              >
-                {{ d.name }}
-                <span v-if="d.official" class="text-[10px] px-1 rounded !bg-ink/10">官方</span>
-                <span v-else class="text-xs opacity-70">{{ dirCount(d) }}</span>
-              </button>
-            </template>
+            <button
+              v-for="s in visibleSubTopics"
+              :key="s.id"
+              @click="selectSub(s.chapterSubtrack)"
+              class="dir-chip"
+              :class="activeSubId === s.chapterSubtrack ? 'dir-chip-active' : ''"
+              :style="activeSubId === s.chapterSubtrack ? dirActiveStyle(activeTrack.color) : {}"
+            >
+              {{ s.name }}
+              <span class="text-xs opacity-70">{{ subCount(s.chapterSubtrack) }}</span>
+            </button>
           </div>
         </div>
 
@@ -107,21 +82,7 @@
           </div>
         </a-card>
 
-        <!-- 官方方向占位：无内置章节，引导到学习路线图 / 官方文档 -->
-        <a-card v-if="officialPlaceholder" class="mb-5" :body-style="{ padding: '24px' }">
-          <div class="flex items-start gap-3">
-            <span class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" :style="{ background: activeGroup?.color }"><Icon name="link" :size="20" /></span>
-            <div class="flex-1 min-w-0">
-              <div class="font-bold">{{ officialPlaceholder.name }}</div>
-              <p class="text-sm text-muted mt-1">该方向以官方文档 / 学习路线图为主，平台暂未内置独立章节。建议结合下列权威资料系统学习。</p>
-              <NuxtLink to="/roadmap" class="inline-flex items-center gap-1 mt-3 text-sm text-brand-coral font-medium hover:underline">
-                前往学习路线图 <Icon name="arrowRight" :size="15" />
-              </NuxtLink>
-            </div>
-          </div>
-        </a-card>
-
-        <a-card v-if="filteredChapters.length === 0 && !officialPlaceholder" class="text-center" :body-style="{ padding: '40px' }">
+        <a-card v-if="filteredChapters.length === 0" class="text-center" :body-style="{ padding: '40px' }">
           <span class="text-muted text-sm">没有匹配「{{ q }}」的小节，换个关键词试试～</span>
         </a-card>
 
@@ -204,9 +165,12 @@
 <script setup lang="ts">
 import {
   LEARNING_TAXONOMY,
-  getGroups,
-  getGroup,
-  getDirection
+  getTracks,
+  getTrack,
+  trackHasChapterContent,
+  trackSubTopics,
+  type Track,
+  type SubTopic
 } from '~/data/learningTaxonomy'
 
 const route = useRoute()
@@ -216,9 +180,10 @@ const auth = useAuthStore()
 const browseMode = computed(() => !auth.isLoggedIn)
 
 const mid = computed(() => route.params.module as string)
-const groups = computed(() => LEARNING_TAXONOMY[mid.value] || [])
+const tracks = computed(() => getTracks(mid.value))
+// 学习中心只展示有内置章节的赛道（空赛道隐藏，避免空壳干扰）
+const contentTracks = computed(() => tracks.value.filter(trackHasChapterContent))
 
-// 公开模块内容：SSR 加载
 const { data: modRes } = await useFetch(() => '/api/modules/' + mid.value)
 const module = ref<any>(null)
 watch(modRes, (v: any) => { if (v?.module) module.value = v.module }, { immediate: true })
@@ -232,13 +197,11 @@ useSeoMeta({
   ogUrl: safeOgUrl()
 })
 
-// 进度：仅登录后拉取（未登录可浏览）
 const progress = ref<any>({})
 watch(() => auth.isLoggedIn, async (v) => {
   if (v) { try { progress.value = (await request('/api/progress')).progress || {} } catch (e) {} }
 }, { immediate: true })
 
-// 章节折叠状态
 const collapsed = reactive<Record<string, boolean>>({})
 const drawerOpen = ref(false)
 const isCollapsed = (id: string) => !!collapsed[id]
@@ -253,129 +216,71 @@ function toggleAll() {
   chs.forEach((c) => { collapsed[c.id] = next })
 }
 
-// ===== 两层方向选择 =====
-const activeGroupId = ref<string>('')           // '' = 全部
-const navDirectionId = ref<string>('')          // nav 模式：单选
-const filterIds = ref<string[]>([])             // filter 模式：多选
+// ===== 两层单选：赛道 → 子主题 =====
+const activeTrackId = ref<string>('')
+const activeSubId = ref<string>('')   // 章节 subtrack 取值（子主题）
 
 function initFromQuery() {
-  const g = typeof route.query.group === 'string' ? route.query.group : ''
-  const d = typeof route.query.direction === 'string' ? route.query.direction : ''
-  activeGroupId.value = (g && getGroup(mid.value, g)) ? g : ''
-  if (activeGroupId.value && d) {
-    const grp = getGroup(mid.value, activeGroupId.value)!
-    const ids = d.includes(',') ? d.split(',').filter(Boolean) : [d]
-    const valid = ids.filter(id => grp.directions.some(x => x.id === id))
-    if (valid.length) {
-      if (grp.directions.every(x => x.select === 'filter')) {
-        filterIds.value = valid
-        navDirectionId.value = ''
-      } else {
-        navDirectionId.value = valid[0]
-        filterIds.value = []
-      }
-    }
+  const t = typeof route.query.group === 'string' ? route.query.group : ''
+  const s = typeof route.query.direction === 'string' ? route.query.direction : ''
+  activeTrackId.value = (t && getTrack(mid.value, t)) ? t : ''
+  if (activeTrackId.value && s) {
+    const tr = getTrack(mid.value, activeTrackId.value)!
+    if (tr.chapterSubtracks.includes(s)) activeSubId.value = s
+    else activeSubId.value = ''
   }
 }
 initFromQuery()
 
-const activeGroup = computed(() => getGroup(mid.value, activeGroupId.value) || null)
-const isFilterGroup = computed(() => !!activeGroup.value && activeGroup.value.directions.every(d => d.select === 'filter'))
-const isGroupAll = computed(() => {
-  if (!activeGroup.value) return false
-  if (isFilterGroup.value) return filterIds.value.length === 0
-  return navDirectionId.value === ''
-})
+const activeTrack = computed<Track | null>(() => activeTrackId.value ? getTrack(mid.value, activeTrackId.value) : null)
+const subTopics = computed<SubTopic[]>(() => activeTrack.value ? trackSubTopics(activeTrack.value) : [])
+const visibleSubTopics = computed(() => subTopics.value.filter(s => subCount(s.chapterSubtrack) > 0))
 
 const subMap = computed(() => module.value?.subtracks || {})
-function dirCount(d: any): number {
-  return d.chapterSubtracks.reduce((s: number, st: string) => s + (subMap.value[st]?.chapterCount || 0), 0)
+function subCount(st: string): number {
+  return subMap.value[st]?.chapterCount || 0
 }
-function dirSectionCount(d: any): number {
-  return d.chapterSubtracks.reduce((s: number, st: string) => s + (subMap.value[st]?.sectionCount || 0), 0)
-}
-function groupCount(g: any): number {
-  return g.directions.reduce((s: number, d: any) => s + dirCount(d), 0)
-}
-// phantom 隐藏：非官方且 0 章
-function visibleDirections(g: any) {
-  return g.directions.filter((d: any) => d.official || dirCount(d) > 0)
+function trackCount(t: Track): number {
+  return t.chapterSubtracks.reduce((s: number, st: string) => s + subCount(st), 0)
 }
 
-function groupActiveStyle(color: string | null) {
-  const c = color || module.value?.color || '#D85A30'
-  return { borderColor: c, background: c + '14', color: 'rgb(var(--ink))' }
+function groupActiveStyle(color: string) {
+  return { borderColor: color, background: color + '14', color: 'rgb(var(--ink))' }
 }
 function dirActiveStyle(color: string) {
   return { borderColor: color, background: color + '14', color: 'rgb(var(--ink))' }
 }
 
-function resetSelection() {
-  navDirectionId.value = ''
-  filterIds.value = []
-}
-
-function selectGroup(id: string) {
-  activeGroupId.value = id
-  resetSelection()
+function selectTrack(id: string) {
+  activeTrackId.value = activeTrackId.value === id ? '' : id
+  activeSubId.value = ''
   updateUrl()
 }
-function selectGroupAll() {
-  if (isFilterGroup.value) { filterIds.value = [] }
-  else { navDirectionId.value = '' }
-  updateUrl()
-}
-function selectNav(id: string) {
-  navDirectionId.value = navDirectionId.value === id ? '' : id
-  updateUrl()
-}
-function toggleFilter(id: string) {
-  const i = filterIds.value.indexOf(id)
-  if (i >= 0) filterIds.value.splice(i, 1)
-  else filterIds.value.push(id)
+function selectSub(id: string) {
+  activeSubId.value = activeSubId.value === id ? '' : id
   updateUrl()
 }
 
-// 当前选择命中的 subtrack 集合（null = 全部章节）
+// 当前命中章节的 subtrack 集合（null = 全部章节）
 const activeSubtracks = computed<string[] | null>(() => {
-  if (!activeGroupId.value || !activeGroup.value) return null
-  const g = activeGroup.value
-  if (isFilterGroup.value) {
-    if (filterIds.value.length) {
-      return filterIds.value.flatMap(id => getDirection(mid.value, id)?.chapterSubtracks || [])
-    }
-    return g.directions.flatMap((d: any) => d.chapterSubtracks)
-  } else {
-    if (navDirectionId.value) {
-      return getDirection(mid.value, navDirectionId.value)?.chapterSubtracks || []
-    }
-    return g.directions.flatMap((d: any) => d.chapterSubtracks)
-  }
-})
-
-// 官方方向占位：选中了单个 official 方向且无内置章节
-const officialPlaceholder = computed(() => {
-  if (!activeGroup.value || isFilterGroup.value || !navDirectionId.value) return null
-  const d = getDirection(mid.value, navDirectionId.value)
-  if (d?.official && dirCount(d) === 0) return d
-  return null
+  if (!activeTrackId.value || !activeTrack.value) return null
+  if (activeSubId.value) return [activeSubId.value]
+  return activeTrack.value.chapterSubtracks
 })
 
 const searchPlaceholder = computed(() => {
-  if (officialPlaceholder.value) return '该方向暂无以小节形式组织的章节'
-  const label = navDirectionId.value
-    ? getDirection(mid.value, navDirectionId.value)?.name
-    : activeGroup.value?.name
-  return label ? `在 ${label} 中搜索…` : '搜索本节标题，如：事件循环、Flex…'
+  if (activeSubId.value) {
+    const s = subTopics.value.find(x => x.chapterSubtrack === activeSubId.value)
+    return s ? `在 ${s.name} 中搜索…` : '搜索本节标题…'
+  }
+  if (activeTrack.value) return `在 ${activeTrack.value.name} 中搜索…`
+  return '搜索本节标题，如：事件循环、Flex…'
 })
 
 function updateUrl() {
   const query: Record<string, string> = {}
-  if (activeGroupId.value) query.group = activeGroupId.value
-  if (activeGroupId.value && !isGroupAll.value) {
-    if (isFilterGroup.value) query.direction = filterIds.value.join(',')
-    else if (navDirectionId.value) query.direction = navDirectionId.value
-  }
+  if (activeTrackId.value) query.group = activeTrackId.value
+  if (activeTrackId.value && activeSubId.value) query.direction = activeSubId.value
   if (q.value) query.q = q.value
   navigateTo({ query }, { replace: true })
 }
@@ -396,7 +301,6 @@ const chapterSections = (ch: any) => {
   return (ch.sections || []).filter((s: any) => s.title.toLowerCase().includes(kw) || ch.title.toLowerCase().includes(kw))
 }
 
-// 当前学习章节：第一个未完成章节（侧栏粉色高亮）
 const activeChapterId = computed(() => {
   const mod = module.value
   if (!mod || !auth.isLoggedIn) return null
@@ -409,12 +313,10 @@ const activeChapterId = computed(() => {
   return null
 })
 
-// 模块数据异步到达后，用真实 subtrack 计数重新初始化（保持 URL 选择有效）
 watch(module, () => { initFromQuery() })
 </script>
 
 <style scoped>
-/* 方向大类 chip */
 .group-chip {
   display: inline-flex;
   align-items: center;
@@ -428,13 +330,8 @@ watch(module, () => { initFromQuery() })
   transition: border-color 150ms ease, background-color 150ms ease;
 }
 .group-chip:hover { border-color: rgb(var(--brand-coral) / 0.4); }
+.group-chip-active { border-width: 1px; font-weight: 600; }
 
-.group-chip-active {
-  border-width: 1px;
-  font-weight: 600;
-}
-
-/* 子方向 chip（tab / 多选） */
 .dir-chip {
   display: inline-flex;
   align-items: center;
@@ -448,9 +345,5 @@ watch(module, () => { initFromQuery() })
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
 }
 .dir-chip:hover { border-color: rgb(var(--brand-coral) / 0.4); }
-
-.dir-chip-active {
-  border-width: 1px;
-  font-weight: 600;
-}
+.dir-chip-active { border-width: 1px; font-weight: 600; }
 </style>

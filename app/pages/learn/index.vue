@@ -31,12 +31,12 @@
           <h3 class="font-bold text-lg">{{ m.name }}</h3>
           <p class="text-sm text-muted mt-1.5 line-clamp-2 min-h-[40px]">{{ m.desc }}</p>
 
-          <!-- 方向标签：按 LEARNING_TAXONOMY 计算，与模块页一致（大类 → 子方向，phantom 隐藏） -->
+          <!-- 方向标签：按 LEARNING_TAXONOMY（技能赛道）计算，与模块页一致，空赛道隐藏 -->
           <div class="flex flex-wrap gap-x-3 gap-y-1.5 mt-3 text-xs">
             <NuxtLink
               v-for="d in visibleDirections(m)"
               :key="d.id"
-              :to="`/learn/${m.id}?group=${d.groupId}&direction=${d.id}`"
+              :to="`/learn/${m.id}?group=${d.id}`"
               class="flex items-center gap-1.5 text-ink hover:underline"
               @click.stop
             >
@@ -57,26 +57,23 @@
 </template>
 
 <script setup lang="ts">
-import { LEARNING_TAXONOMY, getGroups } from '~/data/learningTaxonomy'
+import { LEARNING_TAXONOMY, getTracks } from '~/data/learningTaxonomy'
 
 const { data } = await useFetch('/api/modules')
 const modules = computed(() => data.value?.modules || null)
 
-// 把某模块的所有子方向（带所属大类信息）摊平，并附上章节计数
+// 把某模块的技能赛道摊平，附上章节计数；空赛道（0 章）隐藏
 function flattenDirections(m: any) {
   const counts = m?.subtracks || {}
-  const groups = LEARNING_TAXONOMY[m.id] || []
-  const out: { id: string; groupId: string; name: string; color: string; count: number }[] = []
-  for (const g of groups) {
-    for (const d of g.directions) {
-      const count = d.chapterSubtracks.reduce(
-        (s: number, st: string) => s + (counts[st]?.chapterCount || 0),
-        0
-      )
-      // phantom：非官方方向且 0 章 → 不展示
-      if (!d.official && count === 0) continue
-      out.push({ id: d.id, groupId: g.id, name: d.name, color: g.color, count })
-    }
+  const tracks = getTracks(m.id)
+  const out: { id: string; name: string; color: string; count: number }[] = []
+  for (const t of tracks) {
+    const count = t.chapterSubtracks.reduce(
+      (s: number, st: string) => s + (counts[st]?.chapterCount || 0),
+      0
+    )
+    if (count === 0) continue
+    out.push({ id: t.id, name: t.name, color: t.color, count })
   }
   return out
 }

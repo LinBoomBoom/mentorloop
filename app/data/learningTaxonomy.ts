@@ -1,194 +1,222 @@
-// 学习中心方向分类 · 两层分类权威模型（v2）
+// 学习中心 / 面试题库 · 统一分类（v3，严格对齐技能路线图）
 //
-// 取代 `moduleSubtracks.ts`（已删除）。
-// 本模型是「学习中心方向 / 题库·技能树 / 题库·技术筛选」三处唯一权威来源。
+// 设计原则（用户拍板 2026-09-02）：
+//  1. 一级分类 = 技能路线图 track（app/data/roadmap/*.ts 为唯一权威来源），
+//     不再维护一套与路线图脱钩的 ad-hoc 分类。
+//  2. 子方向 / 子主题 一律「单选」导航，取消多选 filter（多选会破坏路线图的互斥性）。
+//  3. 空赛道（无内置章节）从学习中心主列表隐藏；题库按 subtrack 仍可访问。
+//  4. 名实一致：小程序 10 章实为微信小程序内容，子主题标注为「微信小程序」。
 //
-// 结构：模块 → 大类 DirectionGroup → 子方向 Direction
-//   - select: 'nav'   = 单选子导航（如小程序各框架，互斥切换）
-//   - select: 'filter'= 多选筛选 chip（如 fe-web 的 React/Vue/TS，可叠加筛选，不单独占 tab）
-//   - chapterSubtracks: 命中 chapters.subtrack 的取值（聚合计数用；P1 阶段保持旧值，避免改库破坏线上）
-//   - techName: 规范后的 interview_questions.tech 取值（题库归并/展示用，P1 迁移脚本已归一）
-//   - skillSubtrack: 路线图 subtrack id（interview_questions.subtrack），用于题库按路线图赛道筛选
-//   - official: true = 无内部章节，展示为官方文档/路线图入口（不计入 phantom）
+// 数据来源：
+//  - 章节 chapters.subtrack 存的是「子主题级」取值（web/css/react…），通过下方
+//    chapterSubtracks 归并到对应 track，无需改库。
+//  - 面试题 interview_questions.subtrack 已直接存路线图 track id（fe-web/be-web…），
+//    题库按 subtrack 过滤即可，techNames 为赛道内可选技术二级筛选（单选）。
 
-export type SelectMode = 'nav' | 'filter'
-
-export interface Direction {
-  id: string
-  name: string
-  select: SelectMode
-  chapterSubtracks: string[]
-  techName?: string
-  official?: boolean
-  // 路线图 subtrack id（interview_questions.subtrack），用于题库按路线图赛道筛选。
-  // 与 techName 二选一：nav 类方向多映射到此；filter 类方向多用 techName。
-  skillSubtrack?: string
+// ---- 子主题 subtrack 取值 → 展示名（修正：miniprogram 标为「微信小程序」）----
+export const SUBTRACK_DISPLAY: Record<string, string> = {
+  web: 'Web 基础',
+  css: 'CSS',
+  javascript: 'JavaScript',
+  typescript: 'TypeScript',
+  react: 'React',
+  vue: 'Vue',
+  performance: '性能优化',
+  security: '安全',
+  engineering: '工程化',
+  harmony: '鸿蒙',
+  miniprogram: '微信小程序',
+  cross: '跨端 (RN/Flutter)',
+  native: '原生客户端',
+  visualization: '可视化',
+  desktop: '桌面端',
+  java: 'Java 后端',
+  system: '系统设计',
+  micro: '微服务',
+  mq: '消息队列',
+  mysql: 'MySQL',
+  linux: 'Linux',
+  network: '网络',
+  sre: 'SRE',
+  docker: 'Docker',
+  cicd: 'CI/CD',
+  rag: 'RAG',
+  prompt: 'Prompt',
+  agent: 'Agent',
+  deploy: '部署与成本',
+  eval: 'Eval'
 }
 
-export interface DirectionGroup {
-  id: string
+export interface SubTopic {
+  id: string // = 章节 subtrack 取值
+  name: string
+  chapterSubtrack: string
+}
+
+export interface Track {
+  id: string // 路线图 track id，同时是 interview_questions.subtrack 取值
   name: string
   color: string
   order: number
-  directions: Direction[]
+  summary?: string
+  chapterSubtracks: string[] // 该赛道下，chapters.subtrack 的取值集合（聚合章节计数用）
+  techNames: string[] // 该赛道下，interview_questions.tech 的可选值（题库二级单选筛选）
 }
 
-export const LEARNING_TAXONOMY: Record<string, DirectionGroup[]> = {
+export const LEARNING_TAXONOMY: Record<string, Track[]> = {
   frontend: [
-    {
-      id: 'fe-web',
-      name: 'Web 基础与框架',
-      color: '#6366f1',
-      order: 0,
-      directions: [
-        { id: 'fe-web-basic', name: 'Web 基础', select: 'filter', chapterSubtracks: ['web'], techName: 'Web 基础' },
-        { id: 'fe-web-css', name: 'CSS', select: 'filter', chapterSubtracks: ['css'], techName: 'CSS' },
-        { id: 'fe-web-javascript', name: 'JavaScript', select: 'filter', chapterSubtracks: ['javascript'], techName: 'JavaScript' },
-        { id: 'fe-web-typescript', name: 'TypeScript', select: 'filter', chapterSubtracks: ['typescript'], techName: 'TypeScript' },
-        { id: 'fe-web-react', name: 'React', select: 'filter', chapterSubtracks: ['react'], techName: 'React' },
-        { id: 'fe-web-vue', name: 'Vue', select: 'filter', chapterSubtracks: ['vue'], techName: 'Vue' },
-        { id: 'fe-web-engineering', name: '工程化', select: 'filter', chapterSubtracks: ['engineering'], techName: '工程化' },
-        { id: 'fe-web-performance', name: '性能优化', select: 'filter', chapterSubtracks: ['performance'], techName: '性能优化' },
-        { id: 'fe-web-security', name: '安全', select: 'filter', chapterSubtracks: ['security'], techName: '安全' }
-      ]
-    },
-    {
-      id: 'fe-miniprogram',
-      name: '小程序',
-      color: '#22c55e',
-      order: 1,
-      directions: [
-        { id: 'fe-miniprogram', name: '小程序（综合）', select: 'nav', chapterSubtracks: ['miniprogram'], skillSubtrack: 'fe-miniprogram' },
-        { id: 'fe-miniprogram-wechat', name: '微信小程序', select: 'nav', chapterSubtracks: [], official: true },
-        { id: 'fe-miniprogram-alipay', name: '支付宝小程序', select: 'nav', chapterSubtracks: [], official: true },
-        { id: 'fe-miniprogram-douyin', name: '抖音小程序', select: 'nav', chapterSubtracks: [], official: true },
-        { id: 'fe-miniprogram-uniapp', name: 'uni-app', select: 'nav', chapterSubtracks: [], official: true, skillSubtrack: 'fe-uniapp' },
-        { id: 'fe-miniprogram-taro', name: 'Taro', select: 'nav', chapterSubtracks: [], official: true }
-      ]
-    },
-    { id: 'fe-harmony', name: '鸿蒙', color: '#007dff', order: 2, directions: [{ id: 'fe-harmony', name: '鸿蒙', select: 'nav', chapterSubtracks: ['harmony'], skillSubtrack: 'fe-harmony' }] },
-    { id: 'fe-cross', name: '跨端', color: '#06b6d4', order: 3, directions: [{ id: 'fe-cross', name: '跨端', select: 'nav', chapterSubtracks: ['cross'], skillSubtrack: 'fe-app' }] },
-    { id: 'fe-native', name: '原生客户端', color: '#64748b', order: 4, directions: [{ id: 'fe-native', name: '原生客户端', select: 'nav', chapterSubtracks: ['native'], skillSubtrack: 'fe-native' }] },
-    { id: 'fe-desktop', name: '桌面端', color: '#78716c', order: 5, directions: [{ id: 'fe-desktop', name: '桌面端', select: 'nav', chapterSubtracks: ['desktop'], skillSubtrack: 'fe-desktop' }] },
-    { id: 'fe-viz', name: '可视化', color: '#d946ef', order: 6, directions: [{ id: 'fe-viz', name: '可视化', select: 'nav', chapterSubtracks: ['visualization'], skillSubtrack: 'fe-viz' }] },
-    {
-      id: 'fe-mobile',
-      name: '移动端 H5/响应式',
-      color: '#0ea5e9',
-      order: 7,
-      directions: [{ id: 'fe-mobile', name: '移动端 H5/响应式', select: 'nav', chapterSubtracks: [], skillSubtrack: 'fe-mobile' }]
-    }
+    { id: 'fe-web', name: 'Web 开发工程师', color: '#ff5e7e', order: 0,
+      summary: '面向 PC + 移动端浏览器，构建通用 Web 站点与中后台系统。',
+      chapterSubtracks: ['web', 'css', 'javascript', 'typescript', 'react', 'vue', 'performance', 'security'],
+      techNames: ['Web 基础', 'CSS', 'JavaScript', 'TypeScript', 'React', 'Vue', '工程化', '性能优化', '安全'] },
+    { id: 'fe-arch', name: '前端架构 / 工程化专家', color: '#f43f5e', order: 1,
+      summary: '建设脚手架、组件库、设计系统与研发效能平台。',
+      chapterSubtracks: ['engineering'],
+      techNames: ['工程化', 'JavaScript', '性能优化', 'Vue', 'CSS', 'React'] },
+    { id: 'fe-harmony', name: '鸿蒙 HarmonyOS 工程师', color: '#0ea5e9', order: 2,
+      summary: 'ArkTS + ArkUI 开发原生鸿蒙应用与元服务。',
+      chapterSubtracks: ['harmony'],
+      techNames: ['工程化', 'JavaScript', '性能优化', 'TypeScript', '安全', 'CSS'] },
+    { id: 'fe-miniprogram', name: '小程序工程师', color: '#22c55e', order: 3,
+      summary: '专做微信 / 支付宝 / 抖音等平台小程序与私域生态。',
+      chapterSubtracks: ['miniprogram'],
+      techNames: ['JavaScript', '性能优化', '工程化', '安全', '网络', 'CSS'] },
+    { id: 'fe-app', name: '跨端 App 工程师（RN / Flutter）', color: '#8b5cf6', order: 4,
+      summary: '用 React Native / Flutter 一套代码产出接近原生体验的 App。',
+      chapterSubtracks: ['cross'],
+      techNames: ['工程化', '性能优化', 'JavaScript', '网络', '安全', 'React', 'CSS'] },
+    { id: 'fe-native', name: '原生客户端工程师', color: '#64748b', order: 5,
+      summary: '用 Kotlin / Swift 做纯原生 App，追求极致性能。',
+      chapterSubtracks: ['native'],
+      techNames: ['性能优化', '工程化', '安全', 'JavaScript', '网络', 'TypeScript'] },
+    { id: 'fe-viz', name: '可视化 / 图形工程师', color: '#d946ef', order: 6,
+      summary: '图表、数据大屏、3D 与 Canvas / WebGL 渲染方向。',
+      chapterSubtracks: ['visualization'],
+      techNames: ['JavaScript', '性能优化', '工程化', 'CSS', '安全', 'Web 基础', 'React'] },
+    { id: 'fe-desktop', name: '桌面端工程师（Electron / Tauri）', color: '#78716c', order: 7,
+      summary: '用 Web 技术做跨平台桌面软件。',
+      chapterSubtracks: ['desktop'],
+      techNames: ['工程化', 'JavaScript', '安全', '性能优化', '网络'] },
+    // 以下赛道暂无内置章节，学习中心隐藏；题库仍可访问
+    { id: 'fe-mobile', name: '移动端工程师（H5 / 响应式）', color: '#0ea5e9', order: 8,
+      summary: '专注移动浏览器与混合容器环境，做响应式适配与移动体验优化。',
+      chapterSubtracks: [], techNames: ['性能优化', 'JavaScript', 'CSS', '网络', '工程化', '安全', 'Web 基础'] },
+    { id: 'fe-uniapp', name: 'uni-app 工程师', color: '#10b981', order: 9,
+      summary: '一套代码编译到小程序 / App / H5。',
+      chapterSubtracks: [], techNames: ['工程化', 'JavaScript', '性能优化', '网络', 'Vue', 'CSS'] },
+    { id: 'fe-node', name: 'Node.js 全栈工程师', color: '#16a34a', order: 10,
+      summary: '以前端为主、用 Node 打通 BFF 与服务端。',
+      chapterSubtracks: [], techNames: ['JavaScript', '工程化', '性能优化', '安全', '网络', 'TypeScript'] }
   ],
 
   backend: [
-    {
-      id: 'be-web',
-      name: '服务端开发',
-      color: '#f97316',
-      order: 0,
-      directions: [
-        { id: 'be-web-java', name: 'Java', select: 'filter', chapterSubtracks: ['java'], techName: 'Java', skillSubtrack: 'be-web' },
-        { id: 'be-web-nodejs', name: 'Node.js', select: 'filter', chapterSubtracks: [], official: true, techName: 'Node.js' },
-        { id: 'be-web-python', name: 'Python', select: 'filter', chapterSubtracks: [], official: true, techName: 'Python' },
-        { id: 'be-web-go', name: 'Go', select: 'filter', chapterSubtracks: [], official: true, techName: 'Go' }
-      ]
-    },
-    {
-      id: 'be-data',
-      name: '数据存储',
-      color: '#3b82f6',
-      order: 1,
-      directions: [
-        { id: 'be-data-mysql', name: 'MySQL', select: 'filter', chapterSubtracks: ['mysql'], techName: 'MySQL', skillSubtrack: 'be-db' },
-        { id: 'be-data-redis', name: 'Redis', select: 'filter', chapterSubtracks: [], official: true, techName: 'Redis' },
-        { id: 'be-data-mongodb', name: 'MongoDB', select: 'filter', chapterSubtracks: [], official: true, techName: 'MongoDB', skillSubtrack: 'be-data' }
-      ]
-    },
-    {
-      id: 'be-arch',
-      name: '架构与中间件',
-      color: '#6366f1',
-      order: 2,
-      directions: [
-        { id: 'be-arch-micro', name: '微服务', select: 'filter', chapterSubtracks: ['micro'], techName: '微服务', skillSubtrack: 'be-micro' },
-        { id: 'be-arch-mq', name: '消息队列', select: 'filter', chapterSubtracks: ['mq'], techName: '消息队列' },
-        { id: 'be-arch-system', name: '系统设计', select: 'filter', chapterSubtracks: ['system'], techName: '系统设计' }
-      ]
-    }
+    { id: 'be-web', name: 'Web 后端工程师', color: '#14b8a6', order: 0,
+      summary: '用 Java / Go / Python 等构建服务端接口与业务系统。',
+      chapterSubtracks: ['java'],
+      techNames: ['Java', '微服务', '系统设计', 'MySQL', '网络', '消息队列', 'Redis'] },
+    { id: 'be-micro', name: '微服务 / 架构师', color: '#0ea5e9', order: 1,
+      summary: '服务拆分、治理与平台化建设。',
+      chapterSubtracks: ['system', 'micro', 'mq'],
+      techNames: ['微服务', 'Java', '系统设计', '网络', 'Redis', 'MySQL'] },
+    { id: 'be-db', name: '数据库 / 存储工程师', color: '#3b82f6', order: 2,
+      summary: '关系型与 NoSQL 的运维、调优、高可用与容量规划。',
+      chapterSubtracks: ['mysql'],
+      techNames: ['MySQL', '系统设计', '微服务', '网络', 'Redis'] },
+    // 暂无内置章节
+    { id: 'be-data', name: '大数据工程师（数仓 / BI）', color: '#6366f1', order: 3,
+      summary: '面向业务分析的离线与实时数仓、指标体系与 BI 供数。',
+      chapterSubtracks: [], techNames: ['系统设计', 'MySQL', '微服务', '消息队列', 'Redis'] },
+    { id: 'be-game', name: '游戏服务端工程师', color: '#f59e0b', order: 4,
+      summary: '高并发长连接、实时同步与状态一致性。',
+      chapterSubtracks: [], techNames: ['网络', '系统设计', '微服务', 'Redis', 'Java', '消息队列', 'MySQL'] },
+    { id: 'be-search', name: '搜索 / 中间件工程师', color: '#8b5cf6', order: 5,
+      summary: '检索系统与消息、缓存等基础中间件的深度使用与调优。',
+      chapterSubtracks: [], techNames: ['系统设计', '微服务', '消息队列', 'Redis', 'Java', '网络'] },
+    { id: 'be-test', name: '测试开发工程师（SDET）', color: '#ec4899', order: 6,
+      summary: '用开发能力做质量保障：自动化框架、测试平台与线上质量度量。',
+      chapterSubtracks: [], techNames: ['系统设计', 'Java', '网络', '微服务', 'MySQL'] }
   ],
 
   devops: [
-    {
-      id: 'do-os',
-      name: '系统与网络',
-      color: '#f59e0b',
-      order: 0,
-      directions: [
-        { id: 'do-os-linux', name: 'Linux', select: 'filter', chapterSubtracks: ['linux'], techName: 'Linux' },
-        { id: 'do-os-network', name: '网络', select: 'filter', chapterSubtracks: ['network'], techName: '网络' }
-      ]
-    },
-    {
-      id: 'do-container',
-      name: '容器与编排',
-      color: '#0ea5e9',
-      order: 1,
-      directions: [
-        { id: 'do-container-docker', name: '容器/Docker', select: 'filter', chapterSubtracks: ['docker'], techName: '容器/Docker', skillSubtrack: 'op-devops' },
-        { id: 'do-container-k8s', name: 'Kubernetes', select: 'filter', chapterSubtracks: [], official: true, techName: 'Kubernetes', skillSubtrack: 'op-k8s' }
-      ]
-    },
-    { id: 'do-cicd', name: 'CI/CD', color: '#10b981', order: 2, directions: [{ id: 'do-cicd', name: 'CI/CD', select: 'filter', chapterSubtracks: ['cicd'], techName: 'CI/CD', skillSubtrack: 'op-trad' }] },
-    { id: 'do-sre', name: 'SRE/可观测', color: '#8b5cf6', order: 3, directions: [{ id: 'do-sre', name: 'SRE', select: 'filter', chapterSubtracks: ['sre'], techName: 'SRE', skillSubtrack: 'op-sre' }] }
+    { id: 'op-trad', name: '运维工程师（传统）', color: '#f59e0b', order: 0,
+      summary: '保障服务器、网络与业务系统稳定运行。',
+      chapterSubtracks: ['linux', 'network'],
+      techNames: ['Linux', '网络', 'CI/CD', 'Kubernetes', '容器/Docker', 'SRE'] },
+    { id: 'op-sre', name: 'SRE 工程师', color: '#8b5cf6', order: 1,
+      summary: '以软件工程手段提升系统可靠性与效率。',
+      chapterSubtracks: ['sre'],
+      techNames: ['SRE', 'Linux', '网络', 'CI/CD', 'Kubernetes', '容器/Docker'] },
+    { id: 'op-devops', name: '运维开发 / DevOps 平台', color: '#10b981', order: 2,
+      summary: '建设 CI/CD、流水线与企业研发效能平台。',
+      chapterSubtracks: ['docker', 'cicd'],
+      techNames: ['CI/CD', 'Kubernetes', 'SRE', '容器/Docker', 'Linux', '网络'] },
+    // 暂无内置章节
+    { id: 'op-k8s', name: '云原生 / Kubernetes 工程师', color: '#0ea5e9', order: 3,
+      summary: '以 Kubernetes 为核心的容器平台建设与运维。',
+      chapterSubtracks: [], techNames: ['Kubernetes', '容器/Docker', 'Linux', '网络', 'SRE', 'CI/CD'] },
+    { id: 'op-cloud', name: '云平台工程师', color: '#3b82f6', order: 4,
+      summary: '公有云 / 私有云的资源、网络、成本与安全治理。',
+      chapterSubtracks: [], techNames: ['SRE', 'Linux', '网络', 'CI/CD', 'Kubernetes', '容器/Docker'] },
+    { id: 'op-sec', name: '安全运维工程师', color: '#ef4444', order: 5,
+      summary: '防护、检测与响应，保障系统与数据安全。',
+      chapterSubtracks: [], techNames: ['安全', 'Linux', '网络', '容器/Docker'] }
   ],
 
   ai: [
-    {
-      id: 'ai-app',
-      name: 'AI 应用工程',
-      color: '#8b5cf6',
-      order: 0,
-      directions: [
-        { id: 'ai-app-prompt', name: 'Prompt', select: 'nav', chapterSubtracks: ['prompt'], techName: 'Prompt', skillSubtrack: 'ai-app' },
-        { id: 'ai-app-rag', name: 'RAG', select: 'nav', chapterSubtracks: ['rag'], techName: 'RAG', skillSubtrack: 'ai-app' },
-        { id: 'ai-app-agent', name: 'Agent', select: 'nav', chapterSubtracks: ['agent'], techName: 'Agent', skillSubtrack: 'ai-app' },
-        { id: 'ai-app-eval', name: 'Eval', select: 'nav', chapterSubtracks: ['eval'], techName: 'Eval', skillSubtrack: 'ai-mlops' },
-        { id: 'ai-app-deploy', name: '部署与成本', select: 'nav', chapterSubtracks: ['deploy'], techName: '部署与成本', skillSubtrack: 'ai-infra' }
-      ]
-    }
+    { id: 'ai-app', name: 'AI 应用工程师（LLM / RAG / Agent）', color: '#8b5cf6', order: 0,
+      summary: '把大模型能力落地为可产品化的应用。',
+      chapterSubtracks: ['rag', 'prompt', 'agent'],
+      techNames: ['RAG', 'Agent', 'Eval', 'Prompt', '部署与成本', '容器/Docker'] },
+    { id: 'ai-infra', name: 'AI Infra / 推理优化工程师', color: '#6366f1', order: 1,
+      summary: '让大模型跑得更快更省：推理引擎、显存与算力优化。',
+      chapterSubtracks: ['deploy'],
+      techNames: ['容器/Docker', '部署与成本', 'Eval'] },
+    { id: 'ai-mlops', name: 'MLOps / 机器学习平台', color: '#0ea5e9', order: 2,
+      summary: '让模型可训练、可部署、可监控地规模化运行。',
+      chapterSubtracks: ['eval'],
+      techNames: ['容器/Docker', 'Eval', '部署与成本', 'RAG'] },
+    // 暂无内置章节
+    { id: 'ai-algo', name: '算法工程师（CV / NLP / 推荐）', color: '#d946ef', order: 3,
+      summary: '研究与落地机器学习模型，偏科研与建模。',
+      chapterSubtracks: [], techNames: ['部署与成本', '容器/Docker', 'Eval', 'RAG'] },
+    { id: 'ai-data', name: '训练数据 / 标注平台工程师', color: '#14b8a6', order: 4,
+      summary: '为模型准备高质量语料与特征。',
+      chapterSubtracks: [], techNames: ['Eval', '容器/Docker', '部署与成本', 'RAG', 'Prompt'] },
+    { id: 'ai-edge', name: '端侧 AI 工程师', color: '#f59e0b', order: 5,
+      summary: '把模型塞进手机 / 车机 / IoT 设备。',
+      chapterSubtracks: [], techNames: ['容器/Docker', '部署与成本', 'Eval'] }
   ]
 }
 
-// ---- 兼容 / 查找辅助 ----
+// ---- 查找辅助 ----
 
-export function getGroups (moduleId: string): DirectionGroup[] {
-  return LEARNING_TAXONOMY[moduleId] || []
+export function getTracks (moduleId: string): Track[] {
+  return (LEARNING_TAXONOMY[moduleId] || []).slice().sort((a, b) => a.order - b.order)
 }
 
-export function getAllDirections (moduleId: string): Direction[] {
-  return getGroups(moduleId).flatMap(g => g.directions)
+export function getTrack (moduleId: string, trackId: string): Track | null {
+  return getTracks(moduleId).find(t => t.id === trackId) || null
 }
 
-export function getDirection (moduleId: string, directionId: string): Direction | null {
-  return getAllDirections(moduleId).find(d => d.id === directionId) || null
+export function getAllTracks (moduleId: string): Track[] {
+  return getTracks(moduleId)
 }
 
-export function getGroup (moduleId: string, groupId: string): DirectionGroup | null {
-  return getGroups(moduleId).find(g => g.id === groupId) || null
+// 该赛道是否有内置章节（用于学习中心隐藏空赛道）
+export function trackHasChapterContent (track: Track): boolean {
+  return track.chapterSubtracks.length > 0
 }
 
-// 大类下所有方向映射到的路线图 subtrack id（用于题库组级联合筛选）
-export function groupSubtracks (group: DirectionGroup): string[] {
-  return group.directions.map(d => d.skillSubtrack).filter((v): v is string => !!v)
+// 子主题（章节级）列表，由 chapterSubtracks 推导
+export function trackSubTopics (track: Track): SubTopic[] {
+  return track.chapterSubtracks.map(st => ({
+    id: st,
+    name: SUBTRACK_DISPLAY[st] || st,
+    chapterSubtrack: st
+  }))
 }
 
-// 大类下所有方向映射到的规范 tech 名（用于题库组级联合筛选）
-export function groupTechs (group: DirectionGroup): string[] {
-  return group.directions.map(d => d.techName).filter((v): v is string => !!v)
-}
-
-// 题库 tech 规范名 -> 该模块下的 directionId（用于聚合/分组）
-export function directionIdByTech (moduleId: string, tech: string): string | null {
-  const d = getAllDirections(moduleId).find(x => x.techName === tech)
-  return d ? d.id : null
+// 题库按 subtrack 过滤的取值（= 赛道 id）
+export function trackInterviewSubtrack (track: Track): string {
+  return track.id
 }
