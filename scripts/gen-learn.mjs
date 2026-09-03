@@ -86,6 +86,20 @@ export const SUBTRACKS = {
     urls: ['https://huggingface.co/docs/datasets', 'https://www.tensorflow.org/datasets'] },
   'ai-edge':    { module: 'ai', label: '端侧AI', prefix: 'ed', subtrack: 'edgeai', note: '手机 / 车机 / IoT 模型部署',
     urls: ['https://www.tensorflow.org/lite', 'https://developer.apple.com/machine-learning/'] },
+  // —— 薄弱赛道补章：以下 5 个赛道原先仅 1-2 章（v2 遗留「第N章」老内容）——
+  // 这些赛道的 chapterSubtracks 已含目标 subtrack，apply 后自动显现，无需再改 taxonomy。
+  'be-db':      { module: 'backend', label: '数据库', prefix: 'dbs', subtrack: 'mysql', note: '关系型 / NoSQL 存储与索引事务',
+    urls: ['https://dev.mysql.com/doc/refman/8.0/en/', 'https://www.postgresql.org/docs/current/', 'https://redis.io/docs/latest/'] },
+  'op-sre':     { module: 'devops', label: 'SRE', prefix: 'sre', subtrack: 'sre', note: 'SLI/SLO、可观测性与故障响应',
+    urls: ['https://sre.google/books/', 'https://sre.google/workbook/', 'https://prometheus.io/docs/'] },
+  'op-devops-docker': { module: 'devops', label: 'Docker', prefix: 'dop', subtrack: 'docker', note: '镜像构建 / 容器运行时 / 编排',
+    urls: ['https://docs.docker.com/', 'https://docs.docker.com/build/building/'] },
+  'op-devops-cicd':   { module: 'devops', label: 'CI/CD', prefix: 'doc', subtrack: 'cicd', note: '流水线 / 自动化构建部署',
+    urls: ['https://docs.github.com/en/actions', 'https://docs.gitlab.com/ee/ci/'] },
+  'ai-infra':   { module: 'ai', label: 'AI Infra', prefix: 'inf', subtrack: 'deploy', note: '推理引擎 / 显存与吞吐优化',
+    urls: ['https://docs.vllm.ai/', 'https://onnxruntime.ai/docs/', 'https://docs.nvidia.com/deeplearning/tensorrt/'] },
+  'ai-mlops':   { module: 'ai', label: 'MLOps', prefix: 'mlp', subtrack: 'eval', note: '实验追踪 / 模型注册 / 持续训练',
+    urls: ['https://mlflow.org/docs/latest/', 'https://www.kubeflow.org/docs/'] },
 }
 
 // ---------------- 基础设施 ----------------
