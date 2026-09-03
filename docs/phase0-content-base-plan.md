@@ -1,6 +1,6 @@
 # MentorLoop Phase 0 · 内容基座补齐（重定范围方案）
 
-> 状态：方案 + 工作流（待用户确认方向后开工）
+> 状态：✅ 已完成（2026-09-03 收口，C1/C2/C3 全部落地）
 > 日期：2026-09-03
 > 背景：原记忆「后端/运维知识树仅 5 章/11 知识点、试卷仅 1 套」是 **回填前** 的旧数据。本次先实测盘点，发现现状已变，故重定范围。
 
@@ -123,3 +123,30 @@
 4. **C2 桌面端同步**：遗留题回填是否需同时写 `seed-content.json`（保证桌面端首启即含），还是仅改 dev DB（桌面端走 `seedIfEmpty` 重建时再由 seed 覆盖）。
 
 > 确认后我将按工作流分阶段执行，每阶段单独 commit、可审查。
+
+---
+
+## 七、完成状态（2026-09-03 收口）
+
+### C2 · 遗留面试题上架 ✅
+- 新增 `server/utils/interviewSubtrackMap.ts`（从 `learningTaxonomy` 派生 `(模块,tech)→方向` 映射，单一真源）；`server/utils/db.ts` MIGRATIONS 追加 **v22** 幂等迁移。
+- dev DB `subtrack IS NULL`：**4031 → 0**；seed JSON **6565/6565** 含方向标签（桌面端首启 `seedIfEmpty` 一致）。
+- 方向分布健康（fe-web 1124 / be-web 801 / be-micro 754 …），关键映射已抽样核对（MySQL→be-db、Linux→op-trad、Kubernetes→op-k8s、RAG/Agent→ai-app 等）。
+- 提交：`195512a`（映射+迁移）、`e3e6a0f`（seed 回填）。
+
+### C1 · 知识树深度 ✅
+- 复用 `gen-learn.mjs` 双写管线，新增 7 个薄赛道 `SUBTRACKS` 条目（全新 prefix 防冲突）。
+- **backend 组**（提交 `39ecfdc`）：be-web 8章/36节 + be-micro 10章/31节 + be-data-2 4章/20节（22章/87节）。
+- **devops 组**（提交 `d0f9633`）：op-trad 5章/24节 + op-sre-2 6章/22节 + op-k8s-2 10章/41节 + op-sec-2 12章/36节（33章/123节），含 op-trad network 子方向空壳修正。
+- 新增 **55 章 / 210 节**，全部 100% 锚定官方源、节内容最短 2369 字、零空壳；`subtrack` 对齐 `learningTaxonomy.chapterSubtracks`，学习中心自动可见。
+
+### C3 · 方向级试卷 ✅
+- 新增 `scripts/gen-exam.mjs`：为 10 个方向（be-web/be-micro/be-data/be-db/op-trad/op-sre/op-k8s/op-sec/fe-web/ai-app）生成 **基础+进阶** 选择题卷（各 15 题，共 **20 套 / 300 题**）。
+- 复用现有 `exam_sets`/`exam_choices` 体系，`track` 填模块级、方向名写入 `name`，前端零改动即见可用。
+- 修复：原 INSERT 漏写 `explain` 列，已从 seed 回填 554 行，DB 新卷 **300/300 题有解析**。
+- SSR 复查：`/api/exam/sets` 总数列 39（原19+新20），新卷 20/20 命中、每套 15 题、track 分布正确。
+- 提交：`b584d9d`（脚本）、`88c375a`（seed 数据）。
+
+### 收尾
+- 全量回归通过；dev server 已关闭，无遗留后台进程。
+- **待用户本地 `git push`**：本阶段新增提交 `195512a / e3e6a0f / 39ecfdc / d0f9633 / b584d9d / 88c375a`（共 6 个），无头环境无法代推。
