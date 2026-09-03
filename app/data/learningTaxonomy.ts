@@ -48,11 +48,16 @@ export const SUBTRACK_DISPLAY: Record<string, string> = {
   uniapp: 'uni-app',
   k8s: 'Kubernetes',
   algo: '算法',
-  searchmw: '搜索/中间件',
+  searchmw: '搜索中间件',
   mobile: '移动端',
   nodefull: 'Node 全栈',
   cloud: '云平台',
-  secops: '安全运维'
+  secops: '安全运维',
+  bigdata: '大数据',
+  gameserver: '游戏服务端',
+  sdet: 'SDET',
+  traindata: '训练数据',
+  edgeai: '端侧AI'
 }
 
 export interface SubTopic {
@@ -105,13 +110,12 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       summary: '用 Web 技术做跨平台桌面软件。',
       chapterSubtracks: ['desktop'],
       techNames: ['工程化', 'JavaScript', '安全', '性能优化', '网络'] },
-    // 以下赛道暂无内置章节，学习中心隐藏；题库仍可访问
     { id: 'fe-mobile', name: '移动端工程师（H5 / 响应式）', color: '#0ea5e9', order: 8,
       summary: '专注移动浏览器与混合容器环境，做响应式适配与移动体验优化。',
       chapterSubtracks: ['mobile'], techNames: ['性能优化', 'JavaScript', 'CSS', '网络', '工程化', '安全', 'Web 基础'] },
     { id: 'fe-uniapp', name: 'uni-app 工程师', color: '#10b981', order: 9,
       summary: '一套代码编译到小程序 / App / H5。',
-      chapterSubtracks: [], techNames: ['工程化', 'JavaScript', '性能优化', '网络', 'Vue', 'CSS'] },
+      chapterSubtracks: ['uniapp'], techNames: ['工程化', 'JavaScript', '性能优化', '网络', 'Vue', 'CSS'] },
     { id: 'fe-node', name: 'Node.js 全栈工程师', color: '#16a34a', order: 10,
       summary: '以前端为主、用 Node 打通 BFF 与服务端。',
       chapterSubtracks: ['nodefull'], techNames: ['JavaScript', '工程化', '性能优化', '安全', '网络', 'TypeScript'] }
@@ -130,19 +134,18 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       summary: '关系型与 NoSQL 的运维、调优、高可用与容量规划。',
       chapterSubtracks: ['mysql'],
       techNames: ['MySQL', '系统设计', '微服务', '网络', 'Redis'] },
-    // 暂无内置章节
     { id: 'be-data', name: '大数据工程师（数仓 / BI）', color: '#6366f1', order: 3,
       summary: '面向业务分析的离线与实时数仓、指标体系与 BI 供数。',
-      chapterSubtracks: [], techNames: ['系统设计', 'MySQL', '微服务', '消息队列', 'Redis'] },
+      chapterSubtracks: ['bigdata'], techNames: ['系统设计', 'MySQL', '微服务', '消息队列', 'Redis'] },
     { id: 'be-game', name: '游戏服务端工程师', color: '#f59e0b', order: 4,
       summary: '高并发长连接、实时同步与状态一致性。',
-      chapterSubtracks: [], techNames: ['网络', '系统设计', '微服务', 'Redis', 'Java', '消息队列', 'MySQL'] },
+      chapterSubtracks: ['gameserver'], techNames: ['网络', '系统设计', '微服务', 'Redis', 'Java', '消息队列', 'MySQL'] },
     { id: 'be-search', name: '搜索 / 中间件工程师', color: '#8b5cf6', order: 5,
       summary: '检索系统与消息、缓存等基础中间件的深度使用与调优。',
       chapterSubtracks: ['searchmw'], techNames: ['系统设计', '微服务', '消息队列', 'Redis', 'Java', '网络'] },
     { id: 'be-test', name: '测试开发工程师（SDET）', color: '#ec4899', order: 6,
       summary: '用开发能力做质量保障：自动化框架、测试平台与线上质量度量。',
-      chapterSubtracks: [], techNames: ['系统设计', 'Java', '网络', '微服务', 'MySQL'] }
+      chapterSubtracks: ['sdet'], techNames: ['系统设计', 'Java', '网络', '微服务', 'MySQL'] }
   ],
 
   devops: [
@@ -158,10 +161,9 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       summary: '建设 CI/CD、流水线与企业研发效能平台。',
       chapterSubtracks: ['docker', 'cicd'],
       techNames: ['CI/CD', 'Kubernetes', 'SRE', '容器/Docker', 'Linux', '网络'] },
-    // 暂无内置章节
     { id: 'op-k8s', name: '云原生 / Kubernetes 工程师', color: '#0ea5e9', order: 3,
       summary: '以 Kubernetes 为核心的容器平台建设与运维。',
-      chapterSubtracks: [], techNames: ['Kubernetes', '容器/Docker', 'Linux', '网络', 'SRE', 'CI/CD'] },
+      chapterSubtracks: ['k8s'], techNames: ['Kubernetes', '容器/Docker', 'Linux', '网络', 'SRE', 'CI/CD'] },
     { id: 'op-cloud', name: '云平台工程师', color: '#3b82f6', order: 4,
       summary: '公有云 / 私有云的资源、网络、成本与安全治理。',
       chapterSubtracks: ['cloud'], techNames: ['SRE', 'Linux', '网络', 'CI/CD', 'Kubernetes', '容器/Docker'] },
@@ -183,16 +185,15 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       summary: '让模型可训练、可部署、可监控地规模化运行。',
       chapterSubtracks: ['eval'],
       techNames: ['Eval', '部署与成本', 'RAG'] },
-    // 暂无内置章节
     { id: 'ai-algo', name: '算法工程师（CV / NLP / 推荐）', color: '#d946ef', order: 3,
       summary: '研究与落地机器学习模型，偏科研与建模。',
       chapterSubtracks: ['algo'], techNames: ['部署与成本', 'Eval', 'RAG'] },
     { id: 'ai-data', name: '训练数据 / 标注平台工程师', color: '#14b8a6', order: 4,
       summary: '为模型准备高质量语料与特征。',
-      chapterSubtracks: [], techNames: ['Eval', '部署与成本', 'RAG', 'Prompt'] },
+      chapterSubtracks: ['traindata'], techNames: ['Eval', '部署与成本', 'RAG', 'Prompt'] },
     { id: 'ai-edge', name: '端侧 AI 工程师', color: '#f59e0b', order: 5,
       summary: '把模型塞进手机 / 车机 / IoT 设备。',
-      chapterSubtracks: [], techNames: ['部署与成本', 'Eval'] }
+      chapterSubtracks: ['edgeai'], techNames: ['部署与成本', 'Eval'] }
   ]
 }
 
