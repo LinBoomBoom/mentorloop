@@ -100,6 +100,23 @@ export const SUBTRACKS = {
     urls: ['https://docs.vllm.ai/', 'https://onnxruntime.ai/docs/', 'https://docs.nvidia.com/deeplearning/tensorrt/'] },
   'ai-mlops':   { module: 'ai', label: 'MLOps', prefix: 'mlp', subtrack: 'eval', note: '实验追踪 / 模型注册 / 持续训练',
     urls: ['https://mlflow.org/docs/latest/', 'https://www.kubeflow.org/docs/'] },
+  // —— Phase 0 · C1 知识树深度：backend/ops 薄赛道补章（前缀均不与既有章节 id 冲突）——
+  // 原种子薄赛道（无既有 gen-learn 条目）：be-web/be-micro/op-trad。
+  // 已部分回填、本次追加深度的赛道：be-data/op-sre/op-k8s/op-sec（用 *-2 前缀，apply 跳过重复 id 安全）。
+  'be-web':     { module: 'backend', label: 'Java', prefix: 'bw', subtrack: 'java', note: 'Java 服务端 / JVM / Spring 生态',
+    urls: ['https://docs.oracle.com/en/java/', 'https://spring.io/guides', 'https://docs.spring.io/spring-framework/docs/current/reference/html/'] },
+  'be-micro':   { module: 'backend', label: '微服务', prefix: 'bm', subtrack: 'micro', note: '微服务 / 分布式架构 / 服务治理',
+    urls: ['https://microservices.io/patterns/index.html', 'https://docs.spring.io/spring-cloud-commons/docs/current/reference/html/'] },
+  'be-data-2':  { module: 'backend', label: '大数据', prefix: 'bg', subtrack: 'bigdata', note: '数仓 / 实时计算 / BI 供数（深度补充）',
+    urls: ['https://spark.apache.org/docs/latest/', 'https://kafka.apache.org/documentation/', 'https://nightlies.apache.org/flink/flink-docs-stable/'] },
+  'op-trad':    { module: 'devops', label: 'Linux', prefix: 'ot', subtrack: 'linux', note: 'Linux 运维 / 网络基础',
+    urls: ['https://man7.org/linux/man-pages/', 'https://www.rfc-editor.org/'] },
+  'op-sre-2':   { module: 'devops', label: 'SRE', prefix: 'sre2', subtrack: 'sre', note: 'SRE / 可观测性（深度补充）',
+    urls: ['https://sre.google/books/', 'https://prometheus.io/docs/'] },
+  'op-k8s-2':   { module: 'devops', label: 'Kubernetes', prefix: 'k82', subtrack: 'k8s', note: 'K8s 云原生（深度补充）',
+    urls: ['https://kubernetes.io/docs/', 'https://kubernetes.io/docs/concepts/'] },
+  'op-sec-2':   { module: 'devops', label: '安全运维', prefix: 'os2', subtrack: 'secops', note: '安全运维（深度补充）',
+    urls: ['https://owasp.org/www-community/', 'https://www.cisa.gov/'] },
 }
 
 // ---------------- 基础设施 ----------------
