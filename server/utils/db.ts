@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import { getHeader, getCookie, setCookie, setResponseStatus, createError } from 'h3'
 import { logWarn } from './logger'
 import { SEED_PATH, DB_PATH } from './paths'
+import { resolveLegacySubtrack } from './interviewSubtrackMap'
 // 注意：DB_PATH 统一由 ./paths 定义并导出，本文件仅引用，**不要**在此 re-export，
 // 否则 Nitro 会报 "Duplicated imports DB_PATH"（db.ts 与 paths.ts 同时导出）。
 
@@ -800,6 +801,29 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       // 幂等：空表跳过（seedIfEmpty 插入已无此脏标签）；已登记版本不重复执行。
       if ((db.prepare('SELECT COUNT(*) c FROM interview_questions').get() as any).c === 0) return
       db.prepare("UPDATE interview_questions SET tech='部署与成本' WHERE track='ai' AND tech='容器/Docker'").run()
+    }
+  },
+  {
+    version: 22,
+    name: 'interview-legacy-subtrack-backfill',
+    up: (db) => {
+      // C2：旧版面试题只有「模块级 track + tech 展示名」，无 v3 方向级 subtrack（=方向 id），
+      // 导致它们在按 subtrack 过滤的题库 UI 下完全不可见（共 ~4031 道真实好题）。
+      // 按 (track模块, tech) -> 方向 确定性映射回填 subtrack；零 LLM 成本、可重跑、可审计。
+      // 幂等：仅处理 subtrack IS NULL；空表跳过（seedIfEmpty 插入已含 subtrack 的新题）；已登记版本不重复执行。
+      if ((db.prepare('SELECT COUNT(*) c FROM interview_questions').get() as any).c === 0) return
+      const upd = db.prepare('UPDATE interview_questions SET subtrack=? WHERE id=? AND subtrack IS NULL')
+      const tx = db.transaction(() => {
+        const rows = db.prepare("SELECT id, track, tech FROM interview_questions WHERE subtrack IS NULL").all() as any[]
+        let applied = 0
+        for (const r of rows) {
+          const sub = resolveLegacySubtrack(r.track, r.tech)
+          if (sub) { upd.run(sub, r.id); applied++ }
+        }
+        // 残留（映射未命中，如 backend 的「性能优化/工程化」）保持 NULL，由运营人工补标，不强行归并。
+        if (applied > 0) logWarn('migration.v22_applied', { applied, remaining_null: rows.length - applied })
+      })
+      tx()
     }
   }
 ]
