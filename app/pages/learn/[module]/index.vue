@@ -46,7 +46,8 @@
         </div>
 
         <!-- ========== 第二层：当前赛道的子主题（单选） ========== -->
-        <div v-if="activeTrack" class="mb-5">
+        <!-- 子主题只有一个时，合并为单个标准赛道名 chip，避免"全部XX"与"缩写子主题"并列的冗余/不标准问题 -->
+        <div v-if="activeTrack && visibleSubTopics.length > 1" class="mb-5">
           <div class="text-xs text-muted mb-2">{{ activeTrack.name }} · 选择子主题</div>
           <div class="flex flex-wrap gap-2">
             <button
@@ -67,6 +68,15 @@
             >
               {{ s.name }}
               <span class="text-xs opacity-70">{{ subCount(s.chapterSubtrack) }}</span>
+            </button>
+          </div>
+        </div>
+        <div v-else-if="activeTrack && visibleSubTopics.length === 1" class="mb-5">
+          <div class="text-xs text-muted mb-2">{{ activeTrack.name }} · 子主题</div>
+          <div class="flex flex-wrap gap-2">
+            <button class="dir-chip dir-chip-active" :style="dirActiveStyle(activeTrack.color)">
+              {{ activeTrack.name }}
+              <span class="text-xs opacity-70">{{ subCount(visibleSubTopics[0].chapterSubtrack) }}</span>
             </button>
           </div>
         </div>

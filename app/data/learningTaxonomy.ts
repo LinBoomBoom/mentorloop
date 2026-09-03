@@ -50,7 +50,7 @@ export const SUBTRACK_DISPLAY: Record<string, string> = {
   algo: '算法',
   searchmw: '搜索中间件',
   mobile: '移动端',
-  nodefull: 'Node 全栈',
+  nodefull: 'Node.js 全栈工程师',
   cloud: '云平台',
   secops: '安全运维',
   bigdata: '大数据',
