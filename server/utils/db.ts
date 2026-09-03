@@ -825,6 +825,27 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 23,
+    name: 'interview-dedup-merge',
+    up: (db) => {
+      // rq- 去重合并（audit-interview.mjs 审计结论）：删除 13 道与同赛道近义/同义重复题，
+      // 每对保留「答案更完整（更长）」的一条；零 LLM、确定性、可重跑。
+      // 清单与 scripts/dedup-interview.mjs 完全一致。空表跳过（seedIfEmpty 插入已不含这些 id）。
+      if ((db.prepare('SELECT COUNT(*) c FROM interview_questions').get() as any).c === 0) return
+      const DROP = ['xq-f-28', 'xq-b-128', 'xq-b-924', 'xq-b-471', 'xq-f-957', 'xq-b-487', 'xq-o-299', 'xq-o-44', 'xq-b-22', 'xq-o-34', 'xq-o-650', 'xq-f-646', 'xq-b-55']
+      const delQ = db.prepare('DELETE FROM interview_questions WHERE id=?')
+      let delWI: any = null
+      try { delWI = db.prepare('DELETE FROM user_wrong_items WHERE item_id=?') } catch { /* 表/列不存在则跳过 */ }
+      const tx = db.transaction(() => {
+        for (const id of DROP) {
+          delQ.run(id)
+          if (delWI) delWI.run(id)
+        }
+      })
+      tx()
+    }
   }
 ]
 
