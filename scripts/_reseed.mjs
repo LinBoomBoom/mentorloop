@@ -143,6 +143,10 @@ function assignChapterSubtrack(moduleId, chapterId, title) {
       return 'mysql'
     }
     if (chapterId.startsWith('be-nosql')) return 'dbnosql'
+    if (chapterId.startsWith('bd-') || chapterId.startsWith('bg-')) {
+      // 大数据已拆为 离线数仓 / 实时流处理（迁移 v30）：bd-* 离线数仓，bg-* 实时流处理
+      return chapterId.startsWith('bd-') ? 'offlinedw' : 'realtime'
+    }
     if (t.includes('java') || t.includes('jvm') || t.includes('spring')) return 'java';
     if (t.includes('node')) return 'nodejs';
     if (t.includes('mysql') || t.includes('数据库') || t.includes('sql')) return 'mysql';

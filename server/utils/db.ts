@@ -1055,6 +1055,34 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 30,
+    name: 'bigdata-split-offlinedw-realtime',
+    up: (db) => {
+      // 大数据赛道拆分（2026-09-05）：be-data「大数据工程师」原只有 1 个子主题 bigdata，
+      // 10 章实为两套方向——bd-* 前缀属离线数仓（Spark 批处理 + Hive 数仓建模 + BI 供数），
+      // bg-* 前缀属实时流处理（Structured Streaming + Kafka + Flink）。
+      // 拆分：离线数仓 (offlinedw) = bd-c1/c2/c4/c5/c6；实时流处理 (realtime) = bd-c3/bg-c1/c2/c3/c4。
+      // 仅改 subtrack、章节 ID/position/sections 不变。以种子（真源）为准；空库由 seedIfEmpty 处理。
+      if ((db.prepare('SELECT COUNT(*) c FROM chapters').get() as any).c === 0) return
+      if (!fs.existsSync(SEED_PATH)) return
+      let content: any
+      try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
+      const mod = (content.modules || []).find((m: any) => m.id === 'backend')
+      if (!mod) return
+      const REASSIGN: Record<string, string> = {
+        'bd-c1': 'offlinedw', 'bd-c2': 'offlinedw', 'bd-c4': 'offlinedw', 'bd-c5': 'offlinedw', 'bd-c6': 'offlinedw',
+        'bd-c3': 'realtime', 'bg-c1': 'realtime', 'bg-c2': 'realtime', 'bg-c3': 'realtime', 'bg-c4': 'realtime'
+      }
+      const chs = (mod.chapters || []).filter((c: any) => Object.keys(REASSIGN).includes(c.id))
+      if (!chs.length) return
+      const updCh = db.prepare('UPDATE chapters SET subtrack=? WHERE id=?')
+      const tx = db.transaction(() => {
+        for (const [id, sub] of Object.entries(REASSIGN)) updCh.run(sub, id)
+      })
+      tx()
+    }
   }
 ]
 
@@ -1141,6 +1169,10 @@ function seedIfEmpty(db: any) {
       return 'engineering'
     }
     if (moduleId === 'backend') {
+      if (chapterId.startsWith('bd-') || chapterId.startsWith('bg-')) {
+        // 大数据已拆为 离线数仓 / 实时流处理 两子主题（迁移 v30）：bd-* 离线数仓，bg-* 实时流处理
+        return chapterId.startsWith('bd-') ? 'offlinedw' : 'realtime'
+      }
       if (chapterId.startsWith('dbs-')) {
         // 数据库已拆为 MySQL / PostgreSQL / Redis / NoSQL 四子主题（迁移 v29）：按编号归属
         const n = parseInt(chapterId.replace('dbs-c', ''), 10)
