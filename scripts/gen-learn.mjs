@@ -127,6 +127,11 @@ export const SUBTRACKS = {
   // 已部分回填、本次追加深度的赛道：be-data/op-sre/op-k8s/op-sec（用 *-2 前缀，apply 跳过重复 id 安全）。
   'be-web':     { module: 'backend', label: 'Java', prefix: 'bw', subtrack: 'java', note: 'Java 服务端 / JVM / Spring 生态',
     urls: ['https://docs.oracle.com/en/java/', 'https://spring.io/guides', 'https://docs.spring.io/spring-framework/docs/current/reference/html/'] },
+  // be-web 多技术栈补齐：Go(Gin) / Python(FastAPI) 子主题（prefix 用 bwg/bwp 避开既有 go-/py- 章节 id）
+  'be-web-go':  { module: 'backend', label: 'Go 后端', prefix: 'bwg', subtrack: 'go', note: 'Go 服务端 / Gin / 并发 / GORM',
+    urls: ['https://go.dev/doc/', 'https://gin-gonic.com/docs/'] },
+  'be-web-python': { module: 'backend', label: 'Python 后端', prefix: 'bwp', subtrack: 'python', note: 'Python 服务端 / FastAPI / 异步 / SQLAlchemy',
+    urls: ['https://docs.python.org/3/', 'https://fastapi.tiangolo.com/'] },
   'be-micro':   { module: 'backend', label: '微服务', prefix: 'bm', subtrack: 'micro', note: '微服务 / 分布式架构 / 服务治理',
     urls: ['https://microservices.io/patterns/index.html', 'https://docs.spring.io/spring-cloud-commons/docs/current/reference/html/'] },
   'be-data-2':  { module: 'backend', label: '实时流处理', prefix: 'bg', subtrack: 'realtime', note: 'Structured Streaming + Kafka + Flink 实时计算（深度补充）',

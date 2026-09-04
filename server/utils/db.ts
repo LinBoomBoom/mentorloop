@@ -1112,6 +1112,37 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 32,
+    name: 'be-web-backfill-go-python',
+    up: (db) => {
+      // be-web 多技术栈补齐（2026-09-05）：原 be-web「Web 后端工程师」声明 Java/Go/Python，
+      // 但仅有 Java 15 章内容。本次从零生成 Go(Gin) / Python(FastAPI) 章节（go-c1/c2、py-c1/c2），
+      // 章节在 seed 中已带正确 subtrack（go / python），由 gen-beweb.mjs 双写 seed + DB。
+      // 本迁移兜底：老库若在非空状态下从旧 seed 初始化、未包含这些新章节，则从新 seed 补插。
+      // 空库由 seedIfEmpty 处理，故此处跳过空库。
+      if ((db.prepare('SELECT COUNT(*) c FROM chapters').get() as any).c === 0) return
+      if (!fs.existsSync(SEED_PATH)) return
+      let content: any
+      try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
+      const mod = (content.modules || []).find((m: any) => m.id === 'backend')
+      if (!mod) return
+      const NEW_IDS = ['go-c1', 'go-c2', 'py-c1', 'py-c2']
+      const chs = (mod.chapters || []).filter((c: any) => NEW_IDS.includes(c.id))
+      if (!chs.length) return
+      const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const tx = db.transaction(() => {
+        for (const c of chs) {
+          const exists = (db.prepare('SELECT 1 FROM chapters WHERE id=?').get(c.id) as any)
+          if (exists) continue
+          insCh.run(c.id, 'backend', c.title, c.goal ?? null, c.position ?? 0, c.subtrack || null)
+          ;(c.sections || []).forEach((s: any, si: number) => insSec.run(s.id, c.id, s.title, s.direction ?? null, s.content, si))
+        }
+      })
+      tx()
+    }
   }
 ]
 

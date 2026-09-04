@@ -34,6 +34,8 @@ export const SUBTRACK_DISPLAY: Record<string, string> = {
   d3: 'D3',
   webgl: 'WebGL',
   java: 'Java 后端',
+  go: 'Go',
+  python: 'Python',
   system: '系统设计',
   micro: '微服务',
   mq: '消息队列',
@@ -141,9 +143,9 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
 
   backend: [
     { id: 'be-web', name: 'Web 后端工程师', color: '#14b8a6', order: 0,
-      summary: '用 Java / Go / Python 等构建服务端接口与业务系统。',
-      chapterSubtracks: ['java'],
-      techNames: ['Java', '微服务', '系统设计', 'MySQL', '网络', '消息队列', 'Redis'] },
+      summary: '用 Java / Go / Python 构建服务端接口与业务系统，覆盖语言特性、并发模型与主流 Web 框架。',
+      chapterSubtracks: ['java', 'go', 'python'],
+      techNames: ['Java', 'Go', 'Python', 'Gin', 'FastAPI', '微服务', '系统设计', 'MySQL', '网络', '消息队列', 'Redis'] },
     { id: 'be-micro', name: '微服务 / 架构师', color: '#0ea5e9', order: 1,
       summary: '服务拆分、治理与平台化建设。',
       chapterSubtracks: ['system', 'micro', 'mq'],
