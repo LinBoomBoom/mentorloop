@@ -914,6 +914,41 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 26,
+    name: 'algo-split-cv-nlp-rec',
+    up: (db) => {
+      // 算法赛道拆分（2026-09-04）：ai-algo「算法工程师（CV / NLP / 推荐）」原只有 1 个子主题 algo，
+      // 9 章混排：框架章 al-c1..c6（PyTorch / scikit-learn / TensorFlow）为纯框架概念，实战章 al-c7/c8/c9
+      // 每节内部三框架混排、无法按小节拆分。故整章归属，并把各方向需要的框架章在该路径保留一份，
+      // 形成三条自包含路径：CV（al-c1/c2/c5/c6/c7）、NLP（al-c1n/c2n/c5n/c6n/c8）、推荐（al-c3/c4/c1r/c9）。
+      // 内容零改写，仅重组与复制。同 v24/v25：以种子（真源）为准；空库由 seedIfEmpty 处理，此处跳过。
+      if ((db.prepare('SELECT COUNT(*) c FROM chapters').get() as any).c === 0) return
+      if (!fs.existsSync(SEED_PATH)) return
+      let content: any
+      try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
+      const mod = (content.modules || []).find((m: any) => m.id === 'ai')
+      if (!mod) return
+      const ids = ['al-c1', 'al-c2', 'al-c5', 'al-c6', 'al-c7',
+        'al-c1n', 'al-c2n', 'al-c5n', 'al-c6n', 'al-c8',
+        'al-c3', 'al-c4', 'al-c1r', 'al-c9']
+      const oldIds = ['al-c1', 'al-c2', 'al-c3', 'al-c4', 'al-c5', 'al-c6', 'al-c7', 'al-c8', 'al-c9']
+      const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
+      if (!chs.length) return
+      const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
+      const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
+      const tx = db.transaction(() => {
+        for (const id of [...oldIds, ...ids]) { delSec.run(id); delCh.run(id) }
+        for (const ch of chs) {
+          insCh.run(ch.id, 'ai', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+        }
+      })
+      tx()
+    }
   }
 ]
 
@@ -1010,6 +1045,13 @@ function seedIfEmpty(db: any) {
       return 'linux'
     }
     if (moduleId === 'ai') {
+      if (chapterId.startsWith('al-')) {
+        // 算法已拆为 CV / NLP / 推荐 三条独立路径（迁移 v26）：
+        // 实战章 c7=CV / c8=NLP / c9=推荐；副本章 ID 后缀 n=NLP、r=推荐；其余属 CV
+        if (/^al-c\d+n(-|$)/.test(chapterId) || chapterId.startsWith('al-c8')) return 'nlp'
+        if (/^al-c\d+r(-|$)/.test(chapterId) || chapterId.startsWith('al-c9')) return 'rec'
+        return 'cv'
+      }
       if (t.includes('prompt') || t.includes('提示')) return 'prompt'
       if (t.includes('rag') || t.includes('检索')) return 'rag'
       if (t.includes('eval') || t.includes('评估')) return 'eval'
