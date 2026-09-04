@@ -949,6 +949,39 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 27,
+    name: 'search-split-elasticsearch-redis',
+    up: (db) => {
+      // 搜索中间件赛道拆分（2026-09-04）：be-search「搜索 / 中间件工程师」原只有 1 个子主题 searchmw，
+      // 8 章混排两种技术。实测每章每节均为单一技术，故整章直接重新归属，是三次拆分中最干净的一例：
+      //   es    = sr-c1..c5（Elasticsearch：入门 / 映射与分析 / 查询 DSL / 聚合分析 / 分布式架构）5 章 / 17 节
+      //   redis = sr-c6..c8（Redis：基础 / 持久化与高可用 / 缓存设计与优化）                    3 章 / 12 节
+      // 无需拆分小节、无需复制章节、章节 ID 不变，仅改 subtrack 与 position。内容零改写。
+      // 同 v24/v25/v26：以种子（真源）为准；空库由 seedIfEmpty 处理，此处跳过。
+      if ((db.prepare('SELECT COUNT(*) c FROM chapters').get() as any).c === 0) return
+      if (!fs.existsSync(SEED_PATH)) return
+      let content: any
+      try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
+      const mod = (content.modules || []).find((m: any) => m.id === 'backend')
+      if (!mod) return
+      const ids = ['sr-c1', 'sr-c2', 'sr-c3', 'sr-c4', 'sr-c5', 'sr-c6', 'sr-c7', 'sr-c8']
+      const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
+      if (!chs.length) return
+      const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
+      const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
+      const tx = db.transaction(() => {
+        for (const id of ids) { delSec.run(id); delCh.run(id) }
+        for (const ch of chs) {
+          insCh.run(ch.id, 'backend', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+        }
+      })
+      tx()
+    }
   }
 ]
 
@@ -1026,6 +1059,12 @@ function seedIfEmpty(db: any) {
       return 'engineering'
     }
     if (moduleId === 'backend') {
+      if (chapterId.startsWith('sr-')) {
+        // 搜索中间件已拆为 Elasticsearch / Redis 两条独立路径（迁移 v27）：
+        // sr-c6/c7/c8 为 Redis，其余为 Elasticsearch。
+        // 必须前置：sr-c5 标题含「架构」会被下方 system 规则误吞。
+        return /^sr-c[6-8](-|$)/.test(chapterId) ? 'redis' : 'es'
+      }
       if (t.includes('java') || t.includes('jvm') || t.includes('spring')) return 'java'
       if (t.includes('node')) return 'nodejs'
       if (t.includes('mysql') || t.includes('数据库') || t.includes('sql')) return 'mysql'

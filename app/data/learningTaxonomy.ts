@@ -52,7 +52,9 @@ export const SUBTRACK_DISPLAY: Record<string, string> = {
   cv: 'CV',
   nlp: 'NLP',
   rec: '推荐',
-  searchmw: '搜索中间件',
+  // 搜索中间件：原单一 searchmw 子主题已拆分为 Elasticsearch / Redis 两条独立学习路径（2026-09-04）
+  es: 'Elasticsearch',
+  redis: 'Redis',
   mobile: '移动端',
   nodefull: 'Node.js 全栈工程师',
   // 桌面端：原单一 desktop 子主题已拆分为 Electron / Tauri 两条独立学习路径（2026-09-04）
@@ -149,7 +151,7 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       chapterSubtracks: ['gameserver'], techNames: ['网络', '系统设计', '微服务', 'Redis', 'Java', '消息队列', 'MySQL'] },
     { id: 'be-search', name: '搜索 / 中间件工程师', color: '#8b5cf6', order: 5,
       summary: '检索系统与消息、缓存等基础中间件的深度使用与调优。',
-      chapterSubtracks: ['searchmw'], techNames: ['系统设计', '微服务', '消息队列', 'Redis', 'Java', '网络'] },
+      chapterSubtracks: ['es', 'redis'], techNames: ['系统设计', '微服务', '消息队列', 'Redis', 'Java', '网络'] },
     { id: 'be-test', name: '测试开发工程师（SDET）', color: '#ec4899', order: 6,
       summary: '用开发能力做质量保障：自动化框架、测试平台与线上质量度量。',
       chapterSubtracks: ['sdet'], techNames: ['系统设计', 'Java', '网络', '微服务', 'MySQL'] }

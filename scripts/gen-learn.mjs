@@ -70,8 +70,11 @@ export const SUBTRACKS = {
     urls: ['https://spark.apache.org/docs/latest/', 'https://kafka.apache.org/documentation/', 'https://hive.apache.org/'] },
   'be-game':    { module: 'backend', label: '游戏服务端', prefix: 'gm', subtrack: 'gameserver', note: '高并发长连接 / 实时同步',
     urls: ['https://colyseus.io/docs/', 'https://nodejs.org/en/learn'] },
-  'be-search':  { module: 'backend', label: '搜索中间件', prefix: 'sr', subtrack: 'searchmw', note: '检索系统 / 缓存中间件',
-    urls: ['https://www.elastic.co/guide/index.html', 'https://redis.io/docs/latest/'] },
+  // 搜索中间件已拆为 Elasticsearch / Redis 两条独立学习路径（2026-09-04，迁移 v27），故注册项一分为二
+  'be-es':      { module: 'backend', label: 'Elasticsearch', prefix: 'se', subtrack: 'es', note: '检索 / 倒排索引 / 聚合分析',
+    urls: ['https://www.elastic.co/guide/index.html'] },
+  'be-redis':   { module: 'backend', label: 'Redis', prefix: 'rc', subtrack: 'redis', note: '缓存 / 持久化 / 高可用',
+    urls: ['https://redis.io/docs/latest/'] },
   'be-test':    { module: 'backend', label: 'SDET', prefix: 'sd', subtrack: 'sdet', note: '自动化测试框架 / 测试平台',
     urls: ['https://playwright.dev/docs/intro', 'https://www.selenium.dev/documentation/'] },
   'op-k8s':     { module: 'devops', label: 'Kubernetes', prefix: 'k8', subtrack: 'k8s', note: '云原生 / K8s 容器平台',
