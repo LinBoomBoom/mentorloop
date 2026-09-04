@@ -1083,6 +1083,35 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 31,
+    name: 'mlops-split-mlflow-kubeflow-llmeval',
+    up: (db) => {
+      // MLOps 赛道拆分（2026-09-05）：ai-mlops「MLOps / 机器学习平台」原只有 1 个子主题 eval，
+      // 7 章实为三种内容——ai-c5（评估体系/tracing/LLM-as-judge）→ llmeval；
+      // mlp-c1~c3（MLflow 实验追踪/模型注册/项目流水线）→ mlflow；
+      // mlp-c4~c6（Kubeflow 基础/Pipelines/KFServing 部署监控）→ kubeflow。
+      // 仅改 subtrack、章节 ID/position/sections 不变。以种子（真源）为准；空库由 seedIfEmpty 处理。
+      if ((db.prepare('SELECT COUNT(*) c FROM chapters').get() as any).c === 0) return
+      if (!fs.existsSync(SEED_PATH)) return
+      let content: any
+      try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
+      const mod = (content.modules || []).find((m: any) => m.id === 'ai')
+      if (!mod) return
+      const REASSIGN: Record<string, string> = {
+        'ai-c5': 'llmeval',
+        'mlp-c1': 'mlflow', 'mlp-c2': 'mlflow', 'mlp-c3': 'mlflow',
+        'mlp-c4': 'kubeflow', 'mlp-c5': 'kubeflow', 'mlp-c6': 'kubeflow'
+      }
+      const chs = (mod.chapters || []).filter((c: any) => Object.keys(REASSIGN).includes(c.id))
+      if (!chs.length) return
+      const updCh = db.prepare('UPDATE chapters SET subtrack=? WHERE id=?')
+      const tx = db.transaction(() => {
+        for (const [id, sub] of Object.entries(REASSIGN)) updCh.run(sub, id)
+      })
+      tx()
+    }
   }
 ]
 
@@ -1215,6 +1244,15 @@ function seedIfEmpty(db: any) {
         if (/^al-c\d+r(-|$)/.test(chapterId) || chapterId.startsWith('al-c9')) return 'rec'
         return 'cv'
       }
+      // MLOps 已拆为 MLflow / Kubeflow / LLM 评估（迁移 v31）：mlp-c1~c3=MLflow、c4~c6=Kubeflow；ai-c5=LLM 评估
+      // 必须前置：mlp-c6 标题含「Kubeflow + MLflow」、ai-c5 含「评估」，会被下方关键字规则误吞
+      if (chapterId === 'ai-c5') return 'llmeval'
+      if (chapterId.startsWith('mlp-')) {
+        const n = parseInt(chapterId.replace('mlp-c', ''), 10)
+        return n >= 1 && n <= 3 ? 'mlflow' : 'kubeflow'
+      }
+      if (chapterId.startsWith('kfp-')) return 'kubeflow' // 未来 gen-learn 生成
+      if (chapterId.startsWith('lle-')) return 'llmeval' // 未来 gen-learn 生成
       if (t.includes('prompt') || t.includes('提示')) return 'prompt'
       if (t.includes('rag') || t.includes('检索')) return 'rag'
       if (t.includes('eval') || t.includes('评估')) return 'eval'

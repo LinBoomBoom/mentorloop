@@ -116,8 +116,12 @@ export const SUBTRACKS = {
     urls: ['https://docs.github.com/en/actions', 'https://docs.gitlab.com/ee/ci/'] },
   'ai-infra':   { module: 'ai', label: 'AI Infra', prefix: 'inf', subtrack: 'deploy', note: '推理引擎 / 显存与吞吐优化',
     urls: ['https://docs.vllm.ai/', 'https://onnxruntime.ai/docs/', 'https://docs.nvidia.com/deeplearning/tensorrt/'] },
-  'ai-mlops':   { module: 'ai', label: 'MLOps', prefix: 'mlp', subtrack: 'eval', note: '实验追踪 / 模型注册 / 持续训练',
-    urls: ['https://mlflow.org/docs/latest/', 'https://www.kubeflow.org/docs/'] },
+  'ai-mlops':   { module: 'ai', label: 'MLOps · MLflow', prefix: 'mlp', subtrack: 'mlflow', note: '实验追踪 / 模型注册 / 项目流水线',
+    urls: ['https://mlflow.org/docs/latest/'] },
+  'ai-mlops-kubeflow': { module: 'ai', label: 'MLOps · Kubeflow', prefix: 'kfp', subtrack: 'kubeflow', note: 'Pipelines / 持续训练 / KFServing',
+    urls: ['https://www.kubeflow.org/docs/'] },
+  'ai-mlops-llmeval': { module: 'ai', label: 'MLOps · LLM 评估', prefix: 'lle', subtrack: 'llmeval', note: 'RAG 评估 / LLM-as-judge / tracing',
+    urls: ['https://docs.ragas.io/', 'https://python.langchain.com/docs/guides/evaluation/'] },
   // —— Phase 0 · C1 知识树深度：backend/ops 薄赛道补章（前缀均不与既有章节 id 冲突）——
   // 原种子薄赛道（无既有 gen-learn 条目）：be-web/be-micro/op-trad。
   // 已部分回填、本次追加深度的赛道：be-data/op-sre/op-k8s/op-sec（用 *-2 前缀，apply 跳过重复 id 安全）。

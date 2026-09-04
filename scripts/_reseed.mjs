@@ -166,6 +166,16 @@ function assignChapterSubtrack(moduleId, chapterId, title) {
     return 'linux';
   }
   if (moduleId === 'ai') {
+    if (chapterId === 'ai-c5') return 'llmeval';
+    if (chapterId.startsWith('mlp-')) {
+      const n = parseInt(chapterId.replace('mlp-c', ''), 10);
+      return n >= 1 && n <= 3 ? 'mlflow' : 'kubeflow';
+    }
+    if (chapterId.startsWith('al-')) {
+      if (/^al-c\d+n(-|$)/.test(chapterId) || chapterId.startsWith('al-c8')) return 'nlp';
+      if (/^al-c\d+r(-|$)/.test(chapterId) || chapterId.startsWith('al-c9')) return 'rec';
+      return 'cv';
+    }
     if (t.includes('prompt') || t.includes('提示')) return 'prompt';
     if (t.includes('rag') || t.includes('检索')) return 'rag';
     if (t.includes('eval') || t.includes('评估')) return 'eval';
