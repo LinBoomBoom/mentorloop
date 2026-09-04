@@ -1128,7 +1128,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
       const mod = (content.modules || []).find((m: any) => m.id === 'backend')
       if (!mod) return
-      const NEW_IDS = ['go-c1', 'go-c2', 'py-c1', 'py-c2']
+      const NEW_IDS = ['go-c1', 'go-c2', 'go-c3', 'go-c4', 'go-c5', 'py-c1', 'py-c2', 'py-c3', 'py-c4', 'py-c5']
       const chs = (mod.chapters || []).filter((c: any) => NEW_IDS.includes(c.id))
       if (!chs.length) return
       const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
