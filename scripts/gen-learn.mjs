@@ -100,8 +100,14 @@ export const SUBTRACKS = {
     urls: ['https://www.tensorflow.org/lite', 'https://developer.apple.com/machine-learning/'] },
   // —— 薄弱赛道补章：以下 5 个赛道原先仅 1-2 章（v2 遗留「第N章」老内容）——
   // 这些赛道的 chapterSubtracks 已含目标 subtrack，apply 后自动显现，无需再改 taxonomy。
-  'be-db':      { module: 'backend', label: '数据库', prefix: 'dbs', subtrack: 'mysql', note: '关系型 / NoSQL 存储与索引事务',
-    urls: ['https://dev.mysql.com/doc/refman/8.0/en/', 'https://www.postgresql.org/docs/current/', 'https://redis.io/docs/latest/'] },
+  'be-db-mysql':   { module: 'backend', label: 'MySQL', prefix: 'dbm', subtrack: 'mysql', note: '关系型存储 / 索引 / 事务',
+    urls: ['https://dev.mysql.com/doc/refman/8.0/en/'] },
+  'be-db-pg':      { module: 'backend', label: 'PostgreSQL', prefix: 'dbp', subtrack: 'postgresql', note: '关系型存储 / 高级类型 / MVCC',
+    urls: ['https://www.postgresql.org/docs/current/'] },
+  'be-db-redis':   { module: 'backend', label: 'Redis', prefix: 'dbr', subtrack: 'dbredis', note: '缓存 / 持久化 / 高可用（库内独立前缀，避开 be-search 的 redis）',
+    urls: ['https://redis.io/docs/latest/'] },
+  'be-db-nosql':   { module: 'backend', label: 'NoSQL', prefix: 'dbn', subtrack: 'dbnosql', note: '文档 / 宽列 / 图数据库与最终一致性',
+    urls: ['https://www.mongodb.com/docs/manual/', 'https://cassandra.apache.org/doc/latest/'] },
   'op-sre':     { module: 'devops', label: 'SRE', prefix: 'sre', subtrack: 'sre', note: 'SLI/SLO、可观测性与故障响应',
     urls: ['https://sre.google/books/', 'https://sre.google/workbook/', 'https://prometheus.io/docs/'] },
   'op-devops-docker': { module: 'devops', label: 'Docker', prefix: 'dop', subtrack: 'docker', note: '镜像构建 / 容器运行时 / 编排',

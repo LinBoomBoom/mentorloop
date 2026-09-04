@@ -130,6 +130,19 @@ function assignChapterSubtrack(moduleId, chapterId, title) {
     return 'engineering';
   }
   if (moduleId === 'backend') {
+    if (chapterId.startsWith('sr-')) {
+      // 搜索中间件已拆为 Elasticsearch / Redis（迁移 v27）：sr-c6/c7/c8 属 Redis，其余属 ES
+      if (/^sr-c[678](-|$)/.test(chapterId)) return 'redis'
+      return 'es'
+    }
+    if (chapterId.startsWith('dbs-')) {
+      // 数据库已拆为 MySQL / PostgreSQL / Redis / NoSQL（迁移 v29）：按 ID 前缀判定，避免被「数据库」关键字误吞
+      if (/^dbs-c[12]/.test(chapterId)) return 'mysql'
+      if (/^dbs-c[45]/.test(chapterId)) return 'postgresql'
+      if (/^dbs-c[678]/.test(chapterId)) return 'dbredis'
+      return 'mysql'
+    }
+    if (chapterId.startsWith('be-nosql')) return 'dbnosql'
     if (t.includes('java') || t.includes('jvm') || t.includes('spring')) return 'java';
     if (t.includes('node')) return 'nodejs';
     if (t.includes('mysql') || t.includes('数据库') || t.includes('sql')) return 'mysql';

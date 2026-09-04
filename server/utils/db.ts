@@ -1019,6 +1019,42 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 29,
+    name: 'db-split-mysql-postgresql-redis-nosql',
+    up: (db) => {
+      // 数据库赛道拆分（2026-09-05）：be-db「数据库 / 存储工程师」原只有 1 个子主题 mysql，
+      // 12 章混 MySQL/PostgreSQL/Redis/NoSQL。实际章节已按技术拆好（dbs-c1..c10），
+      // 仅 subtrack 未区分；另有旧混排章 be-c2（MySQL 与 Redis，内容已被 dbs-c* 覆盖，已删除）。
+      // 拆分：mysql = dbs-c1/c2/c3 + dbs-c10；postgresql = dbs-c4/c5；
+      //       dbredis = dbs-c6/c7/c8（新名，避开 be-search 已占用的 redis）；
+      //       dbnosql = be-nosql + dbs-c9（关系型 vs NoSQL 对比）
+      // 仅改 subtrack、章节 ID/position/sections 不变。以种子（真源）为准；空库由 seedIfEmpty 处理。
+      if ((db.prepare('SELECT COUNT(*) c FROM chapters').get() as any).c === 0) return
+      if (!fs.existsSync(SEED_PATH)) return
+      let content: any
+      try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
+      const mod = (content.modules || []).find((m: any) => m.id === 'backend')
+      if (!mod) return
+      const REASSIGN: Record<string, string> = {
+        'dbs-c1': 'mysql', 'dbs-c2': 'mysql', 'dbs-c3': 'mysql',
+        'dbs-c4': 'postgresql', 'dbs-c5': 'postgresql',
+        'dbs-c6': 'dbredis', 'dbs-c7': 'dbredis', 'dbs-c8': 'dbredis',
+        'dbs-c9': 'dbnosql', 'dbs-c10': 'mysql', 'be-nosql': 'dbnosql'
+      }
+      const DEL = ['be-c2']
+      const chs = (mod.chapters || []).filter((c: any) => [...Object.keys(REASSIGN), ...DEL].includes(c.id))
+      if (!chs.length) return
+      const updCh = db.prepare('UPDATE chapters SET subtrack=? WHERE id=?')
+      const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
+      const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
+      const tx = db.transaction(() => {
+        for (const [id, sub] of Object.entries(REASSIGN)) updCh.run(sub, id)
+        for (const id of DEL) { delSec.run(id); delCh.run(id) }
+      })
+      tx()
+    }
   }
 ]
 
@@ -1105,6 +1141,16 @@ function seedIfEmpty(db: any) {
       return 'engineering'
     }
     if (moduleId === 'backend') {
+      if (chapterId.startsWith('dbs-')) {
+        // 数据库已拆为 MySQL / PostgreSQL / Redis / NoSQL 四子主题（迁移 v29）：按编号归属
+        const n = parseInt(chapterId.replace('dbs-c', ''), 10)
+        if (n <= 3) return 'mysql'
+        if (n <= 5) return 'postgresql'
+        if (n <= 8) return 'dbredis'
+        if (n === 9) return 'dbnosql' // 存储引擎与索引综合对比（关系型 vs NoSQL）
+        return 'mysql' // dbs-c10 实践项目（电商数据层，MySQL 为主）
+      }
+      if (chapterId === 'be-nosql') return 'dbnosql' // NoSQL 与搜索（Mongo/Cassandra/图库）
       if (chapterId.startsWith('sr-')) {
         // 搜索中间件已拆为 Elasticsearch / Redis 两条独立路径（迁移 v27）：
         // sr-c6/c7/c8 为 Redis，其余为 Elasticsearch。
