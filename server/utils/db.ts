@@ -880,6 +880,40 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 25,
+    name: 'cross-split-flutter-reactnative',
+    up: (db) => {
+      // 跨端赛道拆分（2026-09-04）：fe-app「跨端 App 工程师（RN / Flutter）」原只有 1 个子主题 cross，
+      // 8 章混排 Flutter 与 React Native，两条技术路线无法独立学习。现按小节技术归属拆为
+      // Flutter（xp-c1f..xp-c8f）与 React Native（xp-c1r..xp-c8r），各 8 章 / 18 节。
+      // 内容零改写，仅重新分组；通用小节两条路径各保留一份，保证路径自包含。
+      // 同 v24：内容以种子（真源）为准读取插入；空库由 seedIfEmpty 直接插入，此处跳过。
+      if ((db.prepare('SELECT COUNT(*) c FROM chapters').get() as any).c === 0) return
+      if (!fs.existsSync(SEED_PATH)) return
+      let content: any
+      try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
+      const mod = (content.modules || []).find((m: any) => m.id === 'frontend')
+      if (!mod) return
+      const ids: string[] = []
+      const oldIds: string[] = []
+      for (let n = 1; n <= 8; n++) { ids.push(`xp-c${n}f`, `xp-c${n}r`); oldIds.push(`xp-c${n}`) }
+      const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
+      if (!chs.length) return
+      const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
+      const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
+      const tx = db.transaction(() => {
+        for (const id of [...oldIds, ...ids]) { delSec.run(id); delCh.run(id) }
+        for (const ch of chs) {
+          insCh.run(ch.id, 'frontend', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+        }
+      })
+      tx()
+    }
   }
 ]
 
@@ -933,7 +967,11 @@ function seedIfEmpty(db: any) {
     if (moduleId === 'frontend') {
       if (chapterId.startsWith('hm-')) return 'harmony'
       if (chapterId.startsWith('nat-')) return 'native'
-      if (chapterId.startsWith('xp-')) return 'cross'
+      if (chapterId.startsWith('xp-')) {
+        // 跨端已拆为 Flutter / React Native 两条独立路径（迁移 v25）：xp-c{n}r 属 RN，其余属 Flutter
+        if (/^xp-c\d+r(-|$)/.test(chapterId)) return 'reactnative'
+        return 'flutter'
+      }
       if (chapterId.startsWith('mp-')) return 'miniprogram'
       if (chapterId.startsWith('dt-')) {
         // 桌面端已拆为 Electron / Tauri 两条独立路径（迁移 v24）：dt-c1t/c3/c4t/c5t 属 Tauri，其余属 Electron
