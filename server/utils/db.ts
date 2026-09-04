@@ -982,6 +982,43 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 28,
+    name: 'viz-split-echarts-d3-webgl',
+    up: (db) => {
+      // 可视化赛道拆分（2026-09-05）：fe-viz「可视化 / 图形工程师」原只有 1 个子主题 visualization，
+      // 7 章混排三种技术。拆分策略：
+      //   - vz-c1 概览章（导论通用 + ECharts/D3/WebGL 概览各一节）拆为三条路径各一份导论+对应概览
+      //   - vz-c2/c3 全 ECharts、vz-c4/c5 全 D3、vz-c6/c7 全 WebGL → 整章直接归属，ID 不变
+      //   echarts = vz-c1e / vz-c2 / vz-c3          3 章 / 12 节
+      //   d3      = vz-c1d / vz-c4 / vz-c5          3 章 / 10 节
+      //   webgl   = vz-c1w / vz-c6 / vz-c7          3 章 / 10 节
+      // 派生章小节 ID 用目标章 ID 作前缀（vz-c1e-s1 等）保证全局唯一。内容零改写。
+      // 以种子（真源）为准；空库由 seedIfEmpty 处理，此处跳过。
+      if ((db.prepare('SELECT COUNT(*) c FROM chapters').get() as any).c === 0) return
+      if (!fs.existsSync(SEED_PATH)) return
+      let content: any
+      try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
+      const mod = (content.modules || []).find((m: any) => m.id === 'frontend')
+      if (!mod) return
+      const ids = ['vz-c1', 'vz-c2', 'vz-c3', 'vz-c4', 'vz-c5', 'vz-c6', 'vz-c7',
+        'vz-c1e', 'vz-c1d', 'vz-c1w']
+      const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
+      if (!chs.length) return
+      const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
+      const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
+      const tx = db.transaction(() => {
+        for (const id of ids) { delSec.run(id); delCh.run(id) }
+        for (const ch of chs) {
+          insCh.run(ch.id, 'frontend', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+        }
+      })
+      tx()
+    }
   }
 ]
 
@@ -1046,7 +1083,16 @@ function seedIfEmpty(db: any) {
         if (['dt-c1t', 'dt-c3', 'dt-c4t', 'dt-c5t'].some((p) => chapterId.startsWith(p))) return 'tauri'
         return 'electron'
       }
-      if (chapterId.startsWith('vz-')) return 'visualization'
+      if (chapterId.startsWith('vz-')) {
+        // 可视化已拆为 ECharts / D3 / WebGL 三条独立路径（迁移 v28）：派生章用 e/d/w 后缀区分
+        if (/^vz-c\d+e(-|$)/.test(chapterId)) return 'echarts'
+        if (/^vz-c\d+d(-|$)/.test(chapterId)) return 'd3'
+        if (/^vz-c\d+w(-|$)/.test(chapterId)) return 'webgl'
+        // 防御：已失效旧 ID（vz-c1..c7，迁移 v28 已删除），按技术归属兜底
+        const m = /^vz-c(\d+)/.exec(chapterId)
+        if (m) { const n = +m[1]; if (n <= 3) return 'echarts'; if (n <= 5) return 'd3'; return 'webgl' }
+        return 'echarts'
+      }
       if (t.includes('web 基础') || t.includes('html')) return 'web'
       if (t.includes('css')) return 'css'
       if (t.includes('typescript') || t.includes('ts') || t.includes('echarts')) return 'typescript'

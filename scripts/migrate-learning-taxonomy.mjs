@@ -77,10 +77,10 @@ const SUBTRACK_MAP = {
   security: 'fe-web-security',
   harmony: 'fe-harmony',
   native: 'fe-native',
-  cross: 'fe-cross',
+  // cross / desktop / visualization 三个旧 subtrack 已由专用拆分脚本 + db.ts 迁移 v24/v25/v28
+  // 改写为多子主题（flutter/reactnative、electron/tauri、echarts/d3/webgl）。1:N 拆分无法用 1:1
+  // 映射表达，且旧 subtrack 在当前库已不存在，故此处不再登记（避免遗留错误 target）。
   miniprogram: 'fe-miniprogram',
-  desktop: 'fe-desktop',
-  visualization: 'fe-viz',
   java: 'be-web-java',
   mysql: 'be-data-mysql',
   mq: 'be-arch-mq',

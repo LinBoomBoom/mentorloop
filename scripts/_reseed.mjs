@@ -98,10 +98,26 @@ function assignChapterSubtrack(moduleId, chapterId, title) {
   if (moduleId === 'frontend') {
     if (chapterId.startsWith('hm-')) return 'harmony';
     if (chapterId.startsWith('nat-')) return 'native';
-    if (chapterId.startsWith('xp-')) return 'cross';
+    if (chapterId.startsWith('xp-')) {
+      // 跨端已拆为 Flutter / React Native（dt 拆分，迁移 v25）：xp-c{n}r 属 RN，其余属 Flutter
+      if (/^xp-c\d+r(-|$)/.test(chapterId)) return 'reactnative'
+      return 'flutter'
+    }
     if (chapterId.startsWith('mp-')) return 'miniprogram';
-    if (chapterId.startsWith('dt-')) return 'desktop';
-    if (chapterId.startsWith('vz-')) return 'visualization';
+    if (chapterId.startsWith('dt-')) {
+      // 桌面端已拆为 Electron / Tauri（迁移 v24）：dt-c1t/c3/c4t/c5t 属 Tauri，其余属 Electron
+      if (['dt-c1t', 'dt-c3', 'dt-c4t', 'dt-c5t'].some((p) => chapterId.startsWith(p))) return 'tauri'
+      return 'electron'
+    }
+    if (chapterId.startsWith('vz-')) {
+      // 可视化已拆为 ECharts / D3 / WebGL（迁移 v28）：派生章用 e/d/w 后缀区分
+      if (/^vz-c\d+e(-|$)/.test(chapterId)) return 'echarts'
+      if (/^vz-c\d+d(-|$)/.test(chapterId)) return 'd3'
+      if (/^vz-c\d+w(-|$)/.test(chapterId)) return 'webgl'
+      const m = /^vz-c(\d+)/.exec(chapterId)
+      if (m) { const n = +m[1]; if (n <= 3) return 'echarts'; if (n <= 5) return 'd3'; return 'webgl' }
+      return 'echarts'
+    }
     if (t.includes('web 基础') || t.includes('html')) return 'web';
     if (t.includes('css')) return 'css';
     if (t.includes('typescript') || t.includes('ts') || t.includes('echarts')) return 'typescript';
