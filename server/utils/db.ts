@@ -846,6 +846,40 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 24,
+    name: 'desktop-split-electron-tauri',
+    up: (db) => {
+      // 桌面端赛道拆分（2026-09-04）：原单一 desktop 子主题 5 章混排 Electron/Tauri，
+      // 现拆为 Electron / Tauri 两条独立学习路径。对比/综合章 dt-c1/dt-c4/dt-c5 拆为两版，
+      // 纯 Electron 的 dt-c2 归 electron、纯 Tauri 的 dt-c3 归 tauri。
+      // 内容以种子（真源）为准读取插入，避免迁移内嵌长文本；空库由 seedIfEmpty 直接插入，此处跳过。
+      if ((db.prepare('SELECT COUNT(*) c FROM chapters').get() as any).c === 0) return
+      if (!fs.existsSync(SEED_PATH)) return
+      let content: any
+      try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
+      const mod = (content.modules || []).find((m: any) => m.id === 'frontend')
+      if (!mod) return
+      const ids = ['dt-c1e', 'dt-c1t', 'dt-c2', 'dt-c3', 'dt-c4e', 'dt-c4t', 'dt-c5e', 'dt-c5t']
+      const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
+      if (!chs.length) return
+      const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
+      const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
+      // 旧 3 章 + 复用的 2 章（dt-c2/dt-c3）一并先删后插：
+      // INSERT OR IGNORE 不会更新已存在行的 position/subtrack，会留下位置冲突，故用删后插保证与种子完全一致。
+      const ALL = ['dt-c1', 'dt-c4', 'dt-c5', 'dt-c1e', 'dt-c1t', 'dt-c2', 'dt-c3', 'dt-c4e', 'dt-c4t', 'dt-c5e', 'dt-c5t']
+      const tx = db.transaction(() => {
+        for (const id of ALL) { delSec.run(id); delCh.run(id) }
+        for (const ch of chs) {
+          insCh.run(ch.id, 'frontend', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+        }
+      })
+      tx()
+    }
   }
 ]
 
@@ -901,7 +935,11 @@ function seedIfEmpty(db: any) {
       if (chapterId.startsWith('nat-')) return 'native'
       if (chapterId.startsWith('xp-')) return 'cross'
       if (chapterId.startsWith('mp-')) return 'miniprogram'
-      if (chapterId.startsWith('dt-')) return 'desktop'
+      if (chapterId.startsWith('dt-')) {
+        // 桌面端已拆为 Electron / Tauri 两条独立路径（迁移 v24）：dt-c1t/c3/c4t/c5t 属 Tauri，其余属 Electron
+        if (['dt-c1t', 'dt-c3', 'dt-c4t', 'dt-c5t'].some((p) => chapterId.startsWith(p))) return 'tauri'
+        return 'electron'
+      }
       if (chapterId.startsWith('vz-')) return 'visualization'
       if (t.includes('web 基础') || t.includes('html')) return 'web'
       if (t.includes('css')) return 'css'
