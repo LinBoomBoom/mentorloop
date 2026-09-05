@@ -5,6 +5,7 @@
 // 双写 data/seed-content.json（真源）+ data/devmentor.db。支持 --dry-run。
 import fs from 'node:fs'
 import Database from 'better-sqlite3'
+import { BATCH3 } from './beweb-batch3.mjs'
 
 const SEED_PATH = './data/seed-content.json'
 const DB_PATH = './data/devmentor.db'
@@ -162,7 +163,8 @@ const CHAPTERS = [
       { id: 'py-c5-s4', title: '权限与作用域', direction: '用 OAuth2 scopes / 角色依赖实现细粒度授权。',
         content: "> 时效 | 核验=2026-09-05 | 风险=中 | 来源=官方\n\n## 心智模型\n\n作用域（scopes）是**“通行证上的权限标签”**：令牌签发时附带 `[\"read\", \"write\"]` 等范围，路由用 `Security(get_current_user, scopes=[\"write\"])` 要求令牌必须带对应标签才放行。角色（role）则是“用户身份徽章”——`get_current_active_user` 依赖里不仅验票，还查用户角色，非激活/无权限直接拒之门外。认证（你是谁）与授权（你能干啥）在此汇合。\n\n## 核心知识点（锚定官方）\n\n- **scopes 声明**：`oauth2 = OAuth2PasswordBearer(tokenUrl=\"token\", scopes={\"read\":\"Read\",\"write\":\"Write\"})`；登录时 `scopes=form.scopes` 写入令牌。[scopes 文档](https://fastapi.tiangolo.com/advanced/security/scopes/)\n- **依赖校验**：`def write_op(u: User = Security(get_current_user, scopes=[\"write\"]))`；缺 scope 自动 403。\n- **角色依赖**：`get_current_active_user(u = Depends(get_current_user))` 内 `if not u.is_active: raise 400`；组合出层级依赖。\n- **分层**：`authenticated` → `active` → `admin`，依赖层层叠加。\n\n## 常见坑\n\n- **只认证不授权**：验了令牌就放行所有接口，缺 scope/role 检查导致越权。\n- **scopes 拼写/大小写不一致**：令牌里的 scope 字符串与依赖要求必须精确匹配。\n- **依赖顺序错误**：`Security(..., scopes=...)` 必须基于已返回 user 的依赖，否则取不到用户上下文。\n\n## 动手自测\n\n```python\nfrom fastapi import Security\n@app.post(\"/items\", dependencies=[Security(get_current_user, scopes=[\"write\"])])\ndef create_item(item: Item, u: User = Depends(get_current_user)):\n    return item\n```\n\n## 面试视角\n\n- **认证（Authentication）与授权（Authorization）的区别？**（答：认证确认身份“你是谁”，授权确认权限“你能做什么”；JWT 携带 sub 是认证，scopes/role 是授权）\n- **scopes 相比角色（RBAC）的取舍？**（答：scopes 适合细粒度、跨服务的能力声明；RBAC 适合组织内角色层级，常结合使用）" }
     ]
-  }
+  },
+  ...BATCH3
 ]
 
 function applySeed() {
@@ -209,5 +211,5 @@ if (DRY) {
   console.log(`[seed] 新增 ${added} 章`)
   applyDb()
   console.log(`[db] 已写入 ${CHAPTERS.length} 章（INSERT OR IGNORE，已存在则跳过）`)
-  console.log('完成：go-c1..c5 (Go+Gin) + py-c1..c5 (Python+FastAPI)，共 ' + CHAPTERS.length + ' 章。')
+  console.log('完成：go-c1..c8 (Go+Gin) + py-c1..c8 (Python+FastAPI)，共 ' + CHAPTERS.length + ' 章。')
 }
