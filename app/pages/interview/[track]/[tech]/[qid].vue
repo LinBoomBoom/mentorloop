@@ -124,7 +124,7 @@ if (data.value && (data.value.track !== track.value || data.value.tech !== tech)
 const q = computed(() => data.value?.q || '')
 const a = computed(() => data.value?.a || '')
 const keywords = computed<any[]>(() => data.value?.keywords || [])
-const difficulty = computed(() => data.value?.difficulty || 'normal')
+const difficulty = computed(() => data.value?.difficulty || 'easy')
 const skill = computed(() => data.value?.skill || null)
 const sectionTitle = computed(() => data.value?.sectionTitle || null)
 const chapterTitle = computed(() => data.value?.chapterTitle || null)
@@ -199,7 +199,7 @@ function typeMeta() { return (isSpecial.value ? TYPE_META.special : TYPE_META.ho
 const DIFF_META: Record<string, { label: string; cls: string }> = {
   hard: { label: '困难', cls: '!bg-red-500/10 !text-red-500' },
   medium: { label: '较难', cls: '!bg-amber-500/15 !text-amber-600' },
-  normal: { label: '常规', cls: '!bg-brand-coral/10 !text-brand-coral' }
+  easy: { label: '常规', cls: '!bg-brand-coral/10 !text-brand-coral' }
 }
-function diffMeta(d: string) { return DIFF_META[d] || DIFF_META.normal }
+function diffMeta(d: string) { return DIFF_META[d] || DIFF_META.easy }
 </script>

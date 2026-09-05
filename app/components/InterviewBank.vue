@@ -142,9 +142,9 @@ function updateUrl() {
 const DIFF_META: Record<string, { label: string; cls: string }> = {
   hard: { label: '困难', cls: '!bg-red-500/10 !text-red-500' },
   medium: { label: '较难', cls: '!bg-amber-500/15 !text-amber-600' },
-  normal: { label: '常规', cls: '!bg-brand-coral/10 !text-brand-coral' }
+  easy: { label: '常规', cls: '!bg-brand-coral/10 !text-brand-coral' }
 }
-function diffMeta(d: string) { return DIFF_META[d] || DIFF_META.normal }
+function diffMeta(d: string) { return DIFF_META[d] || DIFF_META.easy }
 function setTab(t: 'hot' | 'special') { if (qTab.value === t) return; page.value = 1; qTab.value = t }
 function goPage(p: number) {
   page.value = p
