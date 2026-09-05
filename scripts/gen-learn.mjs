@@ -144,6 +144,14 @@ export const SUBTRACKS = {
     urls: ['https://kubernetes.io/docs/', 'https://kubernetes.io/docs/concepts/'] },
   'op-sec-2':   { module: 'devops', label: '安全运维', prefix: 'os2', subtrack: 'secops', note: '安全运维（深度补充）',
     urls: ['https://owasp.org/www-community/', 'https://www.cisa.gov/'] },
+  // —— Phase 1 Batch 1：AI 最热付费方向补章（agent/rag/prompt 此前无 gen-learn 条目，llmeval 复用 ai-mlops-llmeval）——
+  // 官方权威源锚定；章数由官方文档结构驱动，不写死。
+  'ai-agent':   { module: 'ai', label: 'AI Agent', prefix: 'agt', subtrack: 'agent', note: 'Agent 编排 / 工具调用 / 多智能体协作',
+    urls: ['https://openai.github.io/openai-agents-python/', 'https://langchain-ai.github.io/langgraph/', 'https://docs.anthropic.com/en/docs/agents-and-tools/agent-sdks/overview'] },
+  'ai-rag':     { module: 'ai', label: 'RAG', prefix: 'agr', subtrack: 'rag', note: '检索增强生成 / 向量检索 / 检索与生成协同',
+    urls: ['https://python.langchain.com/docs/tutorials/rag/', 'https://docs.llamaindex.ai/en/stable/'] },
+  'ai-prompt':  { module: 'ai', label: 'Prompt 工程', prefix: 'agp', subtrack: 'prompt', note: '提示工程 / 结构化输出 / 护栏与评测',
+    urls: ['https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview', 'https://platform.openai.com/docs/guides/prompt-engineering'] },
 }
 
 // ---------------- 基础设施 ----------------
