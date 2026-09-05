@@ -415,11 +415,11 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
         db.prepare("ALTER TABLE interview_questions ADD COLUMN weight INTEGER DEFAULT 3").run()
       }
       if (!colExists(db, 'interview_questions', 'difficulty')) {
-        db.prepare("ALTER TABLE interview_questions ADD COLUMN difficulty TEXT DEFAULT 'normal'").run()
+        db.prepare("ALTER TABLE interview_questions ADD COLUMN difficulty TEXT DEFAULT 'easy'").run()
       }
       // 存量回填：专项(special)题权重更高、难度 hard；热点(hot)常规
       db.prepare("UPDATE interview_questions SET weight=5, difficulty='hard' WHERE type='special' AND weight IS NULL").run()
-      db.prepare("UPDATE interview_questions SET weight=3, difficulty='normal' WHERE type='hot' AND weight IS NULL").run()
+      db.prepare("UPDATE interview_questions SET weight=3, difficulty='easy' WHERE type='hot' AND weight IS NULL").run()
     }
   },
   {
@@ -465,7 +465,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       // ① 题型误判：seedIfEmpty 曾用 id[1]==='s' 推导题型，只对 fq/fs 两字母前缀成立。
       //    iq-m5-* / xq-* 等新前缀会被一律判成 hot。以种子文件为准回正（种子是内容唯一真源）。
       // ② 权重/难度未回填：v6 的回填跑在 runMigrations 阶段，早于 seedIfEmpty，空表上等于没跑，
-      //    列 DEFAULT 让 special 题停留在 weight=3 / difficulty='normal'，UI 的「较难」标签从不出现。
+      //    列 DEFAULT 让 special 题停留在 weight=3 / difficulty='easy'，UI 的「较难」标签从不出现。
       const has = (c: string) => colExists(db, 'interview_questions', c)
       if (!has('weight') || !has('difficulty')) return
       // 新库此时表还是空的（迁移早于 seed），直接跳过：修正逻辑已内置在 seedIfEmpty 的插入里
@@ -480,7 +480,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
           const wanted = new Map<string, { type: string; difficulty: string; weight: number }>()
           const collect = (list: any[], type: string) => {
             for (const q of list || []) {
-              const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'normal')
+              const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'easy')
               const weight = typeof q.weight === 'number' ? q.weight : (difficulty === 'hard' ? 5 : 3)
               wanted.set(q.id, { type, difficulty, weight })
             }
@@ -506,7 +506,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       db.prepare("UPDATE interview_questions SET weight=5 WHERE type='special' AND weight IS NULL").run()
       db.prepare("UPDATE interview_questions SET difficulty='hard' WHERE type='special' AND (difficulty IS NULL OR difficulty='')").run()
       db.prepare("UPDATE interview_questions SET weight=3 WHERE type='hot' AND weight IS NULL").run()
-      db.prepare("UPDATE interview_questions SET difficulty='normal' WHERE type='hot' AND (difficulty IS NULL OR difficulty='')").run()
+      db.prepare("UPDATE interview_questions SET difficulty='easy' WHERE type='hot' AND (difficulty IS NULL OR difficulty='')").run()
     }
   },
   {
@@ -1318,7 +1318,7 @@ function seedIfEmpty(db: any) {
     // ① 题型按所属数组判定，不再用 id[1]==='s' 推导。
     //    旧写法只对 fq/fs 这类两字母前缀成立，iq-m5-*、xq-* 等新前缀会被一律判成 hot（实测误判 128 道 special）。
     // ② 权重/难度在此显式写入：迁移 v6 的回填跑在 runMigrations 阶段，早于 seedIfEmpty，
-    //    空表上执行等于没跑；列上的 DEFAULT 3 / 'normal' 会让 special 题永远拿不到 weight=5 / difficulty='hard'，
+    //    空表上执行等于没跑；列上的 DEFAULT 3 / 'easy' 会让 special 题永远拿不到 weight=5 / difficulty='hard'，
     //    前端「较难」标签因此从不出现。种子若自带 difficulty 则以种子为准。
     Object.entries(content.interview).forEach(([track, bank]: any) => {
       const rows = [
@@ -1327,7 +1327,7 @@ function seedIfEmpty(db: any) {
       ]
       for (const [q, type] of rows) {
         const kw = JSON.stringify(q.keywords || [])
-        const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'normal')
+        const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'easy')
         const weight = typeof q.weight === 'number' ? q.weight : (type === 'special' ? 5 : 3)
         insQ.run(q.id, track, type, q.q, q.a, kw, weight, difficulty, q.tech || classifyTech(track, q.q, kw), q.subtrack || null, q.skill || null)
       }

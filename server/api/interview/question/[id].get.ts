@@ -40,7 +40,7 @@ export default defineEventHandler((event) => {
     a: row.a,
     keywords: JSON.parse(row.keywords || '[]'),
     tech: row.tech || '综合',
-    difficulty: row.difficulty || 'normal',
+    difficulty: row.difficulty || 'easy',
     subtrack: row.subtrack || null,
     skill: row.skill || null,
     track: row.track,

@@ -98,7 +98,7 @@ export default defineEventHandler((event) => {
         a: r.a,
         keywords: JSON.parse(r.keywords || '[]'),
         tech: r.tech || '综合',
-        difficulty: r.difficulty || 'normal',
+        difficulty: r.difficulty || 'easy',
         sectionTitle: r.section_title || null,
         subtrack: r.subtrack || null,
         skill: r.skill || null

@@ -131,10 +131,10 @@ ${goal ? '候选人目标岗位/方向：' + goal + '。' : ''}
 // BUG-6：原自由生成的首题在 Deepseek 下高度收敛到「自我介绍」，导致每天首次打开题目几乎相同。
 // 改为从真实题库按方向+难度随机抽取首题，保证具体技术问题、每天不同、且与后续 AI 追问自然衔接。
 function pickFirstQuestionFromBank(track: string, level: string): string | null {
-  // 难度映射：初级偏常规，中级覆盖常规/较难，高级偏较难/困难
+  // 难度映射：初级偏基础(easy)，中级覆盖基础/较难，高级偏较难/困难
   const diffs: Record<string, string[]> = {
-    junior: ['normal'],
-    mid: ['normal', 'medium'],
+    junior: ['easy'],
+    mid: ['easy', 'medium'],
     senior: ['medium', 'hard']
   }
   const wanted = diffs[level] || diffs.mid
