@@ -301,8 +301,8 @@ async function worker(queue) {
           const id = qid(sec.id, i + 1)
           const isHard = x.difficultyRaw === '困难'
           const type = isHard ? 'special' : 'hot'
-          // 三档难度：困难→hard/special，较难→medium/hot，常规→normal/hot（修复原 2 档塌缩）
-          const difficulty = x.difficultyRaw === '困难' ? 'hard' : (x.difficultyRaw === '较难' ? 'medium' : 'normal')
+          // 三档难度：困难→hard/special，较难→medium/hot，常规→easy/hot（修复原 2 档塌缩）
+          const difficulty = x.difficultyRaw === '困难' ? 'hard' : (x.difficultyRaw === '较难' ? 'medium' : 'easy')
           // 优先采用 LLM 直接归类的技术子类（更准），非法时回退关键词 classifyTech
           const validTechs = TECH_MAP[sec.track].map((r) => r.tech)
           const tech = validTechs.includes(x.techRaw) ? x.techRaw : classifyTech(sec.track, x.q, JSON.stringify(x.keywords))

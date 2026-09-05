@@ -142,7 +142,7 @@ function applyRow(row, dRaw, tRaw) {
   // 难度：special 行固定 hard（维持 困难→special 的 type 耦合）；hot 行按 LLM 重分，困难钳为 medium 留在 hot
   let newDiff
   if (row.type === 'special') newDiff = 'hard'
-  else newDiff = dRaw === '困难' ? 'medium' : (dRaw === '较难' ? 'medium' : 'normal')
+  else newDiff = dRaw === '困难' ? 'medium' : (dRaw === '较难' ? 'medium' : 'easy')
   if (dRaw !== '常规' && dRaw !== '较难' && dRaw !== '困难') newDiff = row.difficulty // LLM 异常则保留原值
 
   // 技术：校验是否在合法列表，否则保留原值（含 综合）

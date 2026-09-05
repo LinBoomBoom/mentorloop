@@ -26,7 +26,7 @@ export function expandContent(db) {
   // 兼容尚未跑 db.ts v6 迁移的生产库：确保面试表含权重列（幂等）
   const cols = db.prepare('PRAGMA table_info(interview_questions)').all().map((c) => c.name)
   if (!cols.includes('weight')) db.prepare('ALTER TABLE interview_questions ADD COLUMN weight INTEGER DEFAULT 3').run()
-  if (!cols.includes('difficulty')) db.prepare("ALTER TABLE interview_questions ADD COLUMN difficulty TEXT DEFAULT 'normal'").run()
+  if (!cols.includes('difficulty')) db.prepare("ALTER TABLE interview_questions ADD COLUMN difficulty TEXT DEFAULT 'easy'").run()
 
   let setsAdded = 0, choicesAdded = 0, writtenAdded = 0, iqAdded = 0
   const insSet = db.prepare('INSERT OR IGNORE INTO exam_sets (id,name,track,level,duration,vip_only) VALUES (?,?,?,?,?,?)')
@@ -45,10 +45,10 @@ export function expandContent(db) {
       }
     }
     for (const iq of interviewNew) {
-      if (insIq.run(iq.id, iq.track, iq.type, iq.q, iq.a, JSON.stringify(iq.keywords), iq.weight ?? 3, iq.difficulty ?? 'normal').changes) iqAdded++
+      if (insIq.run(iq.id, iq.track, iq.type, iq.q, iq.a, JSON.stringify(iq.keywords), iq.weight ?? 3, iq.difficulty ?? 'easy').changes) iqAdded++
     }
     // 回填权重：存量 + 新增中未带 weight 的（幂等）
-    db.prepare("UPDATE interview_questions SET weight=CASE WHEN type='special' THEN 5 ELSE 3 END, difficulty=CASE WHEN type='special' THEN 'hard' ELSE 'normal' END WHERE weight IS NULL").run()
+    db.prepare("UPDATE interview_questions SET weight=CASE WHEN type='special' THEN 5 ELSE 3 END, difficulty=CASE WHEN type='special' THEN 'hard' ELSE 'easy' END WHERE weight IS NULL").run()
   })
   tx()
   return { setsAdded, choicesAdded, writtenAdded, iqAdded }

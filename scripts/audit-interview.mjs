@@ -53,7 +53,7 @@ function jaccard(a, b) {
 // 刻意排除英文 TODO/FIXME/TBD：本语料中它们大量作为合法技术内容出现（TodoMVC 是 Redux 经典示例、
 // fixme 作为概念被讲解），误报率极高；如需查英文占位，应改用「独立成行/整体大写」等结构特征，而非关键字。
 const PLACEHOLDER = /(待补充|待完善|待填写|\[待)/i
-const VALID_DIFFICULTY = new Set(['normal', 'medium', 'hard', 'easy'])
+const VALID_DIFFICULTY = new Set(['easy', 'medium', 'hard'])
 
 /* ---------------- 从一行构造审计对象 ---------------- */
 function rowToObj(r) {
@@ -228,7 +228,7 @@ function renderMarkdown(reps, seedRecon) {
       aTooShort: '答案 < 40 字（桩/占位嫌疑）', aEqQ: '答案==题干（复制错误）',
       placeholder: '答案含中文编写缺口标记(待补充/待完善/待填写/[待)', nullSubtrack: 'subtrack 为空 → 题库 UI 不可见',
       nullTech: 'tech 为空 → 二级技术筛选缺位', emptyKeywords: 'keywords 为空',
-      badDifficulty: 'difficulty 值非法（非 normal/hard）', nullSource: 'source 为空 → 溯源缺口'
+      badDifficulty: 'difficulty 值非法（非 easy/medium/hard）', nullSource: 'source 为空 → 溯源缺口'
     }
     for (const [k, v] of Object.entries(m.issueCounts)) {
       if (v > 0) lines.push(`| ${k} | ${v} | ${desc[k] || k} |`)

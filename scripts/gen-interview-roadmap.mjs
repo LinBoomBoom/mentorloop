@@ -328,7 +328,7 @@ ${TECH_MAP[f.track].map(r => r.tech).join('、')}
             const id = qid(f.track, f.subtrackId, f.lv, f.skillIdx, i + 1)
             const isHard = x.difficultyRaw === '困难'
             const type = isHard ? 'special' : 'hot'
-            const difficulty = isHard ? 'hard' : (x.difficultyRaw === '较难' ? 'medium' : 'normal')
+            const difficulty = isHard ? 'hard' : (x.difficultyRaw === '较难' ? 'medium' : 'easy')
             const validTechs = TECH_MAP[f.track].map(r => r.tech)
             const tech = validTechs.includes(x.techRaw) ? x.techRaw : classifyTech(f.track, x.q, JSON.stringify(x.keywords))
             const weight = isHard ? 5 : 3

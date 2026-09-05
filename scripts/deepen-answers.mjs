@@ -70,7 +70,7 @@ function buildMessages(row) {
     : row.difficulty === 'easy'
       ? '入门级：250-400 字，讲清基础即可'
       : '普通难度：450-650 字'
-  // 硬上限（token）：easy≈400 / normal≈600 / hard≈900，换算中文约 550 / 800 / 1200 字
+  // 硬上限（token）：easy≈400 / medium≈600 / hard≈900，换算中文约 550 / 800 / 1200 字
   const maxTokens = row.difficulty === 'hard' ? 560 : row.difficulty === 'easy' ? 350 : 480
   const user = `题目方向：${row.track}（技术细分：${row.tech || '综合'}）
 题目难度：${row.difficulty}

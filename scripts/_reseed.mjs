@@ -193,7 +193,7 @@ const insW = db.prepare('INSERT OR IGNORE INTO exam_written (id,set_id,q,points,
 
 function insertQuestion(track, q, type) {
   const kw = JSON.stringify(q.keywords || []);
-  const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'normal');
+  const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'easy');
   const weight = typeof q.weight === 'number' ? q.weight : (type === 'special' ? 5 : 3);
   const tech = q.tech || classifyTech(track, q.q, kw, q.a);
   insQ.run(q.id, track, type, q.q, q.a, kw, weight, difficulty, tech, q.subtrack || null, q.skill || null, q.source ?? null);
