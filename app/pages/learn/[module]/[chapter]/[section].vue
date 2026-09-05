@@ -149,8 +149,8 @@
               </span>
             </div>
           </NuxtLink>
-          <NuxtLink to="/interview" class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-coral hover:underline mt-1">
-            <Icon name="arrowRight" :size="13" /> 去面试题库做更多练习
+          <NuxtLink :to="practiceLink" class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-coral hover:underline mt-1">
+            <Icon name="arrowRight" :size="13" /> 去面试题库做更多练习<template v-if="chapter?.subtrack"> · {{ SUBTRACK_DISPLAY[chapter.subtrack] || chapter.subtrack }}</template>
           </NuxtLink>
         </div>
       </a-card>
@@ -178,6 +178,7 @@
 
 <script setup lang="ts">
 import { techToSlug } from '~~/server/utils/interviewSlugs'
+import { SUBTRACK_DISPLAY } from '~/data/learningTaxonomy'
 const route = useRoute()
 const router = useRouter()
 const { request } = useApi()
@@ -228,6 +229,11 @@ const ci = computed(() => module.value?.chapters.findIndex((c: any) => c.id === 
 const chapter = computed(() => module.value?.chapters[ci.value])
 const si = computed(() => chapter.value?.sections.findIndex((s: any) => s.id === route.params.section))
 const section = computed(() => chapter.value?.sections[si.value])
+// 学→练闭环 deep-link：把当前章节子主题(go/python/vue…)透传到题库 sd 过滤
+const practiceLink = computed(() => {
+  const st = chapter.value?.subtrack
+  return '/interview/' + route.params.module + (st ? '?sd=' + encodeURIComponent(st) : '')
+})
 const done = computed(() => module.value && section.value ? isDone(progress.value, module.value.id, chapter.value.id, section.value.id) : false)
 // 时效元数据与正文分离（宪章 4.1）：时效以徽章呈现，不混入 markdown 正文
 const parsed = computed(() => splitFreshness(section.value?.content || ''))

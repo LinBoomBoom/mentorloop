@@ -12,6 +12,12 @@
       <button @click="selectTrack('')" class="chip-tab chip-tab-sm"
               :class="!activeTrackId ? 'chip-tab-active' : ''">全部</button>
     </div>
+    <div v-if="activeSubDetail" class="flex gap-2 mb-3 flex-wrap items-center">
+      <span class="text-xs text-muted mr-1">子主题筛选：</span>
+      <button class="chip-tab chip-tab-sm chip-tab-active" @click="clearSubDetail()">
+        {{ SUBTRACK_DISPLAY[activeSubDetail] || activeSubDetail }} <span class="ml-1 opacity-70">✕</span>
+      </button>
+    </div>
 
     <a-input v-model:value="q" class="mb-4 max-w-md" placeholder="搜索面试题，如：响应式、缓存击穿…" aria-label="搜索面试题">
       <template #prefix><Icon name="search" :size="17" class="text-muted" /></template>
@@ -87,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { getTracks, type Track } from '~/data/learningTaxonomy'
+import { getTracks, SUBTRACK_DISPLAY, type Track } from '~/data/learningTaxonomy'
 import { techToSlug } from '~~/server/utils/interviewSlugs'
 
 const props = defineProps<{ track: string }>()
@@ -104,6 +110,8 @@ const tracks = computed<Track[]>(() => getTracks(activeTrackParam.value))
 
 const activeTrackId = ref(typeof route.query.group === 'string' ? route.query.group : '')
 const activeTech = ref(typeof route.query.direction === 'string' ? route.query.direction : '')
+// 子主题级过滤（学→练闭环 deep-link：从学习章节页「做更多练习」带 ?sd=go 进入）
+const activeSubDetail = ref(typeof route.query.sd === 'string' ? route.query.sd : '')
 
 const activeTrack = computed<Track | null>(() => activeTrackId.value ? tracks.value.find(t => t.id === activeTrackId.value) || null : null)
 
@@ -112,7 +120,7 @@ const apiSubtrack = computed(() => activeTrackId.value)
 const apiTech = computed(() => activeTech.value)
 
 const { data: bankRes, pending } = await useFetch(() => '/api/interview/' + activeTrackParam.value, {
-  query: { type: qTab, subtrack: apiSubtrack, tech: apiTech, q: qDebounced, page, pageSize: PAGE_SIZE }
+  query: { type: qTab, subtrack: apiSubtrack, tech: apiTech, sd: activeSubDetail, q: qDebounced, page, pageSize: PAGE_SIZE }
 })
 const bank = computed(() => bankRes.value?.bank || null)
 const items = computed<any[]>(() => bank.value?.items || [])
@@ -135,8 +143,15 @@ function updateUrl() {
   const query: Record<string, string> = {}
   if (activeTrackId.value) query.group = activeTrackId.value
   if (activeTrackId.value && activeTech.value) query.direction = activeTech.value
+  if (activeSubDetail.value) query.sd = activeSubDetail.value
   if (q.value) query.q = q.value
   navigateTo({ query }, { replace: true })
+}
+function clearSubDetail() {
+  if (!activeSubDetail.value) return
+  activeSubDetail.value = ''
+  page.value = 1
+  updateUrl()
 }
 
 const DIFF_META: Record<string, { label: string; cls: string }> = {
