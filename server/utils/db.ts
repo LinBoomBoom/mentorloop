@@ -1128,10 +1128,11 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       try { content = JSON.parse(fs.readFileSync(SEED_PATH, 'utf-8')) } catch { return }
       const mod = (content.modules || []).find((m: any) => m.id === 'backend')
       if (!mod) return
-      // Batch 1（基础/框架）+ Batch 2（并发实战/ORM/安全认证）+ Batch 3（测试/部署/微服务）
+      // Batch 1（基础/框架）+ Batch 2（并发实战/ORM/安全认证）
+      // + Batch 3（测试/部署/微服务）+ Batch 4（运行时/算法/网络 IO）
       const NEW_IDS = [
-        'go-c1', 'go-c2', 'go-c3', 'go-c4', 'go-c5', 'go-c6', 'go-c7', 'go-c8',
-        'py-c1', 'py-c2', 'py-c3', 'py-c4', 'py-c5', 'py-c6', 'py-c7', 'py-c8'
+        'go-c1', 'go-c2', 'go-c3', 'go-c4', 'go-c5', 'go-c6', 'go-c7', 'go-c8', 'go-c9', 'go-c10', 'go-c11',
+        'py-c1', 'py-c2', 'py-c3', 'py-c4', 'py-c5', 'py-c6', 'py-c7', 'py-c8', 'py-c9', 'py-c10', 'py-c11'
       ]
       const chs = (mod.chapters || []).filter((c: any) => NEW_IDS.includes(c.id))
       if (!chs.length) return
