@@ -62,6 +62,8 @@ export const SUBTRACKS = {
     urls: ['https://owasp.org/www-community/attacks/', 'https://developer.mozilla.org/zh-CN/docs/Web/Security'] },
   'web-perf':  { module: 'frontend', label: '性能', subtrack: 'performance', prefix: 'pf', note: 'Web 性能（关键渲染路径/Web Vitals）',
     urls: ['https://web.dev/learn/performance', 'https://developer.mozilla.org/zh-CN/docs/Web/Performance'] },
+  'fe-ts':      { module: 'frontend', label: 'TypeScript', prefix: 'fts', subtrack: 'typescript', note: '类型系统 / 泛型 / 高级类型 / 工程实践',
+    urls: ['https://www.typescriptlang.org/docs/', 'https://www.typescriptlang.org/docs/handbook/intro.html'] },
   // —— Task 2：13 个空赛道补齐（章数由官方文档结构决定，不写死）——
   // 每条 subtrack 值需与 LEARNING_TAXONOMY 对应赛道的 chapterSubtracks 对齐，apply 后才会在学习中心可见。
   'fe-mobile':  { module: 'frontend', label: '移动端', prefix: 'mb', subtrack: 'mobile', note: '移动端 H5 / 响应式适配',
@@ -79,6 +81,8 @@ export const SUBTRACKS = {
     urls: ['https://www.elastic.co/guide/index.html'] },
   'be-redis':   { module: 'backend', label: 'Redis', prefix: 'rc', subtrack: 'redis', note: '缓存 / 持久化 / 高可用',
     urls: ['https://redis.io/docs/latest/'] },
+  'be-mq':      { module: 'backend', label: '消息队列', prefix: 'bmq', subtrack: 'mq', note: 'RabbitMQ / Kafka / NATS / Pulsar 消息模型与可靠性',
+    urls: ['https://www.rabbitmq.com/docs', 'https://kafka.apache.org/documentation/', 'https://nats.io/documentation/'] },
   'be-test':    { module: 'backend', label: 'SDET', prefix: 'sd', subtrack: 'sdet', note: '自动化测试框架 / 测试平台',
     urls: ['https://playwright.dev/docs/intro', 'https://www.selenium.dev/documentation/'] },
   'op-k8s':     { module: 'devops', label: 'Kubernetes', prefix: 'k8', subtrack: 'k8s', note: '云原生 / K8s 容器平台',
