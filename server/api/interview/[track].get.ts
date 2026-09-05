@@ -12,6 +12,8 @@ export default defineEventHandler((event) => {
   // 技能树浏览模式：按路线图赛道 / 技能点精确筛选（仅路线图题 rq- 带这两个归属）
   const subtrackRaw = (query.subtrack as string) || ''
   const skill = (query.skill as string) || ''
+  // 子主题级精准过滤（打通学→练闭环 deep-link）：章节 subtrack（go/python/vue…）命中 subtrack_detail
+  const sdRaw = (query.sd as string) || ''
   // 支持逗号分隔的多值（大类下可能混合「路线图赛道」与「技术」两种归类轴，需 OR 合并）
   const techs = techRaw.split(',').map(s => s.trim()).filter(Boolean)
   const subtracks = subtrackRaw.split(',').map(s => s.trim()).filter(Boolean)
@@ -38,6 +40,8 @@ export default defineEventHandler((event) => {
   if (orParts.length === 2) cond.push('(' + orParts.join(' OR ') + ')')
   else if (orParts.length === 1) cond.push(orParts[0])
   if (skill) { cond.push('skill=?'); args.push(skill) }
+  // 子主题级精准过滤（打通学→练闭环 deep-link）：subtrack_detail 逗号包裹, LIKE '%,go,%'
+  if (sdRaw) { cond.push('subtrack_detail LIKE ?'); args.push('%,' + sdRaw + ',%') }
   if (kw) {
     // A10 转义 LIKE 通配符。注意 SQLite 默认无转义字符，必须显式声明 ESCAPE '\'，
     // 否则 likeWrap 产出的 \% 会被当成「字面反斜杠 + 通配符」，导致搜索 % / _ 静默返回空。
@@ -73,6 +77,7 @@ export default defineEventHandler((event) => {
     techCond.push('subtrack IN (' + ph + ')'); techArgs.push(...subtracks)
   }
   if (skill) { techCond.push('skill=?'); techArgs.push(skill) }
+  if (sdRaw) { techCond.push('subtrack_detail LIKE ?'); techArgs.push('%,' + sdRaw + ',%') }
   if (kw) {
     const like = likeWrap(kw)
     techCond.push(`(q LIKE ? ESCAPE '\\' OR a LIKE ? ESCAPE '\\' OR keywords LIKE ? ESCAPE '\\')`)

@@ -15,30 +15,43 @@ export default defineEventHandler((event) => {
 
   let rows = linked
   if (rows.length === 0) {
-    // ② 兜底：同方向下，按「题关键词命中本节标题/正文」做相关匹配
+    // 取该节的标题/正文 + 所属赛道(方向) + 所属子主题(subtrack 子主题级)
     const sec = sqlite.prepare(
-      `SELECT s.title, s.content, c.module_id AS track
+      `SELECT s.title, s.content, c.module_id AS track, c.subtrack AS chapter_subtrack
        FROM sections s JOIN chapters c ON c.id = s.chapter_id
        WHERE s.id=?`
     ).get(sectionId) as any
-    if (sec && sec.track) {
-      const text = ((sec.title || '') + ' ' + (sec.content || '')).toLowerCase()
-      const cand = sqlite.prepare(
-        `SELECT id,q,a,keywords,tech,difficulty,track,COALESCE(weight,0) AS w
-         FROM interview_questions WHERE track=? AND section_id IS NULL
-         ORDER BY w DESC, id`
-      ).all(sec.track) as any[]
-      const scored: { r: any, score: number }[] = []
-      for (const r of cand) {
-        let score = 0
-        try {
-          const kws = JSON.parse(r.keywords || '[]')
-          for (const k of kws) if (k && text.indexOf(String(k).toLowerCase()) >= 0) score++
-        } catch (e) { /* ignore */ }
-        if (score > 0) scored.push({ r, score })
+    if (sec) {
+      // ② 子主题精准匹配：章节所属 subtrack（子主题级，如 go/python/vue）命中题库 subtrack_detail，
+      //    让「学 Go 的人看到 Go 题」而非全后端关键词噪声。优先于关键词兜底。
+      if (sec.chapter_subtrack) {
+        const detail = sqlite.prepare(
+          `SELECT id,q,a,keywords,tech,difficulty,track,COALESCE(weight,0) AS w
+           FROM interview_questions WHERE subtrack_detail LIKE ? AND section_id IS NULL
+           ORDER BY w DESC, id`
+        ).all('%,' + sec.chapter_subtrack + ',%') as any[]
+        if (detail.length) rows = detail.slice(0, 8)
       }
-      scored.sort((x, y) => y.score - x.score || y.r.w - x.r.w)
-      rows = scored.slice(0, 8).map((s) => s.r)
+      // ③ 兜底：同方向下，按「题关键词命中本节标题/正文」做相关匹配
+      if (rows.length === 0 && sec.track) {
+        const text = ((sec.title || '') + ' ' + (sec.content || '')).toLowerCase()
+        const cand = sqlite.prepare(
+          `SELECT id,q,a,keywords,tech,difficulty,track,COALESCE(weight,0) AS w
+           FROM interview_questions WHERE track=? AND section_id IS NULL
+           ORDER BY w DESC, id`
+        ).all(sec.track) as any[]
+        const scored: { r: any, score: number }[] = []
+        for (const r of cand) {
+          let score = 0
+          try {
+            const kws = JSON.parse(r.keywords || '[]')
+            for (const k of kws) if (k && text.indexOf(String(k).toLowerCase()) >= 0) score++
+          } catch (e) { /* ignore */ }
+          if (score > 0) scored.push({ r, score })
+        }
+        scored.sort((x, y) => y.score - x.score || y.r.w - x.r.w)
+        rows = scored.slice(0, 8).map((s) => s.r)
+      }
     }
   }
 

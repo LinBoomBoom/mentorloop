@@ -1148,8 +1148,63 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       })
       tx()
     }
+  },
+  {
+    version: 33,
+    name: 'add_subtrack_detail',
+    up: (db: any) => {
+      const cols = (db.prepare("PRAGMA table_info(interview_questions)").all() as any[]).map((c: any) => c.name)
+      if (!cols.includes('subtrack_detail')) db.exec('ALTER TABLE interview_questions ADD COLUMN subtrack_detail TEXT')
+    }
   }
 ]
+
+// ---- Phase 0: 学→练闭环 — 题库 subtrack_detail（子主题级）----
+// 映射来源: app/data/learningTaxonomy.ts 的 LEARNING_TAXONOMY（Track.id → chapterSubtracks）
+// 题库 subtrack 是「赛道级」(fe-web/be-web…)，章节 subtrack 是「子主题级」(go/python/vue…)，
+// 粒度不同无法直接关联；本映射把赛道级展开为子主题级，写入 subtrack_detail（逗号包裹，便于 LIKE 匹配），
+// 供 by-section / 题库 sd 过滤按子主题精准匹配，打通「学→练闭环」。
+const TRACK_TO_SUBTRACKS: Record<string, string[]> = {
+  'fe-web': ['web', 'css', 'javascript', 'typescript', 'react', 'vue', 'performance', 'security'],
+  'fe-arch': ['engineering'],
+  'fe-harmony': ['harmony'],
+  'fe-miniprogram': ['miniprogram'],
+  'fe-app': ['flutter', 'reactnative'],
+  'fe-native': ['native'],
+  'fe-viz': ['echarts', 'd3', 'webgl'],
+  'fe-desktop': ['electron', 'tauri'],
+  'fe-mobile': ['mobile'],
+  'fe-uniapp': ['uniapp'],
+  'fe-node': ['nodefull'],
+  'be-web': ['java', 'go', 'python'],
+  'be-micro': ['system', 'micro', 'mq'],
+  'be-db': ['mysql', 'postgresql', 'dbredis', 'dbnosql'],
+  'be-data': ['offlinedw', 'realtime'],
+  'be-game': ['gameserver'],
+  'be-search': ['es', 'redis'],
+  'be-test': ['sdet'],
+  'op-trad': ['linux', 'network'],
+  'op-sre': ['sre'],
+  'op-devops': ['docker', 'cicd'],
+  'op-k8s': ['k8s'],
+  'op-cloud': ['cloud'],
+  'op-sec': ['secops'],
+  'ai-app': ['rag', 'prompt', 'agent'],
+  'ai-infra': ['deploy'],
+  'ai-mlops': ['mlflow', 'kubeflow', 'llmeval'],
+  'ai-algo': ['cv', 'nlp', 'rec'],
+  'ai-data': ['traindata'],
+  'ai-edge': ['edgeai']
+}
+
+// 幂等回填: 把赛道级 subtrack 展开为子主题级 subtrack_detail（逗号包裹, 便于 LIKE '%,go,%' 匹配）。
+// 仅补 NULL/空值, 不影响已写入行; 在 seedIfEmpty 之后调用, 覆盖「现有库」与「全新种子库」两种场景。
+function backfillQuestionSubtrackDetail(db: any) {
+  const upd = db.prepare('UPDATE interview_questions SET subtrack_detail=? WHERE subtrack=? AND (subtrack_detail IS NULL OR subtrack_detail=?)')
+  for (const [track, subs] of Object.entries(TRACK_TO_SUBTRACKS)) {
+    upd.run(',' + subs.join(',') + ',', track, '')
+  }
+}
 
 function runMigrations(db: any) {
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT, applied_at INTEGER)')
@@ -1182,6 +1237,8 @@ function createDb() {
     }, CLEANUP_INTERVAL_MS)
   }
   seedIfEmpty(db)
+  // Phase 0: 学→练闭环 — 回填子主题级 subtrack_detail（幂等, 覆盖现有库 + 全新种子库）
+  backfillQuestionSubtrackDetail(db)
   return db
 }
 
