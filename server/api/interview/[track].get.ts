@@ -14,7 +14,8 @@ export default defineEventHandler((event) => {
   const skill = (query.skill as string) || ''
   // 子主题级精准过滤（打通学→练闭环 deep-link）：章节 subtrack（go/python/vue…）命中 subtrack_detail
   const sdRaw = (query.sd as string) || ''
-  // 支持逗号分隔的多值（大类下可能混合「路线图赛道」与「技术」两种归类轴，需 OR 合并）
+  // 单参数内部支持逗号分隔多值（如 tech=Vue,React），通过 IN (...) 做 OR 合并；
+  // 但 subtrack 参数与 tech 参数之间为「层级收窄」关系，在下方用 AND 连接。
   const techs = techRaw.split(',').map(s => s.trim()).filter(Boolean)
   const subtracks = subtrackRaw.split(',').map(s => s.trim()).filter(Boolean)
   const kw = ((query.q as string) || '').trim()
@@ -27,18 +28,21 @@ export default defineEventHandler((event) => {
   // 与方向无关的筛选条件（tech / 关键词），hot 与 special 计数共用
   const cond: string[] = ['track=?']
   const args: any[] = [track]
-  // subtrack 与 tech 集合：大类级联合筛选时两者可能并存，满足其一即可（OR）
-  const orParts: string[] = []
+  // subtrack 与 tech 为同一归类轴的两个层级（技能赛道 → 技术方向）：
+  // 同时选中时应取「交集」（该赛道下、关于该技术方向的题），而非「并集」，
+  // 否则 uniapp+性能优化 会连同所有 fe-web 性能优化题一起返回（归类串味）。
+  // 注意：单参数内部的多值（如 tech=Vue,React）仍走 IN (...) 做 OR 合并。
+  const andParts: string[] = []
   if (subtracks.length) {
     const ph = subtracks.map(() => '?').join(',')
-    orParts.push('subtrack IN (' + ph + ')'); args.push(...subtracks)
+    andParts.push('subtrack IN (' + ph + ')'); args.push(...subtracks)
   }
   if (techs.length) {
     const ph = techs.map(() => '?').join(',')
-    orParts.push('tech IN (' + ph + ')'); args.push(...techs)
+    andParts.push('tech IN (' + ph + ')'); args.push(...techs)
   }
-  if (orParts.length === 2) cond.push('(' + orParts.join(' OR ') + ')')
-  else if (orParts.length === 1) cond.push(orParts[0])
+  if (andParts.length === 2) cond.push('(' + andParts.join(' AND ') + ')')
+  else if (andParts.length === 1) cond.push(andParts[0])
   if (skill) { cond.push('skill=?'); args.push(skill) }
   // 子主题级精准过滤（打通学→练闭环 deep-link）：subtrack_detail 逗号包裹, LIKE '%,go,%'
   if (sdRaw) { cond.push('subtrack_detail LIKE ?'); args.push('%,' + sdRaw + ',%') }
