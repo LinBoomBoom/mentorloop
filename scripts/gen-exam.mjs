@@ -68,7 +68,11 @@ function parseExam(text) {
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (fence) t = fence[1].trim()
   let obj
-  const repair = _jsonrepair ? (_jsonrepair.default || _jsonrepair) : null
+  let repair = null
+  if (_jsonrepair) {
+    const fn = _jsonrepair.jsonrepair || _jsonrepair.default || _jsonrepair
+    repair = (typeof fn === 'function') ? fn : null
+  }
   try { obj = JSON.parse(t) }
   catch (e) { if (!repair) throw e; obj = JSON.parse(repair(t)) }
   if (!obj.basic || !obj.advanced) throw new Error('缺少 basic/advanced')
