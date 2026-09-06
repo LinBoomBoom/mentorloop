@@ -102,7 +102,7 @@ export const REDLINE = {
 };
 
 /* ── V1 六段式 ── */
-export const V1_SECTIONS = ['心智模型', '核心知识点（锚定官方）', '为什么重要', '常见坑', '动手自测', '面试视角'];
+export const V1_SECTIONS = ['核心知识点（锚定官方）', '为什么重要', '常见坑', '动手自测', '面试视角'];
 
 /** 本地日期 YYYY-MM-DD（不用 toISOString，避免 UTC 差一天） */
 export function localDate(d = new Date()) {

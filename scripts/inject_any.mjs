@@ -8,7 +8,6 @@ import fs from 'node:fs';
 //   <!-- goal: 章节目标 -->
 //   # <sectionId> | <section标题>
 //   > direction: 一句话导语
-//   ## 心智模型
 //   ...
 //   ## 核心知识点（锚定官方）
 //   ...

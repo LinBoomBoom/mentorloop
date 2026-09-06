@@ -4,7 +4,7 @@ import { SLA_DAYS, parseFresh, localDate, FRESH_RE } from './skilltree.config.mj
 const SEED = './data/seed-content.json';
 const s = JSON.parse(fs.readFileSync(SEED, 'utf-8'));
 
-const need = ['心智模型', '核心知识点（锚定官方）', '为什么重要', '常见坑', '动手自测', '面试视角'];
+const need = ['核心知识点（锚定官方）', '为什么重要', '常见坑', '动手自测', '面试视角'];
 
 // 收集所有有效 sectionId
 const validIds = new Set();

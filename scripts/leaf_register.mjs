@@ -39,9 +39,6 @@ const sectionId = `${parent}-l-${slug}`;
 
 const draft = `> 时效 | 核验=${today} | 风险=${risk} | 版本=${version} | 来源=${source}
 
-## 心智模型
-（一句话：这个工具/技术是什么、解决什么具体问题。锚定 ${source}。）
-
 ## 核心知识点（锚定官方）
 - 要点 1（锚定 <官方文档/源码链接>）
 - 要点 2
