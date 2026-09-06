@@ -1,5 +1,12 @@
 // 语音子系统：可插拔 STT/TTS 工厂，沿用 llm.ts 的惰性 env 读取 + 工厂模式。
-// TTS 优先级：本地 Piper（离线神经网络，所有访客一致、可靠）→ Edge TTS（需联网，多数网络被拦截）→ 浏览器本地合成（前端回退）。
+//
+// Provider 边界（2026-08-18 拍板：桌面端 = 离线单机 + TTS 纯云端）：
+// - 桌面端（Electron）：main.mjs 强制注入 TTS_PROVIDER=aliyun，且打包不含 Piper 模型
+//   （electron-builder.yml 的 extraResources 已排除 data/piper），语音统一走阿里云 CosyVoice。
+//   此分支下工厂恒返回 AliyunTtsProvider，Piper/Edge 代码不参与桌面运行。
+// - Web 端 / 开发态：仍按 TTS_PROVIDER 选择；Piper（离线）、Edge（微软）、Mock（测试蜂鸣）
+//   保留为 dev 与单测用途，对应 voices.test / speech.test / edge-tts.test 等用例依赖。
+//   默认分支（无 TTS_PROVIDER）优先 Piper→Edge，仅用于本地无 key 的开发回退，非生产路径。
 // STT 在 MVP 由浏览器 Web Speech 处理（见前端），服务端仅保留 SttProvider 接口，供 Phase 3 云端实时转写扩展。
 import fs from 'node:fs'
 import path from 'node:path'
@@ -389,7 +396,9 @@ export function getTts(): TtsProvider {
   else if (p === 'aliyun') _tts = new AliyunTtsProvider()
   else if (p === 'piper') _tts = new PiperTtsProvider()
   else {
-    // 默认：优先本地 Piper（离线可靠，已验证云端 Edge 在多数网络被拦截）→ 否则回退 Edge
+    // 默认分支（无 TTS_PROVIDER 时）：仅本地开发/测试回退用，非生产路径。
+    // 桌面端由 main.mjs 注入 TTS_PROVIDER=aliyun，永不进入此分支；
+    // Web 端无 key 时优先本地 Piper（离线可靠）→ 否则回退 Edge（需联网微软端点）。
     _tts = piperAvailable() ? new PiperTtsProvider() : new EdgeTtsProvider(process.env.TTS_VOICE)
   }
   return _tts
