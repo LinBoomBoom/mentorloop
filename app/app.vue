@@ -5,6 +5,7 @@
         <NuxtLayout>
           <NuxtPage />
         </NuxtLayout>
+        <OnboardingModal />
       </App>
     </ConfigProvider>
   </StyleProvider>
