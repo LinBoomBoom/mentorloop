@@ -42,7 +42,7 @@ export default defineNuxtConfig({
         { name: 'description', content: 'MentorLoop 是前端 / 后端 / 运维 / AI 工程四方向的学习与面试一体化平台：系统学习路径、高频面试题库、模拟答卷与 AI 复盘，全部内容免费浏览。' },
         { property: 'og:site_name', content: 'MentorLoop' },
         { property: 'og:type', content: 'website' },
-        { property: 'og:image', content: '' },
+        { property: 'og:image', content: '/og-cover.png' },
         { name: 'twitter:card', content: 'summary_large_image' }
       ],
       link: [
@@ -66,6 +66,8 @@ export default defineNuxtConfig({
     public: {
       // '2d' = DiceBear 二次元（默认，零资源）；'3d' = 本地 three-vrm 加载 VRM（需自备 VRM 资源）
       avatarMode: process.env.AVATAR_MODE || '2d',
+      // 站点公开 URL，用于 SSR 时把 og:image 等 SEO 标签补成绝对地址；部署时通过 .env 的 SITE_URL 注入
+      siteUrl: process.env.SITE_URL || '',
       // 3D 模式下加载的 VRM 模型 URL（放 public 或 data 经由 Nitro 提供；缺失则回退 2D）
       avatarVrmUrl: process.env.AVATAR_VRM_URL || '/avatars/default.vrm'
     }
