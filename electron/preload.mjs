@@ -8,4 +8,6 @@ contextBridge.exposeInMainWorld('mentorLoop', {
   showOpenDialog: (opts) => ipcRenderer.invoke('mentorLoop:showOpenDialog', opts),
   getVersion: () => ipcRenderer.invoke('mentorLoop:getVersion'),
   getPath: (name) => ipcRenderer.invoke('mentorLoop:getPath', name),
+  isFirstLaunch: () => ipcRenderer.invoke('mentorLoop:isFirstLaunch'),
+  completeOnboarding: () => ipcRenderer.invoke('mentorLoop:completeOnboarding'),
 })

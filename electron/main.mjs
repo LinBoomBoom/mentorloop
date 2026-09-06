@@ -98,6 +98,12 @@ function trayIcon() {
   return fs.existsSync(p) ? p : nativeImage.createFromBuffer(FALLBACK_ICON)
 }
 
+// 首启引导标记：置于用户数据目录的 mentorloop-data 下，存在即代表已走过引导。
+// 与 startLocalServer 的 dataDir 同源（app.getPath('userData')/mentorloop-data）。
+function onboardFlagPath() {
+  return path.join(app.getPath('userData'), 'mentorloop-data', '.onboarded')
+}
+
 function showWindow() {
   if (!mainWindow) return
   if (mainWindow.isMinimized()) mainWindow.restore()
@@ -326,6 +332,19 @@ ipcMain.handle('mentorLoop:openExternal', (_e, url) => {
 ipcMain.handle('mentorLoop:showOpenDialog', (_e, opts) => dialog.showOpenDialog(opts))
 ipcMain.handle('mentorLoop:getVersion', () => app.getVersion())
 ipcMain.handle('mentorLoop:getPath', (_e, name) => app.getPath(name))
+
+// 首启引导：渲染进程在首次启动时拉取 isFirstLaunch，用户点「开始使用」后写标记文件，
+// 之后不再弹出。标记缺失（首次/清数据重装）即视为首启。
+ipcMain.handle('mentorLoop:isFirstLaunch', () => {
+  try { return !fs.existsSync(onboardFlagPath()) } catch { return false }
+})
+ipcMain.handle('mentorLoop:completeOnboarding', () => {
+  try {
+    fs.mkdirSync(path.dirname(onboardFlagPath()), { recursive: true })
+    fs.writeFileSync(onboardFlagPath(), new Date().toISOString())
+    return true
+  } catch { return false }
+})
 
 // 真正退出前先杀掉 Nitro 子进程，避免残留监听端口。
 app.on('before-quit', () => { isQuiting = true })
