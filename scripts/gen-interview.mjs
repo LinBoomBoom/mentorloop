@@ -117,6 +117,27 @@ function classifyTech(track, q, keywordsJson) {
   return best
 }
 
+// ---- 防回归：Node.js 运行时专属题必须归 fe-node ----
+// 生成期曾把前端题统一打 subtrack=fe-web，导致 require/fs/stream/child_process/worker_threads/
+// process/uncaughtException/libuv/Node 事件循环阶段 等纯 Node 运行时题误落 fe-web / fe-arch。
+// 守卫规则（高精度，避免误伤）：
+//   1) 仅当题面命中【Node 专属内部机制】信号（libuv / process.nextTick / worker_threads /
+//      child_process / fs 模块 / 模块解析 / Node 事件循环阶段…）才触发，不依赖泛化「node.js」字样，
+//      以免把「事件循环 / CommonJS / 微任务 / Promise」等浏览器与 Node 共享的通用 JS 知识误派。
+//   2) 命中后立即排除【平台语境】题：Electron / HarmonyOS / 部署(SPA history/nginx/fallback) /
+//      错误监控(window.onerror/sourcemap) 等只是「顺带提及 Node.js」的题，仍归原赛道。
+//   3) 仅对 frontend 生效——后端题提及 node.js 属正常技术对比，不应被改派。
+const NODE_TRIG = ['libuv', 'process.nexttick', 'worker_threads', 'child_process', 'uncaughtexception', 'fs.readfile', 'fs.watch', 'fs模块', 'node.js中', 'nodejs中', 'node.js的模块', 'node.js流', 'node.js事件循环', 'require的模块解析', 'require.resolve', 'node.js原生', 'node.js服务端', 'node.js服务', 'node.js是单线程', 'node.js项目', 'node.js环境', 'node.js静态', 'node.js的esm', 'node.js的 esm', '流（stream）', 'node.js`eventemitter`']
+const NODE_DENY = ['electron', 'harmonyos', '鸿蒙', '主进程', '渲染进程', 'preload', 'n-api', 'tauri', 'flutter', 'react native', 'uniapp', 'uni-app', '小程序', '微信', 'history 模式', 'nginx', 'fallback', 'window.onerror', 'sourcemap', '跨端', '原生插件']
+function routeNodeRuntime(track, q, keywordsJson) {
+  if (track !== 'frontend') return null
+  // 归一化：题面里 "node.js 中" / "node.js 原生" 等空格写法统一成 "node.js中"，避免触发词漏匹配
+  const text = ((q || '') + ' ' + (keywordsJson || '')).toLowerCase().replace(/node\.js\s*/g, 'node.js')
+  if (!NODE_TRIG.some((k) => text.includes(k))) return null
+  if (NODE_DENY.some((k) => text.includes(k))) return null
+  return { subtrack: 'fe-node', subtrack_detail: ',nodefull,' }
+}
+
 // ---- 收集所有小节（带真实教学内容）----
 const seed = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'seed-content.json'), 'utf8'))
 const secContentMap = new Map()
@@ -265,11 +286,11 @@ function parseDelimited(text) {
 }
 
 // ---- 入库 / 种子 ----
-const insertStmt = db.prepare('INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,difficulty,tech,weight) VALUES (?,?,?,?,?,?,?,?,?)')
+const insertStmt = db.prepare('INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,difficulty,tech,weight,subtrack,subtrack_detail) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
 function applyToSeed(track, item) {
   const obj = seed.interview[track]
   const arr = item.type === 'special' ? obj.special : obj.hot
-  arr.push({ id: item.id, q: item.q, keywords: item.keywords, a: item.a, tech: item.tech, difficulty: item.difficulty })
+  arr.push({ id: item.id, q: item.q, keywords: item.keywords, a: item.a, tech: item.tech, difficulty: item.difficulty, subtrack: item.subtrack ?? null, subtrack_detail: item.subtrack_detail ?? null })
 }
 
 let done = 0, skipped = 0, failed = 0, genTotal = 0
@@ -307,8 +328,12 @@ async function worker(queue) {
           const validTechs = TECH_MAP[sec.track].map((r) => r.tech)
           const tech = validTechs.includes(x.techRaw) ? x.techRaw : classifyTech(sec.track, x.q, JSON.stringify(x.keywords))
           const weight = isHard ? 5 : 3
-          insertStmt.run(id, sec.track, type, x.q, x.a, JSON.stringify(x.keywords), difficulty, tech, weight)
-          applyToSeed(sec.track, { id, q: x.q, a: x.a, keywords: x.keywords, type, tech, difficulty })
+          // 防回归：显式点名 Node 运行时的前端题改派 fe-node（subtrack/subtrack_detail 双写 DB+seed）
+          const rt = routeNodeRuntime(sec.track, x.q, JSON.stringify(x.keywords))
+          const subtrack = rt ? rt.subtrack : null
+          const subtrackDetail = rt ? rt.subtrack_detail : null
+          insertStmt.run(id, sec.track, type, x.q, x.a, JSON.stringify(x.keywords), difficulty, tech, weight, subtrack, subtrackDetail)
+          applyToSeed(sec.track, { id, q: x.q, a: x.a, keywords: x.keywords, type, tech, difficulty, subtrack, subtrack_detail: subtrackDetail })
           written++
         })
         // 每处理完一节即写回种子（保证断电/中断也不丢）
