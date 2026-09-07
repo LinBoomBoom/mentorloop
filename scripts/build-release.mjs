@@ -15,14 +15,31 @@
 // - 构建本身复用成熟的 electron-build-all.mjs：make-icon → nuxt build（Windows 不退出兜底）
 //   → bundle-node → electron-builder（国内镜像 + prepWinCodeSign）。
 import { spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 const pkgPath = path.join(ROOT, 'package.json')
+const seedPath = path.join(ROOT, 'data', 'seed-content.json')
 const SKIP_BUMP = process.env.SKIP_VERSION_BUMP === '1'
+
+// 手术式写入 seedVersion：仅在文件内注入/替换一个顶层字段，绝不重写整份 24MB JSON，
+// 避免产生巨大 diff 与中文重新转义（\uXXXX）。源种子采用紧凑格式(无空格) + 原生中文，正则改写保持字节一致。
+function setSeedVersion(v) {
+  if (!existsSync(seedPath)) {
+    console.warn('[build-release] 未找到 data/seed-content.json，跳过 seedVersion 戳记')
+    return
+  }
+  const raw = readFileSync(seedPath, 'utf8')
+  const replaced = raw.replace(/"seedVersion"\s*:\s*"[^"]*"/, `"seedVersion":"${v}"`)
+  const next = replaced === raw
+    ? raw.replace(/^\{/, `{"seedVersion":"${v}",`)
+    : replaced
+  writeFileSync(seedPath, next)
+  console.log(`[build-release] seedVersion -> ${v}`)
+}
 
 function run(cmd, args, opts = {}) {
   console.log(`\n[build-release] ▶ ${cmd} ${args.join(' ')}`)
@@ -44,7 +61,10 @@ if (!SKIP_BUMP) {
   const [full, maj, min, pat] = m
   const newV = `${maj}.${min}.${Number(pat) + 1}`
   writeFileSync(pkgPath, raw.replace(full, `"version": "${newV}"`))
-  run('git', ['add', 'package.json'])
+  // 同步把种子版本号戳进 data/seed-content.json（供桌面端「覆盖安装自动刷新内容」比对用）。
+  // 用正则手术式改写，避免重写整个 24MB 文件产生巨大 diff / 重新转义中文。
+  setSeedVersion(newV)
+  run('git', ['add', 'package.json', 'data/seed-content.json'])
   run('git', ['commit', '-m', `chore(release): bump version to ${newV}`])
   console.log(`[build-release] version ${maj}.${min}.${pat} -> ${newV}（已单独提交）`)
 } else {

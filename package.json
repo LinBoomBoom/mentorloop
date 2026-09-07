@@ -30,7 +30,7 @@
     "setup:piper": "node scripts/setup-piper.mjs",
     "make:icon": "node scripts/make-icon.mjs",
     "electron:dev": "node scripts/electron-dev.mjs",
-    "electron:build": "node scripts/electron-build-all.mjs",
+    "electron:build": "node scripts/build-release.mjs",
     "dist:electron": "node scripts/electron-build.mjs"
   },
   "dependencies": {
