@@ -181,7 +181,10 @@ async function startLocalServer() {
 
   const seedSrc = path.join(dir, 'data', 'seed-content.json')
   const seedDst = path.join(dataDir, 'data', 'seed-content.json')
-  if (fs.existsSync(seedSrc) && !fs.existsSync(seedDst)) {
+  // 覆盖安装语义：每次启动都把「安装包内最新种子」覆盖到用户数据目录的副本。
+  // 这样服务端（db.ts 的 refreshContentIfNeeded）总能从最新种子比对 seedVersion 并自动刷新内容库，
+  // 解决「装了新版 exe 却仍显示旧章节」的问题。旧实现仅在副本缺失时才拷贝，导致升级后副本永不更新。
+  if (fs.existsSync(seedSrc)) {
     fs.copyFileSync(seedSrc, seedDst)
   }
 

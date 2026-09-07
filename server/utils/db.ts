@@ -1206,6 +1206,59 @@ function backfillQuestionSubtrackDetail(db: any) {
   }
 }
 
+// Phase R: 种子版本化自动刷新 —— 让「覆盖安装」后桌面端内容自动对齐最新安装包。
+// 根因：安装包 resources/data/seed-content.json 是「最新内容」的权威源，但用户数据目录下的
+// devmentor.db 首次启动后即被冻结（seedIfEmpty 仅空库才灌），仅覆盖安装 exe 不会刷新已存在的
+// 内容库，于是出现「装了新版却看到旧章节」。本函数用 seedVersion 比对：安装包种子版本高于已应用
+// 版本时，upsert content 表（modules/chapters/sections），用户表（accounts/sessions/progress/...）不动。
+function getMeta(db: any, key: string): string | null {
+  try {
+    const r = db.prepare('SELECT value FROM meta WHERE key=?').get(key) as any
+    return r ? r.value : null
+  } catch {
+    return null
+  }
+}
+function setMeta(db: any, key: string, value: string) {
+  db.prepare('INSERT INTO meta (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key, value)
+}
+function refreshContentIfNeeded(db: any) {
+  db.exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)')
+  const file = SEED_PATH
+  if (!fs.existsSync(file)) return
+  let content: any
+  try {
+    content = JSON.parse(fs.readFileSync(file, 'utf-8'))
+  } catch {
+    return
+  }
+  const seedVersion: string | undefined = content.seedVersion
+  if (!seedVersion) return // 旧种子无版本号，不强制刷新，保持既有行为
+  const applied = getMeta(db, 'seed_version')
+  if (applied === seedVersion) return // 已是最新，跳过
+  console.log(`[db] 检测到种子版本变化（applied=${applied ?? '∅'} → seed=${seedVersion}），刷新内容表…`)
+  const upsMod = db.prepare('INSERT OR REPLACE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
+  const upsCh = db.prepare('INSERT OR REPLACE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
+  const upsSec = db.prepare('INSERT OR REPLACE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+  // 顺序满足 FK：先父表后子表；INSERT OR REPLACE 按主键覆盖，新增章节被补入、已有章节被更新。
+  const tx = db.transaction(() => {
+    for (const m of content.modules || []) {
+      upsMod.run(m.id, m.name, m.icon, m.color, m.desc, m.position ?? null)
+      for (let ci = 0; ci < (m.chapters || []).length; ci++) {
+        const ch = m.chapters[ci]
+        upsCh.run(ch.id, m.id, ch.title, ch.goal, ci, ch.subtrack ?? null)
+        for (let si = 0; si < (ch.sections || []).length; si++) {
+          const s = ch.sections[si]
+          upsSec.run(s.id, ch.id, s.title, s.direction, s.content, si)
+        }
+      }
+    }
+  })
+  tx()
+  setMeta(db, 'seed_version', seedVersion)
+  console.log(`[db] 内容表已刷新至种子版本 ${seedVersion}`)
+}
+
 function runMigrations(db: any) {
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT, applied_at INTEGER)')
   const applied = new Set((db.prepare('SELECT version FROM schema_migrations').all() as any[]).map((r: any) => r.version))
@@ -1239,6 +1292,8 @@ function createDb() {
   seedIfEmpty(db)
   // Phase 0: 学→练闭环 — 回填子主题级 subtrack_detail（幂等, 覆盖现有库 + 全新种子库）
   backfillQuestionSubtrackDetail(db)
+  // Phase R: 覆盖安装后内容自动对齐最新安装包（种子版本比对 + 内容表 upsert）
+  refreshContentIfNeeded(db)
   return db
 }
 
