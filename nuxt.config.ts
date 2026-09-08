@@ -1,4 +1,13 @@
 // MentorLoop - Nuxt 4 全栈工程化配置
+
+// 桌面端构建标记（由 scripts/electron-build-all.mjs 注入 MENTORLOOP_DESKTOP_BUILD=1）。
+// 桌面端必须**禁用 prerender**：预渲染会在「构建期」执行一次 SSR，把当时构建机
+// data/devmentor.db 的数据序列化冻结进 .output/public/<route>/_payload.json；
+// 运行时 Nitro 直接返回该静态快照，既不执行 SSR 也不查用户库 —— 结果是桌面端
+// 永远显示构建那一刻的旧内容，覆盖安装/卸载重装/换库全部无效。桌面端无 SEO 诉求，
+// 因此改为纯运行时 SSR，实时读 Electron 注入 DATA_DIR 指向的 userData 数据库。
+const DESKTOP_BUILD = process.env.MENTORLOOP_DESKTOP_BUILD === '1'
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: false },
@@ -11,20 +20,25 @@ export default defineNuxtConfig({
   // 默认开启 SSR（利于 SEO / 自然流量）。内容页公开可浏览，仅写操作（打卡/交卷/付费）才需登录。
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   // 按页面实际情况开启/关闭 SSR：内容公开，仅登录态相关的写操作才需鉴权
-  routeRules: {
-    // 公开落地页 + 列表页：开启 SSR 并预渲染为静态 HTML，最大化收录与自然流量
-    '/login': { ssr: true, prerender: true },
-    '/': { ssr: true, prerender: true },
-    '/learn': { ssr: true, prerender: true },
-    '/interview': { ssr: true, prerender: true },
-    '/exam': { ssr: true, prerender: true },
-    '/vip': { ssr: true, prerender: true },
-    '/roadmap': { ssr: true },
-    // 内容详情页：开启 SSR（按需服务端渲染，无需枚举预渲染）
-    '/learn/**': { ssr: true },
-    '/interview/**': { ssr: true },
-    '/exam/**': { ssr: true }
-  },
+  routeRules: DESKTOP_BUILD
+    ? {
+        // 桌面端：一律运行时 SSR，禁止任何预渲染（理由见文件头 DESKTOP_BUILD 注释）。
+        '/**': { ssr: true },
+      }
+    : {
+        // 公开落地页 + 列表页：开启 SSR 并预渲染为静态 HTML，最大化收录与自然流量
+        '/login': { ssr: true, prerender: true },
+        '/': { ssr: true, prerender: true },
+        '/learn': { ssr: true, prerender: true },
+        '/interview': { ssr: true, prerender: true },
+        '/exam': { ssr: true, prerender: true },
+        '/vip': { ssr: true, prerender: true },
+        '/roadmap': { ssr: true },
+        // 内容详情页：开启 SSR（按需服务端渲染，无需枚举预渲染）
+        '/learn/**': { ssr: true },
+        '/interview/**': { ssr: true },
+        '/exam/**': { ssr: true }
+      },
   tailwindcss: {
     configPath: '~/tailwind.config.js',
     cssPath: '~/assets/css/main.css'

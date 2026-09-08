@@ -20,7 +20,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const isDev = !app.isPackaged || process.env.ELECTRON_DEV === '1'
+// 只有显式 ELECTRON_DEV=1 才连本地 dev server（localhost:3000）。
+// 不能再用 `!app.isPackaged` 兜底：release/win-unpacked 下 app.isPackaged 在某些
+// 运行方式下为 false，会让「看似生产」的 exe 去连 3000 端口，连不上就退化为旧内容/错误页。
+const isDev = process.env.ELECTRON_DEV === '1'
 const DEV_URL = 'http://localhost:3000'
 const PORT = process.env.MENTORLOOP_PORT || '3210'
 const PROD_URL = `http://127.0.0.1:${PORT}`
@@ -149,9 +152,10 @@ function createWindow() {
 }
 
 async function waitForServer(url, timeoutMs = 30000) {
-  // 用静态资源 _payload.json 做健康探针：它是构建产物必带的静态文件，不依赖 SSR 渲染，
-  // 可避免「服务刚起来、首屏 SSR 仍在建库/预热」时偶发空响应导致窗口纯黑。
-  const probe = url.replace(/\/$/, '') + '/_payload.json'
+  // 探活 /api/health（HTTP 恒 200，body 的 ok 字段反映 DB 状态）。
+  // 不能用 _payload.json：那是预渲染产物，桌面端构建已关闭 prerender（见 nuxt.config.ts），
+  // 该文件不再生成，探针会永远失败。
+  const probe = url.replace(/\/$/, '') + '/api/health'
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     try {
@@ -190,6 +194,8 @@ async function startLocalServer() {
 
   const nodeBin = resolveNodeBin()
   // cwd 必须为 resourcesPath（打包态）/ 项目根（dev 态），保证子进程能从真实磁盘解析 node_modules。
+  // 显式注入 DB_PATH 双保险：即使 .env 里有 DB_PATH=相对路径（web dev 用，Nitro 会从 cwd 向上加载），
+  // 也会被这里覆盖到绝对 userData 路径，避免桌面端读错库。
   serverProcess = spawn(nodeBin, [serverEntry], {
     cwd: dir,
     env: {
@@ -197,6 +203,7 @@ async function startLocalServer() {
       PORT,
       HOST: '127.0.0.1',
       DATA_DIR: dataDir,
+      DB_PATH: path.join(dataDir, 'data', 'devmentor.db'),
       NODE_ENV: 'production',
       // TTS 纯云端方案（2026-08-18 拍板）：安装包不打 Piper（省约 219MB），
       // 语音统一走阿里云 CosyVoice；key 在 nuxt build 时经 runtimeConfig 烘焙进 .output，

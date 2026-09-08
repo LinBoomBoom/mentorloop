@@ -24,6 +24,23 @@ const BUILD_TIMEOUT_MS = 10 * 60 * 1000
 const STABLE_MS = 3000
 const STABLE_POLL_MS = 1000
 
+// 构建前必须先「退役」旧的 .output：Nuxt 不会清理上一次生成的
+// .output/public/<route>/_payload.json 等预渲染快照，一旦本次构建因故降级/跳过，
+// electron-builder 会把这些陈旧产物原样打进安装包，桌面端就继续显示旧内容。
+// 用 rename 而非删除（沙箱 safe-delete 会拦 rm），旧目录保留一份便于回溯。
+function retireOldOutput() {
+  const outDir = path.join(root, '.output')
+  if (!fs.existsSync(outDir)) return
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const backup = path.join(root, `.output_old_${stamp}`)
+  try {
+    fs.renameSync(outDir, backup)
+    console.log(`[electron-build-all] 已退役旧构建产物：${backup}`)
+  } catch (e) {
+    throw new Error(`无法退役旧 .output（可能被占用）：${e.message}`)
+  }
+}
+
 function run(cmd, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
@@ -99,8 +116,16 @@ async function main() {
   await run(process.execPath, ['scripts/make-icon.mjs'])
 
   // 2. nuxt build（用 run-nuxt.mjs 包装器清空 NODE_OPTIONS + 注入 MENTORLOOP_BUILD_PHASE）
+  //    MENTORLOOP_DESKTOP_BUILD=1 → nuxt.config.ts 关闭 prerender，改为运行时 SSR，
+  //    避免把构建机 DB 的快照冻结进 .output/public（详见 nuxt.config.ts 头部注释）。
   console.log('[electron-build-all] 步骤 2/4：Nuxt build（产物检测兜底）')
-  const env = { ...process.env, NODE_OPTIONS: '', MENTORLOOP_BUILD_PHASE: '1' }
+  retireOldOutput()
+  const env = {
+    ...process.env,
+    NODE_OPTIONS: '',
+    MENTORLOOP_BUILD_PHASE: '1',
+    MENTORLOOP_DESKTOP_BUILD: '1',
+  }
   const nuxtChild = spawn(process.execPath, ['scripts/run-nuxt.mjs', 'build'], {
     cwd: root,
     env,
