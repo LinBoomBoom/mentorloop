@@ -31,7 +31,11 @@
     "make:icon": "node scripts/make-icon.mjs",
     "electron:dev": "node scripts/electron-dev.mjs",
     "electron:build": "node scripts/build-release.mjs",
-    "dist:electron": "node scripts/electron-build.mjs"
+    "dist:electron": "node scripts/electron-build.mjs",
+    "taxonomy:audit": "node scripts/audit-taxonomy.mjs",
+    "taxonomy:baseline": "node scripts/audit-taxonomy.mjs --baseline",
+    "taxonomy:reclassify": "node scripts/taxonomy-reclassify.mjs",
+    "taxonomy:sync": "node scripts/sync-tech-names.mjs --apply"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
