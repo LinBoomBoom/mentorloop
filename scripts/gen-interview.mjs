@@ -4,6 +4,8 @@
 // 用法（仓库根目录运行，需先 export CODEBUDDY_SESSION_ID= 等绕过钩子）：
 //   试运行前 3 节：          node scripts/gen-interview.mjs --dry --limit 3
 //   指定方向：              node scripts/gen-interview.mjs --track frontend
+//   定向补某赛道（v3 方向 id）：node scripts/gen-interview.mjs --subtrack fe-uniapp
+//   补齐到目标题量（本批上限）：node scripts/gen-interview.mjs --subtrack ai-edge --max-q 40
 //   注入网络真实题参考：     node scripts/gen-interview.mjs --web-ref .workbuddy/web-ref.json
 //   全量（后台）：          node scripts/gen-interview.mjs --concurrency 5
 //
@@ -33,6 +35,17 @@ function loadTs (rel, expr) {
 }
 const TECH_RESOLVE = loadTs('app/data/techVocabulary.ts', 'm.TECH_RESOLVE')
 const CANON_FALLBACK = '综合应用'
+
+// ---- 赛道（v3 方向 id）精确归属 ----
+// 历史问题：本脚本生成题的 subtrack 恒为 null，只能靠 db.ts 迁移 v22 按「模块 + tech 展示名」
+// 粗粒度回填 —— 该映射由 (模块,tech) 唯一决定，遇到跨赛道同名 tech（如 frontend 的「React」
+// 同时属于 fe-web/fe-arch）就会落错赛道，且新赛道（fe-uniapp/ai-edge…）根本映射不到。
+// 实际上生成时是知道精确归属的：section -> chapter.subtrack -> learningTaxonomy.chapterSubtracks -> 赛道 id。
+// 这里直接反查出来写入，彻底不再依赖回填猜测，同时保证 A1（subtrack 100% 非空）对新增题持续成立。
+const SUB2TRACK = loadTs(
+  'app/data/learningTaxonomy.ts',
+  'Object.fromEntries(Object.values(m.LEARNING_TAXONOMY).flat().flatMap(t => (t.chapterSubtracks || []).map(s => [s, t.id])))'
+)
 /** 原始值 → 规范名；无法识别返回 null（调用方据此回退关键词分类） */
 const resolveTech = (mod, raw) => {
   const b = TECH_RESOLVE[mod]
@@ -76,6 +89,11 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 const DRY = args.has('dry')
 const TRACK = args.get('track') || null
+// 定向补齐：只处理归属该赛道（v3 方向 id，如 fe-uniapp / ai-edge）的小节。
+// 与 --track（模块级 frontend/backend/devops/ai）可叠加，用于按赛道填空而不必全模块重跑。
+const SUBTRACK = args.get('subtrack') || null
+// 本批新增题目数上限（0 = 不限）。配合 --subtrack 用于把某赛道补齐到目标题量。
+const MAX_Q = parseInt(args.get('max-q') || '0', 10)
 const LIMIT = parseInt(args.get('limit') || '0', 10)
 const CONCURRENCY = Math.min(parseInt(args.get('concurrency') || '5', 10), 10)
 const WEB_REF_PATH = args.get('web-ref') || null
@@ -177,11 +195,16 @@ for (const m of seed.modules || []) {
   const track = m.id
   if (TRACK && track !== TRACK) continue
   for (const ch of m.chapters || []) {
+    // 精确赛道归属：chapter.subtrack -> 赛道 id（未登记 subtrack 的章节退化为 null，由 v22 兜底）
+    const sub = SUB2TRACK[ch.subtrack] || null
+    if (SUBTRACK && sub !== SUBTRACK) continue
     for (const sec of ch.sections || []) {
       const dbSec = secContentMap.get(sec.id)
       sections.push({
         id: sec.id,
         track,
+        subtrack: sub,
+        chapterSubtrack: ch.subtrack || null,
         chapterTitle: ch.title,
         chapterGoal: ch.goal || '',
         sectionTitle: sec.title,
@@ -192,7 +215,7 @@ for (const m of seed.modules || []) {
 }
 let todo = sections
 if (LIMIT > 0) todo = todo.slice(0, LIMIT)
-console.log(`待处理小节数：${todo.length}${DRY ? '（试运行，不写库/种子）' : ''}${TRACK ? ' track=' + TRACK : ''}`)
+console.log(`待处理小节数：${todo.length}${DRY ? '（试运行，不写库/种子）' : ''}${TRACK ? ' track=' + TRACK : ''}${SUBTRACK ? ' subtrack=' + SUBTRACK : ''}`)
 
 // ---- 断点续跑 ----
 const PROGRESS = path.join(ROOT, '.workbuddy', 'gen-interview-done.json')
@@ -324,6 +347,9 @@ const failedIds = []
 
 async function worker(queue) {
   for (const sec of queue) {
+    // --max-q：本批新增题数达上限即停（并发下最多超出 CONCURRENCY×每节题数，可接受）。
+    // 用于「补齐到目标量」而不是把整条赛道跑满 —— 题源小节远多于需求时避免产出过量题目。
+    if (MAX_Q > 0 && genTotal >= MAX_Q) { skipped++; continue }
     try {
       if (doneSet.has(sec.id)) { skipped++; continue }
       const { messages } = buildMessages(sec)
@@ -355,10 +381,11 @@ async function worker(queue) {
           const tech = resolveTech(sec.track, x.techRaw) ||
             canonicalizeTech(sec.track, classifyTech(sec.track, x.q, JSON.stringify(x.keywords)))
           const weight = isHard ? 5 : 3
-          // 防回归：显式点名 Node 运行时的前端题改派 fe-node（subtrack/subtrack_detail 双写 DB+seed）
+          // 显式点名 Node 运行时的前端题优先改派 fe-node；否则采用本章节精确归属的赛道
+          // （历史上这里恒写 null，导致新题全靠 v22 按 (模块,tech) 猜赛道，会落错且新赛道映射不到）
           const rt = routeNodeRuntime(sec.track, x.q, JSON.stringify(x.keywords))
-          const subtrack = rt ? rt.subtrack : null
-          const subtrackDetail = rt ? rt.subtrack_detail : null
+          const subtrack = rt ? rt.subtrack : (sec.subtrack || null)
+          const subtrackDetail = rt ? rt.subtrack_detail : (sec.chapterSubtrack ? `,${sec.chapterSubtrack},` : null)
           insertStmt.run(id, sec.track, type, x.q, x.a, JSON.stringify(x.keywords), difficulty, tech, weight, subtrack, subtrackDetail)
           applyToSeed(sec.track, { id, q: x.q, a: x.a, keywords: x.keywords, type, tech, difficulty, subtrack, subtrack_detail: subtrackDetail })
           written++
@@ -369,7 +396,9 @@ async function worker(queue) {
         console.log(`✓ ${sec.track}/${sec.id} ${sec.sectionTitle} -> ${written} 题${dup ? `（跳过重复 ${dup}）` : ''}（累计新增 ${genTotal}）`)
       }
       doneSet.add(sec.id)
-      fs.writeFileSync(PROGRESS, JSON.stringify([...doneSet]))
+      // 试运行不写进度：否则 --dry 会把小节永久标记为已完成，正式跑时被当成「已处理」跳过，
+      // 导致该赛道永远补不出题（曾因此让 fe-uniapp 定向补齐产出 0 题）。
+      if (!DRY) fs.writeFileSync(PROGRESS, JSON.stringify([...doneSet]))
       done++
     } catch (e) {
       failed++; failedIds.push(sec.id)
