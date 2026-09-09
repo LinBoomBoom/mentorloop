@@ -232,7 +232,7 @@ export interface TechTerm {
 
 1. **A4→be-db**：宣称覆盖 MySQL/PostgreSQL/Redis/NoSQL，实际 PostgreSQL/NoSQL 0 题。建议 D3 阶段补 PostgreSQL/NoSQL 题库，或调整赛道宣称范围。**不影响当前归类正确性。**
 2. **A5→16 赛道题量 < 100**：属 D3 覆盖度补齐任务，需另立生成方案（按官方资料补齐，非 AI 编造）。
-3. **`sections.direction` 命名**：本次未改（D4 原意是改名 objective，但归类任务应聚焦，已改为仅文档标注，避免扩大改动面）。后续如需字段语义修正可单独提 PR。
+3. **`sections.direction` 命名**：✅ **已完成（D4 改名 `objective`）**，并在改名过程中连带发现并修复了一处由其误导引发的**功能失效**（详见 9.7）。
 4. **回滚**：若重分类效果不满意，`data/devmentor.db.bak-taxonomy-20260909` 为写库前整库备份。
 
 ### 9.6 稳定性实证 & 生成管线回归风险（重要）
@@ -253,5 +253,53 @@ export interface TechTerm {
 | `scripts/gen-interview-roadmap.mjs` | 同上 | 同上 |
 
 - **影响范围**：仅当用上述脚本**新增**面试题时会带入非词表标签，破坏 A3。对当前 6552 题的归类**无回滚效应**（已实测）。
-- **修复建议（独立任务）**：将 4 处 `classifyTech`/`TECH_MAP` 改为从 `app/data/techVocabulary.ts` 派生（以词表为唯一取值域 + 别名映射），使新增题自动命中受控词表。涉及 4 个文件、属生成管线改造，需另立方案执行，不在本次归类任务范围内。
+- **✅ 已修复（第二阶段）**：4 处写入点已统一过闸，详见 9.8。
+
+---
+
+### 9.7 `sections.direction` → `objective`（D4）+ 连带修复的功能失效
+
+**改名**：该列存的实际是小节学习目标（"能……" 句式，1802/1802 非空），字段名严重误导。
+新增迁移 v34 `ALTER TABLE sections RENAME COLUMN direction TO objective`（保留数据，幂等）；
+seed JSON 1802 个小节字段同步改名；`gen-learn.mjs` 提示词与读写同步；写入侧保留
+`s.objective ?? s.direction` 回退，历史一次性脚本仍可用。
+
+**⚠️ 更重要的连带发现：该列的误导已经造成真实功能失效**
+多处代码拿**赛道 id**（`frontend/backend/devops/ai`）去匹配这一列（`WHERE s.direction = ?`），
+而列里是中文学习目标，**查询恒返回 0 行**：
+
+| 位置 | 影响 |
+|---|---|
+| `db.ts` `findBestSection` | 题 → 小节自动关联永远返回 `null` |
+| `studyplan.ts` `chapterIndex` / `chapterKeywordIndex` | 学习计划章节深链全部降级为纯文本，且交给 LLM 的候选章节列表为空 |
+| `admin.ts` `listSections` | 后台按方向筛选小节永远为空 |
+
+（`skillMastery.ts` 的注释已记录"sections.direction 列被污染，不可用"，与该结论一致。）
+
+**修复**：上述 3 处方向过滤统一改为按可靠的 `chapters.module_id = ?` 过滤。
+实测命中量 **0 → 587(frontend) / 609(backend) / 341(devops) / 265(ai)**。
+
+**防回归**：`tests/sections-objective.test.mjs`（7 断言）钉死列名不回退、
+禁止再用学习目标列做方向过滤、迁移语义不得退化为空操作、改名后数据不丢。
+
+### 9.8 生成脚本 classifyTech 对齐受控词表（P0 防回归，已完成）
+
+4 套硬编码 `classifyTech`/`TECH_MAP` 已不再直接产出标签，而是在**写入前**统一过闸：
+`app/data/techVocabulary.ts` 新增 `TECH_RESOLVE` / `resolveTech()` / `canonicalizeTech()`
+（含 31 条 legacy 标签别名映射），4 个写入点全部改为 `canonicalizeTech(...)`。
+设计上**不推翻**各脚本已调优的关键词评分逻辑，只在出口收敛，避免质量回退；
+`部署与成本` 按设计不做别名直映（须按题面细分）。
+
+- gen 脚本提示词里的候选技术名同步改为规范名，让 LLM 直出值可直接命中闸口。
+- `tests/taxonomy-vocabulary.test.mjs`（14 断言）：词表自洽、31 条 legacy 标签 100% 可解析、
+  `canonicalizeTech` 封闭性（任意输入必落词表内）、闸口存在性、库内 `tech` ⊆ 词表、脏值清零。
+
+### 9.9 顺带修复：全新空库初始化崩溃（既有缺陷）
+
+`seedIfEmpty` 无条件执行 `set.written.forEach(...)`，但 57 套试卷中 **38 套本就没有问答题**
+（缺 `written` 是合法数据，上一版 seed 同样如此，非本次引入）→ 全新空库初始化抛
+`TypeError`，首次启动即失败（既有库因跳过 seed 而不受影响，故长期未被发现）。
+改为 `(set.written || []).forEach(...)`；实测空库已能完整 seed 至 1.0.4。
+同时修正 3 个按旧列名插入 `sections` 的测试，以及 `db-fk` 里硬编码迁移版本 `[1..6]`
+的过时断言（实际已到 v34，v7~v33 早已存在即误报）——改为断言"连续无缺号且覆盖 v1~v6"。
 - **数据可复现性提示**：`interview_questions` 当前无受跟踪的种子 JSON（仅存于 gitignored 的 `data/devmentor.db`），属本项目既有数据架构；本次重分类同样落于该本地库，与既有数据一致。

@@ -1,6 +1,6 @@
 # 内容归类一致性体检报告
 
-> 生成时间：2026-09-08T16:41:46.251Z｜数据源：data/devmentor.db + app/data/learningTaxonomy.ts + app/data/techVocabulary.ts
+> 生成时间：2026-09-09T14:09:56.846Z｜数据源：data/devmentor.db + app/data/learningTaxonomy.ts + app/data/techVocabulary.ts
 
 ## 结论：7/9 项断言通过
 
