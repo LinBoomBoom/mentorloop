@@ -122,7 +122,7 @@ function bump(userId: string, skillKey: string, track: string, subtrackId: strin
  *     - 英文/数字词（>=2 字符）作为强信号（剔除 web/api/app 等过于泛化的词，否则会误命中无关章节）；
  *     - 中文按「长短语(>=3 字) + 2 字 bigram」拆词，长短语权重更高，避免单字噪声；
  *     - 同时用技能 desc（含大量关键词）参与打分，显著提升特异度与覆盖率；
- *     - 候选章节先用可靠的 chapters.module_id = track 过滤（sections.direction 列被污染，不可用）。
+ *     - 候选章节一律用可靠的 chapters.module_id = track 过滤；sections.direction 列存的是学习目标（已改名 objective），不可用作方向过滤。
  *   评分：标题/章节名命中权重高，正文命中权重低（0.4）仅作补充；要求至少 1 个标题级命中，
  *   杜绝纯正文噪声。结果取分最高的若干小节，并缓存到 skill_section_map。
  */

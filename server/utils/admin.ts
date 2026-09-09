@@ -222,7 +222,7 @@ export function deleteChapter(id: string) {
 /* ============ 内容：小节 (G2) ============ */
 export function listSections(chapterId?: string, track?: string) {
   if (chapterId) return sqlite.prepare('SELECT * FROM sections WHERE chapter_id=? ORDER BY position').all(chapterId)
-  if (track) return sqlite.prepare(`SELECT s.id, s.title, c.title AS chapter_title FROM sections s JOIN chapters c ON c.id = s.chapter_id WHERE s.direction=? ORDER BY c.title, s.position`).all(track)
+  if (track) return sqlite.prepare(`SELECT s.id, s.title, c.title AS chapter_title FROM sections s JOIN chapters c ON c.id = s.chapter_id WHERE c.module_id=? ORDER BY c.title, s.position`).all(track)
   return sqlite.prepare('SELECT * FROM sections ORDER BY chapter_id, position').all()
 }
 export function getSection(id: string) { return sqlite.prepare('SELECT * FROM sections WHERE id=?').get(id) || null }
@@ -232,8 +232,8 @@ export function createSection(data: any) {
   if (getSection(id)) throw new Error('DUP_ID')
   if (!getChapter(data.chapterId)) throw new Error('NO_CHAPTER')
   const pos = data.position ?? listSections(data.chapterId).length
-  sqlite.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
-    .run(id, data.chapterId, data.title || id, data.direction || '', data.content || '', pos)
+  sqlite.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
+    .run(id, data.chapterId, data.title || id, data.objective ?? data.direction ?? '', data.content || '', pos)
   return getSection(id)
 }
 export function updateSection(id: string, patch: any) {
@@ -241,7 +241,7 @@ export function updateSection(id: string, patch: any) {
   const sets: string[] = []; const v: any[] = []
   if (patch.chapterId !== undefined) { if (!getChapter(patch.chapterId)) throw new Error('NO_CHAPTER'); sets.push('chapter_id=?'); v.push(patch.chapterId) }
   if (patch.title !== undefined) { sets.push('title=?'); v.push(patch.title) }
-  if (patch.direction !== undefined) { sets.push('direction=?'); v.push(patch.direction) }
+  if (patch.objective !== undefined) { sets.push('objective=?'); v.push(patch.objective) }
   if (patch.content !== undefined) { sets.push('content=?'); v.push(patch.content) }
   if (patch.position !== undefined) { sets.push('position=?'); v.push(patch.position) }
   if (!sets.length) return s

@@ -19,7 +19,7 @@ export default defineEventHandler((event) => {
     subtracks,
     chapters: chapters.map((ch: any) => ({
       ...ch,
-      sections: sqlite.prepare('SELECT id,title,direction,content,position FROM sections WHERE chapter_id=? ORDER BY position').all(ch.id)
+      sections: sqlite.prepare('SELECT id,title,objective,content,position FROM sections WHERE chapter_id=? ORDER BY position').all(ch.id)
     }))
   }
   return json(event, 200, { module: full })

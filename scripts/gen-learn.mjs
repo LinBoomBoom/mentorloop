@@ -239,7 +239,7 @@ const PLAN_SYSTEM = `你是一位资深技术教育课程设计师。你会根�
 要求：
 1. 大纲必须"镜像"该技术的官方文档/学习路径的章节组织（从基础到进阶），不要随意编造顺序，也不要为了凑数而合并或拆分官方章节。
 2. 章节数完全由官方内容体量决定：官网有多少章就列多少章（不预设数量、不设上下限）；每章 3~6 个小节。
-3. 每个小节给出：title（小节标题）、direction（用"能……"开头的掌握目标，一句话）、outline（2~4 个要点，说明这节要讲什么、锚定哪些官方主题）。
+3. 每个小节给出：title（小节标题）、objective（用"能……"开头的掌握目标，一句话）、outline（2~4 个要点，说明这节要讲什么、锚定哪些官方主题）。
 只输出 JSON，不要任何解释。`
 
 function planUser(st) {
@@ -252,7 +252,7 @@ ${st.urls.map((u, i) => `${i + 1}. ${u}`).join('\n')}
   "chapters": [
     { "title": "章节标题", "goal": "本章掌握目标（一句话）",
       "sections": [
-        { "title": "小节标题", "direction": "能……（掌握目标）", "outline": ["要点1","要点2","要点3"] }
+        { "title": "小节标题", "objective": "能……（掌握目标）", "outline": ["要点1","要点2","要点3"] }
       ]
     }
   ]
@@ -359,7 +359,7 @@ async function doWrite(id, concurrency, limit) {
         // 规范化：确保以时效头开头
         let body = content
         if (!body.startsWith('> 时效')) body = `> 时效 | 核验=${TODAY} | 风险=低 | 来源=官方\n\n` + body
-        done[t.sid] = { content: body, direction: t.s.direction || t.s.direction }
+        done[t.sid] = { content: body, objective: t.s.objective ?? t.s.direction ?? null }
         ok++
         return
       } catch (e) {
@@ -372,7 +372,7 @@ async function doWrite(id, concurrency, limit) {
   const full = JSON.parse(JSON.stringify(plan))
   full.chapters.forEach((c, ci) => (c.sections || []).forEach((s, si) => {
     const sid = `${st.prefix}-c${ci + 1}-s${si + 1}`
-    if (done[sid]) { s.id = sid; s.content = done[sid].content; s.direction = done[sid].direction || s.direction }
+    if (done[sid]) { s.id = sid; s.content = done[sid].content; s.objective = done[sid].objective ?? s.direction ?? s.objective }
   }))
   fs.writeFileSync(draftPath(id), JSON.stringify(full, null, 2))
   fs.writeFileSync(doneFile, JSON.stringify(done, null, 2))
@@ -392,7 +392,7 @@ function doApply(id) {
     sections: (c.sections || []).map((s, si) => ({
       id: s.id || `${st.prefix}-c${ci + 1}-s${si + 1}`,
       title: s.title,
-      direction: s.direction || '',
+      objective: s.objective ?? s.direction ?? '',
       content: normDate(s.content),
     })),
   }))
@@ -416,12 +416,12 @@ function doApply(id) {
   const db = new Database(dbFile)
   const maxPos = db.prepare('SELECT COALESCE(MAX(position),-1) AS p FROM chapters WHERE module_id=?').get(st.module).p
   const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-  const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+  const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
   const tx = db.transaction(() => {
     let pos = maxPos + 1
     for (const ch of chapters) {
       insCh.run(ch.id, st.module, ch.title, ch.goal, pos++, ch.subtrack)
-      ch.sections.forEach((s, si) => insSec.run(s.id, ch.id, s.title, s.direction, s.content, si))
+      ch.sections.forEach((s, si) => insSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si))
     }
   })
   tx()

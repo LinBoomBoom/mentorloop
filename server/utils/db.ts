@@ -95,7 +95,7 @@ function normSectionText(s: string) {
 }
 export function findBestSection(track: string, q: string, keywords: string[]): { id: string; title: string; chapterTitle: string } | null {
   const rows = sqlite.prepare(
-    `SELECT s.id, s.title, c.title AS chapter_title, s.content FROM sections s JOIN chapters c ON c.id = s.chapter_id WHERE s.direction = ?`
+    `SELECT s.id, s.title, c.title AS chapter_title, s.content FROM sections s JOIN chapters c ON c.id = s.chapter_id WHERE c.module_id = ?`
   ).all(track) as any[]
   if (!rows.length) return null
   const kwNorm = (keywords || []).map((k) => normSectionText(k)).filter((k) => k.length > 1)
@@ -148,7 +148,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
           id TEXT PRIMARY KEY, module_id TEXT, title TEXT, goal TEXT, position INTEGER, subtrack TEXT
         );
         CREATE TABLE IF NOT EXISTS sections (
-          id TEXT PRIMARY KEY, chapter_id TEXT, title TEXT, direction TEXT, content TEXT, position INTEGER
+          id TEXT PRIMARY KEY, chapter_id TEXT, title TEXT, objective TEXT, content TEXT, position INTEGER
         );
         CREATE TABLE IF NOT EXISTS interview_questions (
           id TEXT PRIMARY KEY, track TEXT, type TEXT, q TEXT, a TEXT, keywords TEXT
@@ -291,7 +291,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
         )`)
       recreate('sections',
         `CREATE TABLE sections (
-          id TEXT PRIMARY KEY, chapter_id TEXT, title TEXT, direction TEXT, content TEXT, position INTEGER,
+          id TEXT PRIMARY KEY, chapter_id TEXT, title TEXT, objective TEXT, content TEXT, position INTEGER,
           FOREIGN KEY(chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
         )`)
       recreate('exam_choices',
@@ -868,7 +868,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
       if (!chs.length) return
       const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
       const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
       const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
       // 旧 3 章 + 复用的 2 章（dt-c2/dt-c3）一并先删后插：
@@ -878,7 +878,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
         for (const id of ALL) { delSec.run(id); delCh.run(id) }
         for (const ch of chs) {
           insCh.run(ch.id, 'frontend', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
-          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si))
         }
       })
       tx()
@@ -905,14 +905,14 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
       if (!chs.length) return
       const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
       const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
       const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
       const tx = db.transaction(() => {
         for (const id of [...oldIds, ...ids]) { delSec.run(id); delCh.run(id) }
         for (const ch of chs) {
           insCh.run(ch.id, 'frontend', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
-          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si))
         }
       })
       tx()
@@ -940,14 +940,14 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
       if (!chs.length) return
       const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
       const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
       const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
       const tx = db.transaction(() => {
         for (const id of [...oldIds, ...ids]) { delSec.run(id); delCh.run(id) }
         for (const ch of chs) {
           insCh.run(ch.id, 'ai', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
-          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si))
         }
       })
       tx()
@@ -973,14 +973,14 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
       if (!chs.length) return
       const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
       const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
       const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
       const tx = db.transaction(() => {
         for (const id of ids) { delSec.run(id); delCh.run(id) }
         for (const ch of chs) {
           insCh.run(ch.id, 'backend', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
-          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si))
         }
       })
       tx()
@@ -1010,14 +1010,14 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       const chs = (mod.chapters || []).filter((c: any) => ids.includes(c.id))
       if (!chs.length) return
       const insCh = db.prepare('INSERT INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
       const delSec = db.prepare('DELETE FROM sections WHERE chapter_id=?')
       const delCh = db.prepare('DELETE FROM chapters WHERE id=?')
       const tx = db.transaction(() => {
         for (const id of ids) { delSec.run(id); delCh.run(id) }
         for (const ch of chs) {
           insCh.run(ch.id, 'frontend', ch.title, ch.goal, ch.position ?? 0, ch.subtrack || null)
-          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.direction ?? null, s.content, si))
+          ;(ch.sections || []).forEach((s: any, si: number) => insSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si))
         }
       })
       tx()
@@ -1140,13 +1140,13 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       const chs = (mod.chapters || []).filter((c: any) => NEW_IDS.includes(c.id))
       if (!chs.length) return
       const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-      const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+      const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
       const tx = db.transaction(() => {
         for (const c of chs) {
           const exists = (db.prepare('SELECT 1 FROM chapters WHERE id=?').get(c.id) as any)
           if (exists) continue
           insCh.run(c.id, 'backend', c.title, c.goal ?? null, c.position ?? 0, c.subtrack || null)
-          ;(c.sections || []).forEach((s: any, si: number) => insSec.run(s.id, c.id, s.title, s.direction ?? null, s.content, si))
+          ;(c.sections || []).forEach((s: any, si: number) => insSec.run(s.id, c.id, s.title, s.objective ?? s.direction ?? null, s.content, si))
         }
       })
       tx()
@@ -1158,6 +1158,17 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
     up: (db: any) => {
       const cols = (db.prepare("PRAGMA table_info(interview_questions)").all() as any[]).map((c: any) => c.name)
       if (!cols.includes('subtrack_detail')) db.exec('ALTER TABLE interview_questions ADD COLUMN subtrack_detail TEXT')
+    }
+  },
+  {
+    // D4：sections.direction 存的实际是「学习目标」（"能……" 句式），字段名名不副实。
+    // 用 RENAME COLUMN 保留既有数据；已改名的新库再次执行是 no-op。
+    version: 34,
+    name: 'rename_sections_direction_to_objective',
+    up: (db: any) => {
+      if (colExists(db, 'sections', 'direction') && !colExists(db, 'sections', 'objective')) {
+        db.exec('ALTER TABLE sections RENAME COLUMN direction TO objective')
+      }
     }
   }
 ]
@@ -1242,7 +1253,7 @@ function refreshContentIfNeeded(db: any) {
   console.log(`[db] 检测到种子版本变化（applied=${applied ?? '∅'} → seed=${seedVersion}），刷新内容表…`)
   const upsMod = db.prepare('INSERT OR REPLACE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
   const upsCh = db.prepare('INSERT OR REPLACE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-  const upsSec = db.prepare('INSERT OR REPLACE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+  const upsSec = db.prepare('INSERT OR REPLACE INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
   // 顺序满足 FK：先父表后子表；INSERT OR REPLACE 按主键覆盖，新增章节被补入、已有章节被更新。
   const tx = db.transaction(() => {
     for (const m of content.modules || []) {
@@ -1252,7 +1263,7 @@ function refreshContentIfNeeded(db: any) {
         upsCh.run(ch.id, m.id, ch.title, ch.goal, ci, ch.subtrack ?? null)
         for (let si = 0; si < (ch.sections || []).length; si++) {
           const s = ch.sections[si]
-          upsSec.run(s.id, ch.id, s.title, s.direction, s.content, si)
+          upsSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si)
         }
       }
     }
@@ -1308,7 +1319,7 @@ function seedIfEmpty(db: any) {
   const content = JSON.parse(fs.readFileSync(file, 'utf-8'))
   const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
   const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-  const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,direction,content,position) VALUES (?,?,?,?,?,?)')
+  const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
 
   // 根据章节标题/ID 推断技术方向，用于模块页方向筛选与首页方向标签
   function assignChapterSubtrack(moduleId: string, chapterId: string, title: string): string | null {
@@ -1426,7 +1437,7 @@ function seedIfEmpty(db: any) {
       m.chapters.forEach((ch: any, ci: number) => {
         insCh.run(ch.id, m.id, ch.title, ch.goal, ci, ch.subtrack || assignChapterSubtrack(m.id, ch.id, ch.title))
         ch.sections.forEach((s: any, si: number) => {
-          insSec.run(s.id, ch.id, s.title, s.direction, s.content, si)
+          insSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si)
         })
       })
     })

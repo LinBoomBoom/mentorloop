@@ -24,7 +24,7 @@ function chapterIndex(track: string) {
   const rows = sqlite.prepare(
     `SELECT DISTINCT c.id AS id, c.title AS title, c.module_id AS moduleId
      FROM sections s JOIN chapters c ON c.id = s.chapter_id
-     WHERE s.direction = ?`
+     WHERE c.module_id = ?`
   ).all(track) as any[]
   const byTitle = new Map<string, any>()
   for (const r of rows) byTitle.set(String(r.title).trim(), r)
@@ -38,7 +38,7 @@ function chapterKeywordIndex(track: string) {
     `SELECT c.id AS id, c.title AS title, c.module_id AS moduleId,
             GROUP_CONCAT(s.title || ' ' || IFNULL(s.content, ''), ' ') AS blob
      FROM sections s JOIN chapters c ON c.id = s.chapter_id
-     WHERE s.direction = ?
+     WHERE c.module_id = ?
      GROUP BY c.id, c.title, c.module_id`
   ).all(track) as any[]
   return rows.map((r: any) => ({ id: r.id, title: r.title, moduleId: r.moduleId, blob: (r.blob || '').toLowerCase() }))
