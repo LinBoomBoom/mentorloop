@@ -408,7 +408,8 @@ function doApply(id) {
     if (existingIds.has(ch.id)) { dup++; continue }
     mod.chapters.push(ch)
   }
-  fs.writeFileSync(seedFile, JSON.stringify(seed, null, 2))
+  // 保持与已提交 seed-content.json 一致的「紧凑单行」格式，避免每次 apply 触发整体重格式化产生巨量 diff
+  fs.writeFileSync(seedFile, JSON.stringify(seed))
   console.log(`[apply] seed-content.json：写入 ${chapters.length - dup} 章（跳过重复 ${dup}）`)
 
   // 2) 双写 data/devmentor.db（已 seed，需显式 INSERT）
@@ -432,6 +433,12 @@ function doApply(id) {
 }
 
 // ---------------- CLI ----------------
+// 守卫：仅当本文件被直接作为入口执行时才运行 CLI，允许被其他脚本 import 复用 SUBTRACKS 而不触发 process.exit
+import { fileURLToPath } from 'node:url'
+const _isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+if (!_isMain) {
+  // 仅导出 SUBTRACKS 等，不执行 CLI
+} else {
 const [cmd, id, ...rest] = process.argv.slice(2)
 function getOpt(name) {
   const i = rest.findIndex(a => a === name || a.startsWith(name + '='))
@@ -453,3 +460,4 @@ if (!cmd || !id) { console.error('用法: gen-learn.mjs <plan|write|apply|run> <
   else { console.error('未知命令', cmd); process.exit(1) }
   console.log(`=== 累计消耗 token ≈ ${costTotal} ===`)
 })().catch(e => { console.error('FATAL', e); process.exit(1) })
+} // end _isMain guard
