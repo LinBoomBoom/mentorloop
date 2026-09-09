@@ -21,9 +21,13 @@ describe('B2 外键作用域化', () => {
     expect(row.foreign_keys).toBe(1)
   })
 
-  it('版本化迁移已记录 v6（含 foreign-keys + exam-review-split + resume-referral + interview-weight）', () => {
-    const vers = sqlite.prepare('SELECT version FROM schema_migrations').all().map((r) => r.version).sort()
-    expect(vers).toEqual([1, 2, 3, 4, 5, 6])
+  // 不写死版本号：迁移会持续追加（当前已到 v34），写死数组会在每次新增迁移时误报。
+  // 真正要保证的是：迁移记录连续无缺号、且包含关键的早期版本。
+  it('版本化迁移记录连续且覆盖 v1~v6', () => {
+    const vers = sqlite.prepare('SELECT version FROM schema_migrations').all().map((r) => r.version).sort((a, b) => a - b)
+    expect(vers.length).toBeGreaterThanOrEqual(34)
+    for (let v = 1; v <= 6; v++) expect(vers, `缺少迁移 v${v}`).toContain(v)
+    for (let i = 0; i < vers.length; i++) expect(vers[i], `迁移版本号不连续：${vers.join(',')}`).toBe(i + 1)
   })
 
   it('逻辑父子表均声明 FOREIGN KEY 且级联', () => {
@@ -50,7 +54,7 @@ describe('B2 外键作用域化', () => {
   it('ON DELETE CASCADE 生效：删模块级联清章节与小节', () => {
     sqlite.prepare("INSERT INTO modules (id,name,position) VALUES ('fkmod','t',0)").run()
     sqlite.prepare("INSERT INTO chapters (id,module_id,title,position) VALUES ('fkch','fkmod','t',0)").run()
-    sqlite.prepare("INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES ('fksec','fkch','t','fe','c',0)").run()
+    sqlite.prepare("INSERT INTO sections (id,chapter_id,title,objective,content,position) VALUES ('fksec','fkch','t','fe','c',0)").run()
     sqlite.prepare("DELETE FROM modules WHERE id='fkmod'").run()
     expect(sqlite.prepare("SELECT COUNT(*) AS c FROM chapters WHERE id='fkch'").get().c).toBe(0)
     expect(sqlite.prepare("SELECT COUNT(*) AS c FROM sections WHERE id='fksec'").get().c).toBe(0)

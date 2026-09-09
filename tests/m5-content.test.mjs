@@ -53,7 +53,7 @@ describe('M5 内容扩建', () => {
     sqlite.prepare("INSERT INTO exam_sets (id,name,track,level,duration,vip_only) VALUES ('e1','空卷','front','初级',30,0)").run()
     sqlite.prepare("INSERT INTO modules (id,name,icon,color,desc,position) VALUES ('m1','前端','x','#000','d',0)").run()
     sqlite.prepare("INSERT INTO chapters (id,module_id,title,goal,position) VALUES ('c1','m1','基础','',0)").run()
-    sqlite.prepare("INSERT INTO sections (id,chapter_id,title,direction,content,position) VALUES ('s1','c1','变量','', 'x',0)").run()
+    sqlite.prepare("INSERT INTO sections (id,chapter_id,title,objective,content,position) VALUES ('s1','c1','变量','', 'x',0)").run()
     cleanupOrphans(sqlite)
     expect(sqlite.prepare("SELECT COUNT(*) n FROM exam_sets WHERE id='e1'").get().n).toBe(0)
     expect(sqlite.prepare("SELECT COUNT(*) n FROM modules WHERE id='m1'").get().n).toBe(0)

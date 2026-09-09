@@ -1463,7 +1463,9 @@ function seedIfEmpty(db: any) {
     content.examSets.forEach((set: any) => {
       insSet.run(set.id, set.name, set.track, set.level, set.duration, set.vipOnly ? 1 : 0)
       set.choices.forEach((c: any) => insC.run(c.id, set.id, c.tag, c.q, JSON.stringify(c.options), JSON.stringify(c.answer), c.explain, c.multi ? 1 : 0))
-      set.written.forEach((w: any) => insW.run(w.id, set.id, w.q, JSON.stringify(w.points), w.reference))
+      // 种子里只有部分试卷配了问答题（57 套中 19 套），缺 written 是合法的；
+      // 旧写法直接 set.written.forEach 会让全新空库初始化抛 TypeError，导致首次启动即失败。
+      ;(set.written || []).forEach((w: any) => insW.run(w.id, set.id, w.q, JSON.stringify(w.points), w.reference))
     })
   })
   tx()
