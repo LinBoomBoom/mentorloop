@@ -13,9 +13,35 @@ import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execFileSync } from 'node:child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
+
+// ---- 受控词表闸口（P0 防回归）----
+// 本脚本原有的 validTechs 只认 TECH_MAP 的历史标签（如「应用与部署」「JavaScript/TS」），
+// 这些值并不在受控词表内，一旦新增题目就会把词表外取值写进库，破坏 A3 断言。
+// 改为：以 app/data/techVocabulary.ts 为唯一取值域，
+//   ① LLM 直出的 tech 若可识别为规范名则优先采用（比关键词更准，且支持 TypeScript/RAG 等细粒度标签）；
+//   ② 否则回退关键词 classifyTech，其结果同样强制收敛，保证入库值一定合法。
+function loadTs (rel, expr) {
+  const code = `import('./${rel}').then(m => console.log(JSON.stringify(${expr})))`
+  const out = execFileSync(process.execPath, ['--experimental-strip-types', '-e', code], {
+    cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024
+  })
+  return JSON.parse(out.trim().split('\n').pop())
+}
+const TECH_RESOLVE = loadTs('app/data/techVocabulary.ts', 'm.TECH_RESOLVE')
+const CANON_FALLBACK = '综合应用'
+/** 原始值 → 规范名；无法识别返回 null（调用方据此回退关键词分类） */
+const resolveTech = (mod, raw) => {
+  const b = TECH_RESOLVE[mod]
+  if (!b || !raw) return null
+  const e = b[String(raw).trim().toLowerCase()]
+  return e ? e.name : null
+}
+/** 兜底版：识别失败统一落「综合应用」，永远返回词表内合法值 */
+const canonicalizeTech = (mod, raw) => resolveTech(mod, raw) || CANON_FALLBACK
 
 // ---- 解析 .env 取密钥 ----
 function loadEnv() {
@@ -324,9 +350,10 @@ async function worker(queue) {
           const type = isHard ? 'special' : 'hot'
           // 三档难度：困难→hard/special，较难→medium/hot，常规→easy/hot（修复原 2 档塌缩）
           const difficulty = x.difficultyRaw === '困难' ? 'hard' : (x.difficultyRaw === '较难' ? 'medium' : 'easy')
-          // 优先采用 LLM 直接归类的技术子类（更准），非法时回退关键词 classifyTech
-          const validTechs = TECH_MAP[sec.track].map((r) => r.tech)
-          const tech = validTechs.includes(x.techRaw) ? x.techRaw : classifyTech(sec.track, x.q, JSON.stringify(x.keywords))
+          // 优先采用 LLM 直出的技术子类（更准），但必须能解析为受控词表内的规范名；
+          // 无法识别时回退关键词 classifyTech，其结果同样强制收敛 → 入库值必定合法。
+          const tech = resolveTech(sec.track, x.techRaw) ||
+            canonicalizeTech(sec.track, classifyTech(sec.track, x.q, JSON.stringify(x.keywords)))
           const weight = isHard ? 5 : 3
           // 防回归：显式点名 Node 运行时的前端题改派 fe-node（subtrack/subtrack_detail 双写 DB+seed）
           const rt = routeNodeRuntime(sec.track, x.q, JSON.stringify(x.keywords))

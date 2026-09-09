@@ -1,6 +1,29 @@
 import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+// ---- 受控词表闸口（P0 防回归）----
+// classifyTech 产出的是历史标签（如「应用与部署」「JavaScript/TS」），并不在受控词表内。
+// 任何 tech 在入库前必须收敛为 app/data/techVocabulary.ts 的规范名，
+// 否则会把词表外取值写进库，破坏 A3 断言并让 UI 二级筛选再次出现「点了没题」。
+function loadTs (rel, expr) {
+  const code = `import('./${rel}').then(m => console.log(JSON.stringify(${expr})))`
+  const out = execFileSync(process.execPath, ['--experimental-strip-types', '-e', code], {
+    cwd: process.cwd(), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024
+  })
+  return JSON.parse(out.trim().split('\n').pop())
+}
+const TECH_RESOLVE = loadTs('app/data/techVocabulary.ts', 'm.TECH_RESOLVE')
+const CANON_FALLBACK = '综合应用'
+const canonicalizeTech = (mod, raw, trackId) => {
+  const b = TECH_RESOLVE[mod]
+  if (!b || !raw) return CANON_FALLBACK
+  const e = b[String(raw).trim().toLowerCase()]
+  if (!e) return CANON_FALLBACK
+  if (trackId && e.allowTracks !== '*' && !e.allowTracks.includes(trackId)) return CANON_FALLBACK
+  return e.name
+}
 
 const DB_PATH = './data/devmentor.db';
 const SEED = './data/seed-content.json';
@@ -195,7 +218,10 @@ function insertQuestion(track, q, type) {
   const kw = JSON.stringify(q.keywords || []);
   const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'easy');
   const weight = typeof q.weight === 'number' ? q.weight : (type === 'special' ? 5 : 3);
-  const tech = q.tech || classifyTech(track, q.q, kw, q.a);
+  // 过闸：种子自带 tech 若为历史标签会被收敛为规范名；缺失时先关键词分类，其结果同样过闸。
+  // 不传 subtrack 做赛道白名单校验：避免章节级 subtrack（如 offlinedw）与词表赛道 id（be-data）
+  // 粒度不一致导致误落兜底；赛道级合法性由 scripts/audit-taxonomy.mjs 的 A9 统一把关。
+  const tech = canonicalizeTech(track, q.tech || classifyTech(track, q.q, kw, q.a));
   insQ.run(q.id, track, type, q.q, q.a, kw, weight, difficulty, tech, q.subtrack || null, q.skill || null, q.source ?? null);
 }
 

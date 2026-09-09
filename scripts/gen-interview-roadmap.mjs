@@ -14,9 +14,36 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
+import { execFileSync } from 'node:child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
+
+// ---- 受控词表闸口（P0 防回归）----
+// 与 gen-interview.mjs 同款收敛：原 validTechs 只认 TECH_MAP 的历史标签（不在受控词表内），
+// 改为以 app/data/techVocabulary.ts 为唯一取值域；同时把提示词里的候选技术名也换成规范名，
+// 让 LLM 直出的 tech 能直接命中闸口，减少回退到关键词分类的比例。
+function loadTs (rel, expr) {
+  const code = `import('./${rel}').then(m => console.log(JSON.stringify(${expr})))`
+  const out = execFileSync(process.execPath, ['--experimental-strip-types', '-e', code], {
+    cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024
+  })
+  return JSON.parse(out.trim().split('\n').pop())
+}
+const TECH_RESOLVE = loadTs('app/data/techVocabulary.ts', 'm.TECH_RESOLVE')
+const TECH_VOCAB = loadTs('app/data/techVocabulary.ts', 'm.TECH_VOCABULARY')
+const CANON_FALLBACK = '综合应用'
+/** 该模块的规范技术名（去重，用于提示词候选与白名单） */
+const techNamesForModule = (mod) => [...new Set(TECH_VOCAB.filter(t => t.module === mod).map(t => t.name))]
+/** 原始值 → 规范名；无法识别返回 null（调用方据此回退关键词分类） */
+const resolveTech = (mod, raw) => {
+  const b = TECH_RESOLVE[mod]
+  if (!b || !raw) return null
+  const e = b[String(raw).trim().toLowerCase()]
+  return e ? e.name : null
+}
+/** 兜底版：识别失败统一落「综合应用」，永远返回词表内合法值 */
+const canonicalizeTech = (mod, raw) => resolveTech(mod, raw) || CANON_FALLBACK
 
 // ---- 解析 .env 取密钥 ----
 function loadEnv() {
@@ -270,7 +297,7 @@ async function main() {
 2. 题型尽量多样，至少涵盖：概念理解题、原理/机制深挖题、常见坑/易错点题、对比辨析题、场景/编码实战题（按技能必要性取舍，不要为凑数出无意义题）。
 3. 每道题给出结构化参考答案（markdown）：先一句话核心结论，再分点展开（含代码示例/命令/配置片段），补充「常见坑」，结尾「面试小结」。每答案 300-600 字，精炼不注水。
 4. 关键词 3-6 个；难度标注 常规/较难/困难；技术子类从下列列表选最贴合的一个：
-${TECH_MAP[f.track].map(r => r.tech).join('、')}
+${techNamesForModule(f.track).join('、')}
 5. 严格按以下格式输出，题与题之间用单独一行的 ===Q=== 分隔，不要输出任何额外说明文字：
 ===Q===
 问：<问题>
@@ -329,8 +356,10 @@ ${TECH_MAP[f.track].map(r => r.tech).join('、')}
             const isHard = x.difficultyRaw === '困难'
             const type = isHard ? 'special' : 'hot'
             const difficulty = isHard ? 'hard' : (x.difficultyRaw === '较难' ? 'medium' : 'easy')
-            const validTechs = TECH_MAP[f.track].map(r => r.tech)
-            const tech = validTechs.includes(x.techRaw) ? x.techRaw : classifyTech(f.track, x.q, JSON.stringify(x.keywords))
+            // 优先采用 LLM 直出的技术子类（更准），但必须能解析为受控词表内的规范名；
+            // 无法识别时回退关键词 classifyTech，其结果同样强制收敛 → 入库值必定合法。
+            const tech = resolveTech(f.track, x.techRaw) ||
+              canonicalizeTech(f.track, classifyTech(f.track, x.q, JSON.stringify(x.keywords)))
             const weight = isHard ? 5 : 3
             // 把技能名塞进关键词，便于现有搜索/筛选命中
             const kws = x.keywords.includes(f.name) ? x.keywords : [...x.keywords, f.name].slice(0, 8)

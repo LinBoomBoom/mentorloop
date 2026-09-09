@@ -7,6 +7,7 @@ import { getHeader, getCookie, setCookie, setResponseStatus, createError } from 
 import { logWarn } from './logger'
 import { SEED_PATH, DB_PATH } from './paths'
 import { resolveLegacySubtrack } from './interviewSubtrackMap'
+import { canonicalizeTech } from '../../app/data/techVocabulary'
 // 注意：DB_PATH 统一由 ./paths 定义并导出，本文件仅引用，**不要**在此 re-export，
 // 否则 Nitro 会报 "Duplicated imports DB_PATH"（db.ts 与 paths.ts 同时导出）。
 
@@ -451,7 +452,9 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
       const upd = db.prepare('UPDATE interview_questions SET tech=? WHERE id=?')
       const rows = db.prepare('SELECT id,track,q,keywords FROM interview_questions WHERE tech IS NULL').all() as any[]
       const tx = db.transaction(() => {
-        for (const r of rows) upd.run(classifyTech(r.track, r.q, r.keywords), r.id)
+        // 过受控词表闸口：classifyTech 产出的是历史标签（如「应用与部署」「JavaScript/TS」），
+        // 必须收敛为 techVocabulary 内的规范名，否则会把词表外取值写进库（破坏 A3 断言）。
+        for (const r of rows) upd.run(canonicalizeTech(r.track, classifyTech(r.track, r.q, r.keywords)), r.id)
       })
       tx()
     }
@@ -1441,7 +1444,9 @@ function seedIfEmpty(db: any) {
         const kw = JSON.stringify(q.keywords || [])
         const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'easy')
         const weight = typeof q.weight === 'number' ? q.weight : (type === 'special' ? 5 : 3)
-        insQ.run(q.id, track, type, q.q, q.a, kw, weight, difficulty, q.tech || classifyTech(track, q.q, kw), q.subtrack || null, q.skill || null)
+        // 过闸：种子自带的 tech 若为历史标签（如「模型基础/训练」）会被收敛为规范名；
+        // 缺失时才用关键词分类，其结果同样必须过闸。
+        insQ.run(q.id, track, type, q.q, q.a, kw, weight, difficulty, canonicalizeTech(track, q.tech || classifyTech(track, q.q, kw)), q.subtrack || null, q.skill || null)
       }
     })
     content.examSets.forEach((set: any) => {
@@ -1455,7 +1460,7 @@ function seedIfEmpty(db: any) {
   const updTech = db.prepare('UPDATE interview_questions SET tech=? WHERE id=?')
   const qrows = db.prepare('SELECT id,track,q,keywords FROM interview_questions WHERE tech IS NULL').all() as any[]
   const qtx = db.transaction(() => {
-    for (const r of qrows) updTech.run(classifyTech(r.track, r.q, r.keywords), r.id)
+    for (const r of qrows) updTech.run(canonicalizeTech(r.track, classifyTech(r.track, r.q, r.keywords)), r.id)
   })
   qtx()
 }
