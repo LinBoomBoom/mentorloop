@@ -114,7 +114,9 @@ const seed = JSON.parse(fs.readFileSync(seedFile, 'utf8'))
 const mod = seed.modules.find(m => m.id === st.module)
 if (!mod) throw new Error('seed 中找不到模块 ' + st.module)
 if (mod.chapters.some(c => c.id === chapter.id)) { console.error('章节已存在，跳过 seed 写入:', chapter.id); }
-else { mod.chapters.push(chapter); fs.writeFileSync(seedFile, JSON.stringify(seed, null, 2)); console.log('[apply] seed-content.json：写入 1 章') }
+// 保持与已提交 seed-content.json 一致的「紧凑单行」格式：
+// 用 indent 2 会把整个 27MB 种子重格式化，产生十万行级无意义 diff。
+else { mod.chapters.push(chapter); fs.writeFileSync(seedFile, JSON.stringify(seed)); console.log('[apply] seed-content.json：写入 1 章') }
 
 // 双写 DB
 const dbFile = path.join(ROOT, 'data/devmentor.db')

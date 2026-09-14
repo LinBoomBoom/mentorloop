@@ -46,15 +46,38 @@ const SUB2TRACK = loadTs(
   'app/data/learningTaxonomy.ts',
   'Object.fromEntries(Object.values(m.LEARNING_TAXONOMY).flat().flatMap(t => (t.chapterSubtracks || []).map(s => [s, t.id])))'
 )
-/** 原始值 → 规范名；无法识别返回 null（调用方据此回退关键词分类） */
-const resolveTech = (mod, raw) => {
+// 赛道 id -> 一级模块（用于按赛道取受控词表子集）
+const TRACK2MODULE = loadTs(
+  'app/data/learningTaxonomy.ts',
+  'Object.fromEntries(Object.entries(m.LEARNING_TAXONOMY).flatMap(([mod, list]) => list.map(t => [t.id, mod])))'
+)
+const TECH_VOCABULARY = loadTs('app/data/techVocabulary.ts', 'm.TECH_VOCABULARY')
+
+// 提示词里的「技术子类候选列表」必须来自受控词表、且限定在该赛道允许范围内。
+// 历史实现直接列 TECH_MAP 的遗留标签（MySQL/数据库、模型基础/训练…），
+// 词表里后来新增的 PostgreSQL / D3 / WebGL / CV / NLP / 推荐系统 从未出现在候选里，
+// 于是「PostgreSQL 的 MVCC」章节产出的题也只能打上 MySQL —— 这是内容缺口的真正源头。
+function techNamesForTrack (module, trackId) {
+  const list = TECH_VOCABULARY
+    .filter(v => v.module === module && (v.allowTracks === '*' || (v.allowTracks || []).includes(trackId)))
+    .map(v => v.name)
+  return list.length ? list : (TECH_MAP[module] || []).map(r => r.tech)
+}
+/**
+ * 原始值 → 规范名；无法识别返回 null（调用方据此回退关键词分类）。
+ * 传入 trackId 时额外做「该赛道是否允许」校验：跨赛道越界的标签视为未识别并落兜底，
+ * 否则 fe-mobile 的 SVG 题可能被判成只允许出现在 fe-viz 的「Canvas」，破坏 A9。
+ */
+const resolveTech = (mod, raw, trackId) => {
   const b = TECH_RESOLVE[mod]
   if (!b || !raw) return null
   const e = b[String(raw).trim().toLowerCase()]
-  return e ? e.name : null
+  if (!e) return null
+  if (trackId && e.allowTracks !== '*' && !(e.allowTracks || []).includes(trackId)) return null
+  return e.name
 }
 /** 兜底版：识别失败统一落「综合应用」，永远返回词表内合法值 */
-const canonicalizeTech = (mod, raw) => resolveTech(mod, raw) || CANON_FALLBACK
+const canonicalizeTech = (mod, raw, trackId) => resolveTech(mod, raw, trackId) || CANON_FALLBACK
 
 // ---- 解析 .env 取密钥 ----
 function loadEnv() {
@@ -92,6 +115,10 @@ const TRACK = args.get('track') || null
 // 定向补齐：只处理归属该赛道（v3 方向 id，如 fe-uniapp / ai-edge）的小节。
 // 与 --track（模块级 frontend/backend/devops/ai）可叠加，用于按赛道填空而不必全模块重跑。
 const SUBTRACK = args.get('subtrack') || null
+// 精确定向到章节（逗号分隔 chapter_id）。用途：赛道内章节质量参差时只补特定章，
+// 例：ai-algo 的 cv/nlp/rec 各有一章「应用实战」才是真领域内容，其余是重复的
+// PyTorch/TensorFlow 教程——全跑只会让「模型与训练」占比再次失控。
+const CHAPTERS = (args.get('chapters') || '').split(',').map(s => s.trim()).filter(Boolean)
 // 本批新增题目数上限（0 = 不限）。配合 --subtrack 用于把某赛道补齐到目标题量。
 const MAX_Q = parseInt(args.get('max-q') || '0', 10)
 const LIMIT = parseInt(args.get('limit') || '0', 10)
@@ -106,6 +133,19 @@ db.pragma('journal_mode = WAL')
 // ---- 复刻 classifyTech（与 server/utils/db.ts 一致，保证 tech 归类统一）----
 const TECH_MAP = {
   frontend: [
+    { tech: 'WebGL', w: 2, kw: ['webgl', 'three.js', 'threejs', 'glsl', '着色器', 'shader', '顶点', '片元', '纹理'] },
+    { tech: 'D3', w: 2, kw: ['d3.js', 'd3 '] },
+    { tech: 'ECharts', w: 2, kw: ['echarts'] },
+    { tech: 'Canvas', w: 2, kw: ['canvas', 'svg'] },
+    { tech: 'Flutter', w: 2, kw: ['flutter', 'dart', 'widget'] },
+    { tech: 'React Native', w: 2, kw: ['react native'] },
+    // 注意：不要写裸 'ios'——"scenarios / various / serious" 等英文单词都以 ios 结尾，会误命中
+    { tech: 'iOS', w: 2, kw: ['swiftui', 'uikit', 'appdelegate', 'ios '] },
+    { tech: 'Android', w: 2, kw: ['android', 'kotlin'] },
+    { tech: 'Electron', w: 2, kw: ['electron'] },
+    { tech: 'uni-app', w: 2, kw: ['uni-app', 'uniapp'] },
+    { tech: 'HarmonyOS', w: 2, kw: ['harmonyos', '鸿蒙', 'arkts', 'arkui'] },
+    { tech: '小程序', w: 2, kw: ['小程序', 'miniprogram'] },
     { tech: 'JavaScript/TS', kw: ['javascript', 'js', 'ts', 'typescript', '闭包', '作用域', '原型', '原型链', '事件循环', 'event loop', '宏任务', '微任务', 'promise', 'async', 'await', 'this', '变量提升', '浅拷贝', '深拷贝', '防抖', '节流', '柯里化', 'es6', 'es2015', '数组', 'proxy', 'reflect', '类型', '继承', 'bind', 'call', 'apply', '事件委托', '手写'] },
     { tech: 'Vue', kw: ['vue', 'vue2', 'vue3', '组合式', 'composition', '响应式', 'defineproperty', 'pinia', 'vuex', 'vdom', 'setup', 'ref', 'reactive', 'nexttick', '虚拟dom'] },
     { tech: 'React', kw: ['react', 'hook', 'hooks', 'usestate', 'useeffect', 'diff', 'redux', 'fiber', 'jsx', '受控', '合成事件', 'reconciliation', 'scheduler'] },
@@ -117,8 +157,14 @@ const TECH_MAP = {
     { tech: '工程化/构建', kw: ['工程化', '构建', '模块化', 'npm', '包管理', 'monorepo', '微前端', '组件库', 'git', '脚手架', 'babel', 'eslint', '规范'] }
   ],
   backend: [
+    // 具体产品名权重 2：见 classifyTech 的 w 说明，避免被「MySQL/数据库」泛化规则吃掉
+    { tech: 'PostgreSQL', w: 2, kw: ['postgresql', 'postgres', 'psql'] },
+    { tech: 'Redis', w: 2, kw: ['redis'] },
+    { tech: 'Elasticsearch', w: 2, kw: ['elasticsearch', 'elastic', 'lucene'] },
+    { tech: 'NoSQL', w: 2, kw: ['mongodb', 'mongo', 'cassandra', 'hbase', 'nosql', '文档数据库', '图数据库'] },
     { tech: 'Java/Spring', kw: ['java', 'jvm', 'spring', 'bean', 'springboot', '集合', 'hashmap', 'gc', '垃圾回收', '泛型', '反射', '注解', '循环依赖', 'aop', 'ioc', '并发集合', 'jdk'] },
-    { tech: 'MySQL/数据库', kw: ['mysql', '数据库', '索引', 'b+树', 'innodb', 'mvcc', '事务', '隔离级别', 'sql', '聚簇', '回表', '分库', '分表', '慢查询', '范式', '锁', '死锁'] },
+    { tech: 'MySQL', kw: ['mysql', 'innodb', 'myisam', 'binlog', '聚簇', '回表', '最左前缀', 'gtid'] },
+    { tech: '数据库原理', kw: ['索引', 'b+树', 'b+ 树', 'mvcc', '事务', '隔离级别', 'sql', '分库', '分表', '慢查询', '范式', '锁', '死锁', '执行计划', '存储引擎', '数据库'] },
     { tech: 'Redis/缓存', kw: ['redis', '缓存', '穿透', '击穿', '雪崩', '布隆过滤器', '缓存一致性', '热点', '过期', 'zset', '持久化', '缓存'] },
     { tech: '并发/多线程', kw: ['线程', '线程池', '并发', '多线程', 'synchronized', 'volatile', 'cas', 'aqs', '原子类', 'forkjoin', 'parallel', '锁'] },
     { tech: '分布式/微服务', kw: ['分布式', '微服务', 'rpc', '注册中心', '服务发现', '网关', '限流', '熔断', '降级', 'cap', '一致性', 'seata', 'tcc', 'saga', '最终一致性', '幂等'] },
@@ -136,6 +182,9 @@ const TECH_MAP = {
     { tech: '监控/SRE', kw: ['sre', 'slo', 'sli', '错误预算', '监控', 'prometheus', 'grafana', '告警', '可观测', '日志', '链路追踪', 'metrics'] }
   ],
   ai: [
+    { tech: 'CV', w: 2, kw: ['计算机视觉', '图像分类', '目标检测', '图像分割', 'yolo', 'cnn', '卷积', 'ocr', '人脸识别'] },
+    { tech: 'NLP', w: 2, kw: ['自然语言', 'nlp', 'bert', '分词', '词向量', '文本分类', 'ner', '语言模型'] },
+    { tech: '推荐系统', w: 2, kw: ['推荐系统', '推荐模型', '召回', '粗排', '精排', '重排', '协同过滤', 'ctr', '双塔', '冷启动'] },
     { tech: '提示工程/Prompt', kw: ['提示工程', 'prompt', 'few-shot', 'cot', 'zero-shot', '指令', '上下文', '角色'] },
     { tech: 'RAG', kw: ['rag', '检索增强', '检索', '召回', '重排', 'rerank', 'chunking', '切分', '切片', '知识库'] },
     { tech: 'Embedding/向量', kw: ['embedding', '向量', '相似度', 'ann', '向量库', 'faiss', 'milvus', '余弦', '检索方案'] },
@@ -156,6 +205,9 @@ function classifyTech(track, q, keywordsJson) {
   for (const r of rules) {
     let score = 0
     for (const k of r.kw) if (text.includes(k.toLowerCase())) score++
+    // w：规则权重。具体产品名（PostgreSQL / Redis / Elasticsearch…）权重高于「数据库」这类泛化词，
+    // 否则「PostgreSQL 的 MVCC」会与「MySQL/数据库」平分而被首位的 MySQL 规则抢走。
+    score *= (r.w || 1)
     if (score > bestScore) { bestScore = score; best = r.tech }
   }
   return best
@@ -198,6 +250,7 @@ for (const m of seed.modules || []) {
     // 精确赛道归属：chapter.subtrack -> 赛道 id（未登记 subtrack 的章节退化为 null，由 v22 兜底）
     const sub = SUB2TRACK[ch.subtrack] || null
     if (SUBTRACK && sub !== SUBTRACK) continue
+    if (CHAPTERS.length && !CHAPTERS.includes(ch.id)) continue
     for (const sec of ch.sections || []) {
       const dbSec = secContentMap.get(sec.id)
       sections.push({
@@ -215,7 +268,7 @@ for (const m of seed.modules || []) {
 }
 let todo = sections
 if (LIMIT > 0) todo = todo.slice(0, LIMIT)
-console.log(`待处理小节数：${todo.length}${DRY ? '（试运行，不写库/种子）' : ''}${TRACK ? ' track=' + TRACK : ''}${SUBTRACK ? ' subtrack=' + SUBTRACK : ''}`)
+console.log(`待处理小节数：${todo.length}${DRY ? '（试运行，不写库/种子）' : ''}${TRACK ? ' track=' + TRACK : ''}${SUBTRACK ? ' subtrack=' + SUBTRACK : ''}${CHAPTERS.length ? ' chapters=' + CHAPTERS.join('/') : ''}`)
 
 // ---- 断点续跑 ----
 const PROGRESS = path.join(ROOT, '.workbuddy', 'gen-interview-done.json')
@@ -302,7 +355,7 @@ ${sec.content || sec.sectionTitle}
 2. 题型要多样，至少涵盖：概念理解题、原理/机制深挖题、常见坑/易错点题、对比辨析题、场景/编码实战题（按主题必要性取舍）。
 3. 每道题给出结构化参考答案（markdown）：先一句话核心结论，再分点展开（含代码示例/命令/配置片段），补充「常见坑」，结尾「面试小结」。每答案 300-600 字，精炼不注水。
 4. 关键词 3-6 个；难度标注 常规/较难/困难；技术子类从下列列表选最贴合的一个：
-${TECH_MAP[sec.track].map(r => r.tech).join('、')}
+${techNamesForTrack(sec.track, sec.subtrack).join('、')}
 5. 严格按以下格式输出，题与题之间用单独一行的 ===Q=== 分隔，不要输出任何额外说明文字：
 ===Q===
 问：<问题>
@@ -378,8 +431,8 @@ async function worker(queue) {
           const difficulty = x.difficultyRaw === '困难' ? 'hard' : (x.difficultyRaw === '较难' ? 'medium' : 'easy')
           // 优先采用 LLM 直出的技术子类（更准），但必须能解析为受控词表内的规范名；
           // 无法识别时回退关键词 classifyTech，其结果同样强制收敛 → 入库值必定合法。
-          const tech = resolveTech(sec.track, x.techRaw) ||
-            canonicalizeTech(sec.track, classifyTech(sec.track, x.q, JSON.stringify(x.keywords)))
+          const tech = resolveTech(sec.track, x.techRaw, sec.subtrack) ||
+            canonicalizeTech(sec.track, classifyTech(sec.track, x.q, JSON.stringify(x.keywords)), sec.subtrack)
           const weight = isHard ? 5 : 3
           // 显式点名 Node 运行时的前端题优先改派 fe-node；否则采用本章节精确归属的赛道
           // （历史上这里恒写 null，导致新题全靠 v22 按 (模块,tech) 猜赛道，会落错且新赛道映射不到）
