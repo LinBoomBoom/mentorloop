@@ -94,16 +94,27 @@ test('考卷 choice/written id 全局唯一（回归 #50 根因）', () => {
   }
 })
 
-test('付费门禁正确：8 套 VIP 卷 vipOnly=true 且 id 含 vip，其余免费', () => {
+// 注意：本用例早期把总量写死为 19、VIP 卷 8 套、免费卷 11 套。内容扩充后总量已到 57
+// （新增各赛道 basic/inter/adv 卷，其中 19 套 -adv 进阶卷同样是 vipOnly，但 id 不含 vip），
+// 三个快照数字同时失效。写死数量只会在每次内容迭代后误报（#50 也是同类问题），
+// 因此改为断言「真实不变量」：数量只做不回退护栏，门禁语义必须自洽。
+test('付费门禁正确：VIP 卷 / 免费卷互斥、id 唯一、数量不回退', () => {
   const sets = seed.examSets ?? []
-  expect(sets.length).toBe(19)
+  // 不回退护栏：低于历史 19 套说明内容被静默丢失
+  expect(sets.length).toBeGreaterThanOrEqual(19)
+  const ids = sets.map((s) => s.id)
+  expect(new Set(ids).size).toBe(ids.length)
+
   const vip = sets.filter((s) => s.vipOnly)
-  expect(vip.length).toBe(8)
-  for (const st of vip) {
-    expect(st.id.includes('vip')).toBe(true)
-    expect(st.vipOnly).toBe(true)
-  }
   const free = sets.filter((s) => !s.vipOnly)
-  expect(free.length).toBe(11)
-  for (const st of free) expect(st.vipOnly).toBe(false)
+  // 两档都必须存在：VIP 卷是付费卖点（plans.ts 的 vip-exam），
+  // 免费卷保证未付费用户不会被全量锁死。
+  expect(vip.length).toBeGreaterThanOrEqual(8)
+  expect(free.length).toBeGreaterThan(0)
+  // 门禁字段必须自洽：历史上出现过 vipOnly 被写成字符串 "true"/1 导致判定漂移的情况
+  for (const st of sets) {
+    expect(st.vipOnly === undefined || typeof st.vipOnly === 'boolean').toBe(true)
+  }
+  for (const st of vip) expect(st.vipOnly).toBe(true)
+  for (const st of free) expect(st.vipOnly).not.toBe(true)
 })
