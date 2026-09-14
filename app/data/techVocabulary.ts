@@ -37,6 +37,26 @@ export const TECH_VOCABULARY: TechTerm[] = [
   { id: 'performance', name: '性能优化', module: 'frontend', allowTracks: '*' },
   { id: 'security', name: '安全', module: 'frontend', allowTracks: '*' },
   { id: 'network', name: '网络', module: 'frontend', allowTracks: '*', aliases: ['网络/HTTP', 'HTTP'] },
+  // —— 赛道本体技术标签（2026-09-13 补）——
+  // 此前词表只有「通用前端技术」标签，缺少各赛道的**本体技术**取值，导致
+  // Flutter / iOS / Electron / uni-app 题被关键词分类器误落「Web 基础」，
+  // Elasticsearch 题被误落「MySQL」，be-db 通用数据库原理题被全部塞进「MySQL」（占 90%）。
+  // 这些标签是 A2/A4/A9 三类失败的共同根因。
+  { id: 'flutter', name: 'Flutter', module: 'frontend', allowTracks: ['fe-app'], aliases: ['Dart'] },
+  { id: 'rn', name: 'React Native', module: 'frontend', allowTracks: ['fe-app'], aliases: ['RN'] },
+  { id: 'ios', name: 'iOS', module: 'frontend', allowTracks: ['fe-native'], aliases: ['Swift', 'SwiftUI', 'UIKit', 'Objective-C', 'OC'] },
+  { id: 'android', name: 'Android', module: 'frontend', allowTracks: ['fe-native'], aliases: ['Kotlin', 'Jetpack Compose', 'Compose'] },
+  { id: 'electron', name: 'Electron', module: 'frontend', allowTracks: ['fe-desktop'], aliases: ['Electron/Tauri'] },
+  { id: 'tauri', name: 'Tauri', module: 'frontend', allowTracks: ['fe-desktop'], aliases: ['Rust/Tauri'] },
+  { id: 'uniapp', name: 'uni-app', module: 'frontend', allowTracks: ['fe-uniapp'], aliases: ['uniapp', 'uni-app/跨端'] },
+  { id: 'harmony', name: 'HarmonyOS', module: 'frontend', allowTracks: ['fe-harmony'], aliases: ['鸿蒙', 'ArkTS', 'ArkUI', 'Harmony'] },
+  { id: 'miniprogram', name: '小程序', module: 'frontend', allowTracks: ['fe-miniprogram'], aliases: ['微信小程序', 'MiniProgram'] },
+  { id: 'node', name: 'Node.js', module: 'frontend', allowTracks: ['fe-node'], aliases: ['Node', 'Nodejs'] },
+  { id: 'echarts', name: 'ECharts', module: 'frontend', allowTracks: ['fe-viz'], aliases: ['echarts', 'Apache ECharts'] },
+  { id: 'd3', name: 'D3', module: 'frontend', allowTracks: ['fe-viz'], aliases: ['D3.js'] },
+  { id: 'webgl', name: 'WebGL', module: 'frontend', allowTracks: ['fe-viz'], aliases: ['Three.js', 'threejs', 'GLSL', 'OpenGL'] },
+  { id: 'canvas', name: 'Canvas', module: 'frontend', allowTracks: ['fe-viz'], aliases: ['SVG', 'Canvas/SVG'] },
+  { id: 'vizbase', name: '可视化基础', module: 'frontend', allowTracks: ['fe-viz'], aliases: ['图形基础', '可视化'] },
   { id: 'general', name: '综合应用', module: 'frontend', allowTracks: '*', aliases: ['综合'] },
 
   // ---------------- 后端 ----------------
@@ -59,6 +79,11 @@ export const TECH_VOCABULARY: TechTerm[] = [
   { id: 'flink', name: 'Flink', module: 'backend', allowTracks: ['be-data'] },
   { id: 'dw', name: '数仓建模', module: 'backend', allowTracks: ['be-data'] },
   { id: 'sched', name: '调度与集成', module: 'backend', allowTracks: ['be-data'] },
+  // —— 赛道本体/细分标签（2026-09-13 补）——
+  { id: 'es', name: 'Elasticsearch', module: 'backend', allowTracks: ['be-search', 'be-db'], aliases: ['ES', 'ElasticSearch', 'Lucene'] },
+  // 「数据库原理」承接跨具体产品的通用数据库题（索引结构 / 事务 / 锁 / MVCC / 存储引擎 /
+  // 执行计划 / 分库分表），避免它们被统一塞进「MySQL」导致二级筛选失去区分度。
+  { id: 'dbtheory', name: '数据库原理', module: 'backend', allowTracks: ['be-db', 'be-web', 'be-data', 'be-test', 'be-micro'], aliases: ['数据库基础', '存储引擎', '数据库/原理'] },
   { id: 'general', name: '综合应用', module: 'backend', allowTracks: '*', aliases: ['综合'] },
 
   // ---------------- 运维 ----------------
@@ -84,6 +109,12 @@ export const TECH_VOCABULARY: TechTerm[] = [
   { id: 'eval', name: '评估与观测', module: 'ai', allowTracks: '*', aliases: ['评估/Eval', 'Eval'] },
   { id: 'data', name: '数据与标注', module: 'ai', allowTracks: '*' },
   { id: 'edge', name: '端侧 AI', module: 'ai', allowTracks: ['ai-edge'] },
+  // —— 算法赛道本体标签（2026-09-13 补）——
+  // ai-algo 赛道名与章节 subtrack 都是 cv / nlp / rec，词表却长期没有对应取值，
+  // 导致「CNN / BERT / 双塔召回」这类领域题被并进「模型与训练」（占 63%，A4 失败）。
+  { id: 'cv', name: 'CV', module: 'ai', allowTracks: ['ai-algo', 'ai-data'], aliases: ['计算机视觉', '视觉', '图像'] },
+  { id: 'nlp', name: 'NLP', module: 'ai', allowTracks: ['ai-algo', 'ai-data'], aliases: ['自然语言处理', '自然语言'] },
+  { id: 'rec', name: '推荐系统', module: 'ai', allowTracks: ['ai-algo'], aliases: ['推荐', 'RecSys'] },
   // 注：「部署与成本」是历史遗留的过度宽泛标签（覆盖 43% 的 AI 题目），**刻意不做别名直映**，
   //     改由 scripts/taxonomy-reclassify.mjs 按题面语义细分；仅规则判不出的才落 general。
   //     （若在此处加别名，等于把 43% 的题重新塞回单一标签，归类区分度会再次崩塌。）

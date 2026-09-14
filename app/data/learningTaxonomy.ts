@@ -117,25 +117,25 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
     { id: 'fe-app', name: '跨端 App 工程师（RN / Flutter）', color: '#8b5cf6', order: 4,
       summary: '用 React Native / Flutter 一套代码产出接近原生体验的 App。',
       chapterSubtracks: ['flutter', 'reactnative'],
-      techNames: ['工程化', 'JavaScript', '性能优化', 'CSS', 'React', '安全', '网络'] },
+      techNames: ['工程化', 'JavaScript', '性能优化', 'Flutter', 'CSS', 'React', '综合应用', '安全', '网络'] },
     { id: 'fe-native', name: '原生客户端工程师', color: '#64748b', order: 5,
       summary: '用 Kotlin / Swift 做纯原生 App，追求极致性能。',
       chapterSubtracks: ['native'],
-      techNames: ['性能优化', '工程化', '安全', 'JavaScript', '综合应用', '网络', 'TypeScript'] },
+      techNames: ['工程化', '性能优化', 'JavaScript', 'iOS', '网络', '安全', '综合应用', 'Android', 'TypeScript'] },
     { id: 'fe-viz', name: '可视化 / 图形工程师（ECharts / D3 / WebGL）', color: '#d946ef', order: 6,
       summary: '图表、数据大屏、3D 与 Canvas / WebGL 渲染方向。',
       chapterSubtracks: ['echarts', 'd3', 'webgl'],
-      techNames: ['JavaScript', '性能优化', 'CSS', '工程化', 'React', 'Web 基础', '安全'] },
+      techNames: ['ECharts', '性能优化', 'JavaScript', '可视化基础', 'CSS', '工程化', 'D3', 'Web 基础', 'Canvas', 'WebGL', 'React', '安全'] },
     { id: 'fe-desktop', name: '桌面端工程师（Electron / Tauri）', color: '#78716c', order: 7,
       summary: '用 Web 技术做跨平台桌面软件。',
       chapterSubtracks: ['electron', 'tauri'],
-      techNames: ['工程化', 'JavaScript', '安全', '性能优化', '网络'] },
+      techNames: ['JavaScript', '工程化', '安全', '性能优化', 'Electron', '网络', '综合应用'] },
     { id: 'fe-mobile', name: '移动端工程师（H5 / 响应式）', color: '#0ea5e9', order: 8,
       summary: '专注移动浏览器与混合容器环境，做响应式适配与移动体验优化。',
-      chapterSubtracks: ['mobile'], techNames: ['性能优化', 'CSS', 'JavaScript', '网络', '工程化', '安全', '综合应用'] },
+      chapterSubtracks: ['mobile'], techNames: ['CSS', '性能优化', 'JavaScript', '网络', '工程化', 'Web 基础', '安全', '综合应用'] },
     { id: 'fe-uniapp', name: 'uni-app 工程师', color: '#10b981', order: 9,
       summary: '一套代码编译到小程序 / App / H5。',
-      chapterSubtracks: ['uniapp'], techNames: ['工程化', 'JavaScript', '性能优化', 'CSS', 'Vue', '网络'] },
+      chapterSubtracks: ['uniapp'], techNames: ['工程化', 'Vue', 'JavaScript', 'CSS', '性能优化', '网络', 'uni-app'] },
     { id: 'fe-node', name: 'Node.js 全栈工程师', color: '#16a34a', order: 10,
       summary: '以前端为主、用 Node 打通 BFF 与服务端。',
       chapterSubtracks: ['nodefull'], techNames: ['JavaScript', '工程化', '性能优化', '安全', '网络', 'TypeScript'] }
@@ -153,19 +153,19 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
     { id: 'be-db', name: '数据库 / 存储工程师（MySQL / PostgreSQL / Redis / NoSQL）', color: '#3b82f6', order: 2,
       summary: '关系型与 NoSQL 的运维、调优、高可用与容量规划。',
       chapterSubtracks: ['mysql', 'postgresql', 'dbredis', 'dbnosql'],
-      techNames: ['MySQL', '系统设计', '微服务', '网络', 'Redis'] },
+      techNames: ['数据库原理', 'MySQL', 'NoSQL', '系统设计', '微服务', '网络', 'Redis', 'Elasticsearch'] },
     { id: 'be-data', name: '大数据工程师（离线数仓 / 实时流处理）', color: '#6366f1', order: 3,
       summary: '面向业务分析的离线与实时数仓、指标体系与 BI 供数。',
-      chapterSubtracks: ['offlinedw', 'realtime'], techNames: ['数仓建模', '调度与集成', 'Spark', 'Flink', '综合应用', 'Kafka', 'Hive'] },
+      chapterSubtracks: ['offlinedw', 'realtime'], techNames: ['微服务', '数仓建模', '调度与集成', 'Spark', 'Flink', '综合应用', 'Kafka', '消息队列', 'Hive'] },
     { id: 'be-game', name: '游戏服务端工程师', color: '#f59e0b', order: 4,
       summary: '高并发长连接、实时同步与状态一致性。',
-      chapterSubtracks: ['gameserver'], techNames: ['网络', '系统设计', '微服务', 'Redis', 'Java', 'MySQL', '消息队列'] },
+      chapterSubtracks: ['gameserver'], techNames: ['网络', '系统设计', '微服务', 'Java', 'Redis', 'MySQL', '消息队列'] },
     { id: 'be-search', name: '搜索 / 中间件工程师', color: '#8b5cf6', order: 5,
       summary: '检索系统与消息、缓存等基础中间件的深度使用与调优。',
-      chapterSubtracks: ['es', 'redis'], techNames: ['系统设计', '微服务', '消息队列', 'Redis', 'Java', '网络'] },
+      chapterSubtracks: ['es', 'redis'], techNames: ['系统设计', '微服务', 'Java', '消息队列', 'Redis', '网络', 'Elasticsearch', '综合应用'] },
     { id: 'be-test', name: '测试开发工程师（SDET）', color: '#ec4899', order: 6,
       summary: '用开发能力做质量保障：自动化框架、测试平台与线上质量度量。',
-      chapterSubtracks: ['sdet'], techNames: ['系统设计', 'Java', '微服务', '网络', 'MySQL', '综合应用'] }
+      chapterSubtracks: ['sdet'], techNames: ['系统设计', '网络', 'Java', '微服务', 'MySQL', '综合应用'] }
   ],
 
   devops: [
@@ -189,7 +189,7 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       chapterSubtracks: ['cloud'], techNames: ['SRE', 'Linux', '网络', 'CI/CD', 'Kubernetes', '容器/Docker'] },
     { id: 'op-sec', name: '安全运维工程师', color: '#ef4444', order: 5,
       summary: '防护、检测与响应，保障系统与数据安全。',
-      chapterSubtracks: ['secops'], techNames: ['安全', 'Linux', 'CI/CD', 'Kubernetes', '网络'] }
+      chapterSubtracks: ['secops'], techNames: ['安全', 'SRE', '网络', 'Linux', 'CI/CD', 'Kubernetes'] }
   ],
 
   ai: [
@@ -207,13 +207,13 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       techNames: ['推理与部署', '评估与观测', 'RAG', '综合应用', '模型与训练', '数据与标注', 'Prompt 工程', 'Agent'] },
     { id: 'ai-algo', name: '算法工程师（CV / NLP / 推荐）', color: '#d946ef', order: 3,
       summary: '研究与落地机器学习模型，偏科研与建模。',
-      chapterSubtracks: ['cv', 'nlp', 'rec'], techNames: ['模型与训练', '推理与部署', '综合应用', '评估与观测', 'Prompt 工程', '数据与标注', 'RAG'] },
+      chapterSubtracks: ['cv', 'nlp', 'rec'], techNames: ['模型与训练', '推理与部署', '综合应用', '评估与观测', 'Prompt 工程', '数据与标注', 'RAG', 'NLP', '推荐系统', 'CV'] },
     { id: 'ai-data', name: '训练数据 / 标注平台工程师', color: '#14b8a6', order: 4,
       summary: '为模型准备高质量语料与特征。',
-      chapterSubtracks: ['traindata'], techNames: ['数据与标注', '推理与部署', '综合应用', 'RAG', '模型与训练', 'Prompt 工程', '评估与观测'] },
+      chapterSubtracks: ['traindata'], techNames: ['模型与训练', '数据与标注', '推理与部署', '综合应用', 'RAG', 'Prompt 工程', '评估与观测'] },
     { id: 'ai-edge', name: '端侧 AI 工程师', color: '#f59e0b', order: 5,
       summary: '把模型塞进手机 / 车机 / IoT 设备。',
-      chapterSubtracks: ['edgeai'], techNames: ['端侧 AI', 'Prompt 工程', '综合应用', '推理与部署'] }
+      chapterSubtracks: ['edgeai'], techNames: ['端侧 AI', '推理与部署', '模型与训练', 'Prompt 工程', '综合应用', 'RAG'] }
   ]
 }
 
