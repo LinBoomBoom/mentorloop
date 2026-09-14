@@ -391,7 +391,8 @@ async function worker(queue) {
           written++
         })
         // 每处理完一节即写回种子（保证断电/中断也不丢）
-        fs.writeFileSync(path.join(ROOT, 'data', 'seed-content.json'), JSON.stringify(seed, null, 1))
+        // 保持与已提交 seed-content.json 一致的「紧凑单行」格式，避免每次运行整体重格式化产生巨量 diff
+        fs.writeFileSync(path.join(ROOT, 'data', 'seed-content.json'), JSON.stringify(seed))
         genTotal += written
         console.log(`✓ ${sec.track}/${sec.id} ${sec.sectionTitle} -> ${written} 题${dup ? `（跳过重复 ${dup}）` : ''}（累计新增 ${genTotal}）`)
       }
