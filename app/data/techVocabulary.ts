@@ -94,6 +94,11 @@ export const TECH_VOCABULARY: TechTerm[] = [
   { id: 'cicd', name: 'CI/CD', module: 'devops', allowTracks: '*', aliases: ['CI/CD/发布', '发布', 'CICD'] },
   { id: 'k8s', name: 'Kubernetes', module: 'devops', allowTracks: '*', aliases: ['K8s', 'k8s'] },
   { id: 'cloud', name: '云平台', module: 'devops', allowTracks: ['op-cloud', 'op-trad', 'op-sre'] },
+  // 云平台三细分：原先「云平台」一个标签吃下 op-cloud 65% 的题目（云主机 / OSS / 合规治理
+  // 全混在一起），筛选几乎失效。按云产品域拆开，与既有的「安全」「网络」配套使用。
+  { id: 'compute', name: '云计算', module: 'devops', allowTracks: ['op-cloud', 'op-trad', 'op-sre'], aliases: ['云计算/云主机'] },
+  { id: 'storage', name: '云存储', module: 'devops', allowTracks: ['op-cloud', 'op-trad', 'op-sre'], aliases: ['云存储/OSS'] },
+  { id: 'govern', name: '云治理', module: 'devops', allowTracks: ['op-cloud', 'op-trad', 'op-sre'], aliases: ['云治理/合规'] },
   { id: 'security', name: '安全', module: 'devops', allowTracks: ['op-sec', 'op-cloud', 'op-trad'] },
   { id: 'general', name: '综合应用', module: 'devops', allowTracks: '*', aliases: ['综合'] },
 
@@ -115,6 +120,11 @@ export const TECH_VOCABULARY: TechTerm[] = [
   { id: 'cv', name: 'CV', module: 'ai', allowTracks: ['ai-algo', 'ai-data'], aliases: ['计算机视觉', '视觉', '图像'] },
   { id: 'nlp', name: 'NLP', module: 'ai', allowTracks: ['ai-algo', 'ai-data'], aliases: ['自然语言处理', '自然语言'] },
   { id: 'rec', name: '推荐系统', module: 'ai', allowTracks: ['ai-algo'], aliases: ['推荐', 'RecSys'] },
+  // 推理与部署三细分：原先一个标签吃下 ai-infra 60% 的题（蒸馏量化 / Serving / TensorRT
+  // 全混在一起），且正好卡在 A4 的 60% 红线上。按推理栈层次拆开。
+  { id: 'engine', name: '推理引擎', module: 'ai', allowTracks: ['ai-infra', 'ai-mlops'], aliases: ['推理框架', 'TensorRT', 'vLLM'] },
+  { id: 'serving', name: '服务化架构', module: 'ai', allowTracks: ['ai-infra', 'ai-mlops'], aliases: ['Serving', '模型服务'] },
+  { id: 'compress', name: '模型压缩', module: 'ai', allowTracks: ['ai-infra', 'ai-mlops'], aliases: ['量化', '蒸馏', '剪枝'] },
   // 注：「部署与成本」是历史遗留的过度宽泛标签（覆盖 43% 的 AI 题目），**刻意不做别名直映**，
   //     改由 scripts/taxonomy-reclassify.mjs 按题面语义细分；仅规则判不出的才落 general。
   //     （若在此处加别名，等于把 43% 的题重新塞回单一标签，归类区分度会再次崩塌。）
