@@ -88,6 +88,11 @@ export const TECH_VOCABULARY: TechTerm[] = [
   // 执行计划 / 分库分表），避免它们被统一塞进「MySQL」导致二级筛选失去区分度。
   { id: 'dbtheory', name: '数据库原理', module: 'backend', allowTracks: ['be-db', 'be-web', 'be-data', 'be-test', 'be-micro'], aliases: ['数据库基础', '存储引擎', '数据库/原理'] },
   { id: 'general', name: '综合应用', module: 'backend', allowTracks: '*', aliases: ['综合'] },
+  // be-test（SDET）赛道原本**没有任何测试类标签**，185 道「综合应用」里 141 道是自动化测试题
+  //（pytest / Playwright / 断言 / POM），只能往「综合应用」里塞，占赛道 45%。
+  { id: 'autotest', name: '自动化测试', module: 'backend', allowTracks: ['be-test'], aliases: ['测试自动化', 'UI 自动化', '接口自动化'] },
+  { id: 'testtheory', name: '测试理论', module: 'backend', allowTracks: ['be-test'], aliases: ['用例设计', '测试设计'] },
+  { id: 'perftest', name: '性能压测', module: 'backend', allowTracks: ['be-test'], aliases: ['压测', '性能测试'] },
 
   // ---------------- 运维 ----------------
   { id: 'linux', name: 'Linux', module: 'devops', allowTracks: '*', aliases: ['Linux/排查', '排查'] },

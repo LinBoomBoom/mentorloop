@@ -258,6 +258,23 @@ const SCOPES = [
     ]
   },
   {
+    // be-test（SDET）「综合应用」占 54%，量化后 185 题里 154 道（83%）其实是测试题
+    // —— 根因是词表里压根没有测试类标签，只能往「综合应用」塞。
+    track: 'be-test', module: 'backend', from: ['综合应用'], default: '综合应用',
+    cands: [
+      { tech: '自动化测试', kw: [
+        [/自动化测试|测试自动化|UI ?自动化|接口自动化|端到端自动化|浏览器自动化|自动化脚本/i, 2],
+        [/pytest|Playwright|Selenium|Puppeteer|Cypress|Appium|TestNG|unittest|JUnit|Robot Framework/i, 2],
+        [/页面对象|\bPOM\b|断言|assert|数据驱动|关键字驱动|用例脚本/i, 2],
+        // 元素定位是 UI 自动化的专属语境，单独出现 XPath/CSS 选择器基本就是自动化题
+        [/元素定位|定位策略|XPath|CSS ?选择器|显式等待|隐式等待|智能等待/i, 2],
+        [/Mock\b|桩|打桩|夹具|fixture/i, 1]
+      ] },
+      { tech: '测试理论', kw: [[/等价类|边界值|判定表|因果图|正交|场景法|状态迁移|错误推测/i, 2], [/测试用例设计|用例设计方法|黑盒|白盒|灰盒|测试金字塔|冒烟|回归测试策略/i, 2], [/覆盖率|分支覆盖|语句覆盖|路径覆盖|MC\/DC/i, 2]] },
+      { tech: '性能压测', kw: [[/压测|压力测试|性能测试|负载测试|基准测试|benchmark/i, 2], [/JMeter|Locust|Gatling|k6|wrk|ab 压测/i, 2], [/并发用户|吞吐量|\bTPS\b|\bQPS\b|响应时间|P99|P95|拐点/i, 1]] }
+    ]
+  },
+  {
     // ai-infra 推理栈再细分：蒸馏/量化/KV Cache → 模型压缩，Serving/路由/流式 → 服务化架构，
     // TensorRT/vLLM/ONNX → 推理引擎。不做这步 ai-infra 正好卡在 A4 的 60% 红线上。
     track: 'ai-infra', module: 'ai', from: ['推理与部署'], default: '推理与部署',

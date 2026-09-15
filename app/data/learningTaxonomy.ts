@@ -149,7 +149,7 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
     { id: 'be-micro', name: '微服务 / 架构师', color: '#0ea5e9', order: 1,
       summary: '服务拆分、治理与平台化建设。',
       chapterSubtracks: ['system', 'micro', 'mq'],
-      techNames: ['系统设计', '消息队列', '微服务', 'Java', '综合应用', '网络', '数据库原理', 'Redis', 'Go', 'MySQL'] },
+      techNames: ['系统设计', '消息队列', '微服务', 'Java', '网络', '综合应用', '数据库原理', 'Redis', 'Go', 'MySQL'] },
     { id: 'be-db', name: '数据库 / 存储工程师（MySQL / PostgreSQL / Redis / NoSQL）', color: '#3b82f6', order: 2,
       summary: '关系型与 NoSQL 的运维、调优、高可用与容量规划。',
       chapterSubtracks: ['mysql', 'postgresql', 'dbredis', 'dbnosql'],
@@ -165,7 +165,7 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
       chapterSubtracks: ['es', 'redis'], techNames: ['Redis', 'Elasticsearch', '系统设计', 'Java', '综合应用', '消息队列', '网络'] },
     { id: 'be-test', name: '测试开发工程师（SDET）', color: '#ec4899', order: 6,
       summary: '用开发能力做质量保障：自动化框架、测试平台与线上质量度量。',
-      chapterSubtracks: ['sdet'], techNames: ['综合应用', '系统设计', 'Java', '网络', '微服务', 'MySQL', '数据库原理'] }
+      chapterSubtracks: ['sdet'], techNames: ['自动化测试', '系统设计', 'Java', '综合应用', '网络', '微服务', 'MySQL', '数据库原理', '测试理论'] }
   ],
 
   devops: [
@@ -180,7 +180,7 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
     { id: 'op-devops', name: '运维开发 / DevOps 平台', color: '#10b981', order: 2,
       summary: '建设 CI/CD、流水线与企业研发效能平台。',
       chapterSubtracks: ['docker', 'cicd'],
-      techNames: ['CI/CD', '容器/Docker', '基础设施即代码', 'Kubernetes', '监控与可观测', '综合应用', 'Linux', '网络', '数据库', 'SRE'] },
+      techNames: ['CI/CD', '容器/Docker', '基础设施即代码', 'Kubernetes', '监控与可观测', '综合应用', 'Linux', '数据库', '网络', 'SRE'] },
     { id: 'op-k8s', name: '云原生 / Kubernetes 工程师', color: '#0ea5e9', order: 3,
       summary: '以 Kubernetes 为核心的容器平台建设与运维。',
       chapterSubtracks: ['k8s'], techNames: ['Kubernetes', '网络', '容器/Docker', '综合应用', 'CI/CD', 'Linux', '监控与可观测', 'SRE'] },
@@ -196,11 +196,11 @@ export const LEARNING_TAXONOMY: Record<string, Track[]> = {
     { id: 'ai-app', name: 'AI 应用工程师（LLM / RAG / Agent）', color: '#8b5cf6', order: 0,
       summary: '把大模型能力落地为可产品化的应用。',
       chapterSubtracks: ['rag', 'prompt', 'agent'],
-      techNames: ['RAG', 'Agent', 'Prompt 工程', '综合应用', '评估与观测', '推理与部署', '模型与训练', '数据与标注'] },
+      techNames: ['RAG', 'Agent', 'Prompt 工程', '评估与观测', '综合应用', '推理与部署', '模型与训练', '数据与标注'] },
     { id: 'ai-infra', name: 'AI Infra / 推理优化工程师', color: '#6366f1', order: 1,
       summary: '让大模型跑得更快更省：推理引擎、显存与算力优化。',
       chapterSubtracks: ['deploy'],
-      techNames: ['推理引擎', '推理与部署', '模型压缩', 'Prompt 工程', '综合应用', '服务化架构', '模型与训练', '评估与观测', 'RAG', 'Agent'] },
+      techNames: ['推理引擎', '推理与部署', '模型压缩', '服务化架构', 'Prompt 工程', '综合应用', '模型与训练', '评估与观测', 'RAG', 'Agent'] },
     { id: 'ai-mlops', name: 'MLOps 工程师（MLflow / Kubeflow / LLM 评估）', color: '#0ea5e9', order: 2,
       summary: '让模型可训练、可部署、可监控地规模化运行。',
       chapterSubtracks: ['mlflow', 'kubeflow', 'llmeval'],
