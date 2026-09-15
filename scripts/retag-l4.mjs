@@ -122,6 +122,137 @@ const SCOPES = [
       { tech: 'NLP', min: 2, kw: [/\bNLP\b|自然语言/i, /\bBERT\b|RoBERTa|ALBERT/, /分词|tokeniz/i, /词向量|Word2Vec|GloVe/i, /文本分类|情感分析|命名实体|\bNER\b/, /语言模型/, /\bBPE\b|子词/] },
       { tech: '推荐系统', min: 2, kw: [/推荐(系统|算法|模型)|Recommender|RecSys/i, /召回|粗排|精排|重排/, /\bCTR\b|点击率|转化率/, /双塔|DSSM|Wide ?& ?Deep|DeepFM|\bDIN\b/, /协同过滤|矩阵分解/, /冷启动|探索与利用|\bEE\b/, /用户画像|物品画像/] }
     ]
+  },
+
+  // ==================================================================
+  // 第二轮：老分类器遗留的「跨领域错标」
+  //
+  // 早期 TECH_MAP 每个模块只六七个候选标签，不在专业领域内的题统统落进最近的桶。
+  // 由 audit-content-coverage.mjs 的 D3 检出（题面命中该标签关键词 <35%）：
+  //   be-data   的 Spark DataFrame 题 → 标「微服务」（命中率 3%）
+  //   op-cloud  的云主机/快照题      → 标「SRE」（22%）
+  //   fe-native 的 MVVM/MVI 架构题   → 标「JavaScript」（27%）
+  //   op-trad   的变更窗口/配置管理题 → 标「CI/CD」（0%）
+  // 这些题的 subtrack（赛道归属）是对的，只有 L4 标签错，故只在赛道内重选。
+  // ==================================================================
+
+  {
+    track: 'be-data', module: 'backend', from: ['微服务'], default: '综合应用',
+    cands: [
+      { tech: 'Spark', kw: [[/\bSpark\b|SparkSQL|Spark SQL/i, 2], /DataFrame|\bRDD\b|\bDataset\b/, /Catalyst|钨丝计划|Tungsten/, /\bExecutor\b|\bDriver\b|DAGScheduler/, /宽依赖|窄依赖|Stage 划分|shuffle/i, /惰性执行|transformation|action 操作/] },
+      { tech: '数仓建模', kw: [/数仓|数据仓库|维度建模|分层|事实表|维度表|缓慢变化|拉链表/i, [/\bETL\b|血缘|宽表|星型模型|雪花模型/i, 2]] },
+      { tech: 'Kafka', kw: [[/\bKafka\b/i, 2], /消费组|分区|offset|重平衡|rebalance/i] },
+      { tech: 'Flink', kw: [[/\bFlink\b/i, 2], /水位线|Watermark|Checkpoint|状态后端|背压/i] },
+      { tech: 'Hive', kw: [[/\bHive\b/i, 2], /分区表|桶表|\bHQL\b|Metastore/i] },
+      { tech: '调度与集成', kw: [[/调度|Airflow|DolphinScheduler|任务依赖|补数|回溯/i, 2]] }
+    ]
+  },
+  {
+    // 中间件集群搭建 / 限流隔离 / 社区跟进 —— 属于中间件工程，不是微服务
+    track: 'be-search', module: 'backend', from: ['微服务'], default: '综合应用',
+    cands: [
+      { tech: 'Elasticsearch', kw: [[/Elasticsearch|ElasticSearch/i, 2], /Lucene|倒排索引|分词器|\bMapping\b|ik_|Query DSL/i] },
+      { tech: 'Redis', kw: [[/\bRedis\b/i, 2], /缓存|分布式锁|限流/i] },
+      { tech: '消息队列', kw: [[/消息队列|\bMQ\b|Kafka|RocketMQ|RabbitMQ/i, 2], /削峰|死信|堆积/i] }
+    ]
+  },
+  {
+    // 分库分表 / 数据库选型对比 —— 属数据库范畴，不属微服务
+    track: 'be-db', module: 'backend', from: ['微服务'], default: '数据库原理',
+    cands: [
+      { tech: 'NoSQL', kw: [[/MongoDB|Cassandra|HBase|NoSQL/i, 2], /文档数据库|键值数据库|列族/i] },
+      { tech: 'Elasticsearch', kw: [[/Elasticsearch|ElasticSearch/i, 2], /Lucene|倒排索引/i] },
+      { tech: '数据库原理', kw: [/分库分表|Sharding|ShardingSphere|MyCat|Vitess/i, /全局唯一 ?ID|雪花算法|Snowflake/i, /双写|灰度切流|数据迁移/i, /主从|读写分离|复制/i, /索引|B\+ ?树/i, /事务|隔离级别|MVCC/i] }
+    ]
+  },
+  {
+    // 帧同步 / 单线程逻辑模型 / 金币并发 —— 游戏服务端特有，无对应受控标签，落综合应用
+    track: 'be-game', module: 'backend', from: ['微服务'], default: '综合应用',
+    cands: [
+      { tech: 'Redis', kw: [[/\bRedis\b/i, 2], /缓存|分布式锁/i] },
+      { tech: 'MySQL', kw: [[/MySQL|数据库|事务|锁/i, 2]] },
+      { tech: '消息队列', kw: [[/消息队列|\bMQ\b|Kafka/i, 2]] }
+    ]
+  },
+  {
+    // 分布偏移 / 标注一致性（IAA）/ 维度灾难 —— 是数据质量，不是推理部署
+    track: 'ai-data', module: 'ai', from: ['推理与部署'], default: '数据与标注',
+    cands: [
+      { tech: '数据与标注', kw: [[/标注|数据质量|样本|清洗|分布偏移|标注一致|IAA|标注者/i, 2], /维度灾难|降维|向量化|数据集/i] },
+      { tech: '模型与训练', kw: [[/训练|梯度|模型|特征工程/i, 2]] }
+    ]
+  },
+  {
+    track: 'op-sec', module: 'devops', from: ['SRE'], default: '安全',
+    cands: [
+      { tech: '安全', kw: [[/安全|XSS|CSRF|注入|越权|加密|鉴权|漏洞|渗透|防火墙|\bWAF\b|审计|合规|脱敏/i, 2]] },
+      { tech: 'Linux', kw: [[/\bLinux\b|\bShell\b|文件描述符|inode|systemd|chmod/i, 2]] }
+    ]
+  },
+  {
+    // 云主机规格 / 镜像快照 / 对象存储生命周期 —— 云平台，不是 SRE 方法论
+    track: 'op-cloud', module: 'devops', from: ['SRE'], default: '云平台',
+    cands: [
+      { tech: '云平台', kw: [[/云主机|实例规格|镜像|快照|对象存储|\bOSS\b|\bS3\b|云盘|\bVPC\b|负载均衡|\bSLB\b|弹性伸缩|\bCDN\b|可用区|地域|计费|包年包月/i, 2]] },
+      { tech: 'Kubernetes', kw: [[/Kubernetes|\bK8s\b|\bPod\b|容器|kubectl|Helm/i, 2]] },
+      { tech: 'SRE', kw: [[/\bSRE\b|可用性|\bSLO\b|\bSLI\b|自愈|排障|值班|混沌|故障演练/i, 2]] }
+    ]
+  },
+  {
+    track: 'op-cloud', module: 'devops', from: ['Linux'], default: '综合应用',
+    cands: [
+      { tech: '云平台', kw: [[/云主机|实例规格|镜像|快照|对象存储|\bOSS\b|\bS3\b|云盘|\bVPC\b|负载均衡|弹性伸缩|\bCDN\b|可用区|地域/i, 2]] },
+      { tech: 'Linux', kw: [[/\bLinux\b|\bShell\b|文件描述符|inode|systemd|chmod|系统调用|虚拟内存/i, 2]] }
+    ]
+  },
+  {
+    track: 'op-sre', module: 'devops', from: ['CI/CD'], default: '综合应用',
+    cands: [
+      { tech: 'SRE', kw: [[/\bSRE\b|可用性|\bSLO\b|\bSLI\b|自愈|排障|值班|告警|混沌|故障演练|应急预案/i, 2]] },
+      { tech: 'CI/CD', kw: [[/CI\/CD|流水线|持续集成|持续交付|Jenkins|GitLab CI|GitHub Actions/i, 2]] }
+    ]
+  },
+  {
+    // 变更三板斧 / 变更窗口期 / 配置管理推广 —— 运维流程方法论，不是 CI/CD
+    track: 'op-trad', module: 'devops', from: ['CI/CD'], default: '综合应用',
+    cands: [
+      { tech: 'SRE', kw: [[/\bSRE\b|可用性|\bSLO\b|\bSLI\b|值守|故障|应急预案/i, 2]] },
+      { tech: 'CI/CD', kw: [[/CI\/CD|流水线|持续集成|Jenkins|构建部署/i, 2]] }
+    ]
+  },
+  {
+    // ai-infra 推理栈再细分：蒸馏/量化/KV Cache → 模型压缩，Serving/路由/流式 → 服务化架构，
+    // TensorRT/vLLM/ONNX → 推理引擎。不做这步 ai-infra 正好卡在 A4 的 60% 红线上。
+    track: 'ai-infra', module: 'ai', from: ['推理与部署'], default: '推理与部署',
+    cands: [
+      { tech: '模型压缩', kw: [[/量化|剪枝|蒸馏|Distillation|Quantization|Pruning/i, 2], [/KV ?Cache|投机解码|Speculative|MoE|混合专家|显存优化|算子融合/i, 2], /INT8|INT4|FP16|低比特|压缩比/i] },
+      { tech: '推理引擎', kw: [[/TensorRT|TensorRT-LLM|vLLM|\bTGI\b|Triton|ONNX|TorchServe|TensorFlow Serving|llama\.cpp|Ollama/i, 2], /推理引擎|推理框架|\bRuntime\b|算子/i] },
+      { tech: '服务化架构', kw: [[/\bServing\b|模型服务|模型路由|Model Routing|流式输出|Streaming|\bSSE\b|WebSocket/i, 2], [/\bAPI\b|网关|负载均衡|自动扩缩|\bHPA\b|弹性|并发|QPS|吞吐|限流|熔断/i, 2], /批处理|Batching|连续批|Continuous Batching/i] },
+      { tech: '推理与部署', kw: [[/部署|上线|灰度|回滚|发布流程|CI\/CD|监控|可观测|staging/i, 2]] }
+    ]
+  },
+  {
+    // 云平台再细分：云主机/镜像快照 → 云计算，OSS/对象存储 → 云存储，
+    // 合规基线/审计日志/Well-Architected → 云治理。
+    // 不做这步的话 op-cloud 会变成「云平台」独占 65%，A4 挂且筛选失效。
+    track: 'op-cloud', module: 'devops', from: ['云平台'], default: '云平台',
+    cands: [
+      { tech: '云计算', kw: [[/云主机|实例规格|实例类型|Instance Type|镜像|快照|弹性伸缩|裸金属|抢占式|专宿主机/i, 2], /算力|vCPU|规格族|升配|降配/i] },
+      // 注意：S3/OSS 只给权重 1。「编写一个 IAM 策略允许对 S3 桶执行 GetObject」本质是权限题，
+      // 若 OSS/S3 给权重 2 会压过安全特征被误判成云存储。
+      { tech: '云存储', kw: [[/对象存储|\bOSS\b|\bS3\b|云盘|块存储|文件存储|\bNAS\b|归档存储|生命周期管理/i, 1], [/存储桶|bucket|分片上传|断点续传/i, 2]] },
+      { tech: '云治理', kw: [[/云治理|合规基线|合规检查|审计日志|CloudTrail|ActionTrail|OpenSCAP|责任共担|成熟度|治理框架/i, 2], /Well-?Architected|CAF|云采用框架|Azure Policy|Organi[sz]ation|订阅/i, [/Config/i, 1]] },
+      { tech: '安全', kw: [[/安全组|\bWAF\b|DDoS|DDOS|证书|密钥|\bKMS\b|\bRAM\b|\bIAM\b|权限|多账号|访问控制|零信任|身份|凭据|加密/i, 2]] },
+      { tech: '网络', kw: [[/\bVPC\b|负载均衡|\bSLB\b|\bCLB\b|\bCDN\b|\bDNS\b|专线|\bVPN\b|NAT 网关|弹性公网|\bEIP\b|带宽/i, 2]] }
+    ]
+  },
+  {
+    // MVVM / MVI / VIPER 架构模式 —— 跨端架构设计，不是 JS 语言特性
+    track: 'fe-native', module: 'frontend', from: ['JavaScript'], default: '综合应用',
+    cands: [
+      { tech: 'iOS', kw: [[/\biOS\b|Swift|SwiftUI|UIKit|ViewController|Xcode/i, 2]] },
+      { tech: 'Android', kw: [[/Android|Kotlin|Jetpack|Activity|Fragment/i, 2]] }
+    ]
   }
 ]
 
