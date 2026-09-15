@@ -24,12 +24,18 @@ const rows = db.prepare('select id, q, a, keywords, difficulty, tech, subtrack, 
 const dbMap = new Map(rows.map(r => [r.id, r]))
 
 let diff = 0
+let removed = 0
 const touched = []
 for (const [mod, v] of Object.entries(seed.interview)) {
   for (const key of ['hot', 'special']) {
     const arr = v[key]
     if (!Array.isArray(arr)) continue
-    for (const it of arr) {
+    // 反向同步：DB 里已删除的题（如去重脚本删掉的重复题）也要从种子移除，
+    // 否则新装用户仍会看到那些已被判定为重复的题。
+    const before = arr.length
+    v[key] = arr.filter(it => dbMap.has(it.id))
+    removed += before - v[key].length
+    for (const it of v[key]) {
       const d = dbMap.get(it.id)
       if (!d) continue
       const dbKw = d.keywords == null ? null : String(d.keywords)
@@ -53,15 +59,16 @@ for (const [mod, v] of Object.entries(seed.interview)) {
 }
 
 console.log(`seed 需同步字段的题目：${diff}`)
+console.log(`seed 中 DB 已删除的题（将移除）：${removed}`)
 for (const t of touched) console.log('  ' + t)
 
-if (APPLY && diff) {
+if (APPLY && (diff || removed)) {
   const bak = SEED_FILE + '.bak-' + Date.now()
   fs.copyFileSync(SEED_FILE, bak)
   // 必须与已提交格式一致：紧凑单行，否则 27MB 种子整体重格式化
   fs.writeFileSync(SEED_FILE, JSON.stringify(seed))
   console.log(`\n已备份：${path.basename(bak)}`)
-  console.log(`已更新 seed：${diff} 题`)
+  console.log(`已更新 seed：字段 ${diff} 题，移除 ${removed} 题`)
 } else if (!APPLY) {
   console.log('\n（dry-run，加 --apply 写回）')
 }

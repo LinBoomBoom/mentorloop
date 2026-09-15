@@ -37,6 +37,28 @@ const CASES = [
     '监控': /监控|Prometheus|Grafana|告警|可观测/,
     'Linux/主机': /\bLinux\b|\bShell\b|系统调优|内核|文件描述符/,
     '云平台': /云主机|OSS|对象存储|云盘|可用区|地域/
+  }],
+  ['fe-mobile', 'CSS', {
+    'JavaScript/DOM': /JavaScript|\bJS\b|\bDOM\b|事件|闭包|原型/,
+    '框架': /React|Vue|组件|响应式原理/,
+    '网络/性能': /HTTP|缓存|加载|性能|CDN|首屏/,
+    '浏览器': /浏览器|兼容|前缀|渲染|重排|重绘/,
+    '测试/工程化': /测试|构建|webpack|Vite|工程化/
+  }],
+  ['ai-algo', '模型与训练', {
+    'CV': /图像|卷积|目标检测|分割|视觉|YOLO|CNN|OCR/,
+    'NLP': /NLP|自然语言|BERT|分词|文本|语言模型|Transformer/,
+    '推荐': /推荐|召回|CTR|协同过滤|双塔|精排/,
+    '工程/训练框架': /PyTorch|TensorFlow|分布式训练|\bDDP\b|混合精度|显存|梯度累积/,
+    '数据/特征': /特征工程|数据增强|样本|标注|归一化|标准化/,
+    '评估/调优': /评估|指标|调参|超参|消融|过拟合|正则化/
+  }],
+  ['be-test', '综合应用', {
+    '测试理论': /测试用例|等价类|边界值|判定表|覆盖率|测试金字塔|黑盒|白盒/,
+    '自动化': /自动化|Selenium|Playwright|Cypress|Puppeteer|脚本/,
+    '性能/压测': /压测|性能|JMeter|Locust|并发|吞吐|基准/,
+    '接口/契约': /接口测试|契约|Mock|Pact|Postman|HTTP/,
+    '流程/管理': /流程|用例管理|缺陷|Bug|评审|计划|质量门禁|CI/
   }]
 ]
 
