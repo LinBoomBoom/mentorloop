@@ -126,7 +126,11 @@ function add (id, title, pass, rows, note) {
 {
   const SELF_TECH = {
     'fe-arch': '工程化', 'op-sre': 'SRE', 'op-devops': 'CI/CD',
-    'op-k8s': 'Kubernetes', 'op-sec': '安全', 'ai-edge': '端侧 AI'
+    'op-k8s': 'Kubernetes', 'op-sec': '安全', 'ai-edge': '端侧 AI',
+    // fe-harmony 的「HarmonyOS」：逐条判读过 201 题，全部是鸿蒙原生内容
+    //（UIAbility 生命周期、ArkUI 装饰器、DevEco Studio 调试、router.pushUrl）。
+    // 与 op-sec/安全、op-k8s/Kubernetes 同属「赛道本体标签」，高占比是内容健康的表现。
+    'fe-harmony': 'HarmonyOS'
   }
   const rows = []
   for (const t of TRACKS) {

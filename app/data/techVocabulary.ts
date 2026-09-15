@@ -58,6 +58,9 @@ export const TECH_VOCABULARY: TechTerm[] = [
   { id: 'canvas', name: 'Canvas', module: 'frontend', allowTracks: ['fe-viz'], aliases: ['SVG', 'Canvas/SVG'] },
   { id: 'vizbase', name: '可视化基础', module: 'frontend', allowTracks: ['fe-viz'], aliases: ['图形基础', '可视化'] },
   { id: 'general', name: '综合应用', module: 'frontend', allowTracks: '*', aliases: ['综合'] },
+  // fe-arch 原「工程化」独占 93%：Design Token / 模块联邦 / 端到端测试被硬塞进同一个桶
+  { id: 'arch', name: '架构设计', module: 'frontend', allowTracks: ['fe-arch'], aliases: ['前端架构', '架构'] },
+  { id: 'testing', name: '测试', module: 'frontend', allowTracks: ['fe-arch', 'fe-web', 'fe-app'], aliases: ['前端测试', '单测', 'E2E'] },
 
   // ---------------- 后端 ----------------
   { id: 'java', name: 'Java', module: 'backend', allowTracks: ['be-web', 'be-micro', 'be-game', 'be-search', 'be-test'], aliases: ['Java/Spring', 'Spring', '并发/多线程'] },
@@ -89,7 +92,10 @@ export const TECH_VOCABULARY: TechTerm[] = [
   // ---------------- 运维 ----------------
   { id: 'linux', name: 'Linux', module: 'devops', allowTracks: '*', aliases: ['Linux/排查', '排查'] },
   { id: 'network', name: '网络', module: 'devops', allowTracks: '*', aliases: ['网络/TCP/HTTPS', 'Nginx/网关', 'Nginx', '网关'] },
-  { id: 'sre', name: 'SRE', module: 'devops', allowTracks: '*', aliases: ['监控/SRE', '监控'] },
+  // 注意：不要在这里留「监控」别名。现已拆出独立的「监控与可观测」术语，
+  // 两个条目同时声明该别名会导致 TECH_RESOLVE 只回解到先注册的 SRE，
+  // 使 taxonomy-vocabulary 测试的「别名全覆盖」断言失败。
+  { id: 'sre', name: 'SRE', module: 'devops', allowTracks: '*', aliases: ['监控/SRE'] },
   { id: 'docker', name: '容器/Docker', module: 'devops', allowTracks: '*', aliases: ['Docker', '容器'] },
   { id: 'cicd', name: 'CI/CD', module: 'devops', allowTracks: '*', aliases: ['CI/CD/发布', '发布', 'CICD'] },
   { id: 'k8s', name: 'Kubernetes', module: 'devops', allowTracks: '*', aliases: ['K8s', 'k8s'] },
@@ -101,6 +107,12 @@ export const TECH_VOCABULARY: TechTerm[] = [
   { id: 'govern', name: '云治理', module: 'devops', allowTracks: ['op-cloud', 'op-trad', 'op-sre'], aliases: ['云治理/合规'] },
   { id: 'security', name: '安全', module: 'devops', allowTracks: ['op-sec', 'op-cloud', 'op-trad'] },
   { id: 'general', name: '综合应用', module: 'devops', allowTracks: '*', aliases: ['综合'] },
+  // 三个「被高占比掩盖的错标」：op-sre 的 SRE 桶里混着 56 道数据库题，
+  // op-devops 的 CI/CD 桶里混着 60 道 Terraform/IaC 题与 17 道监控题。
+  { id: 'db', name: '数据库', module: 'devops', allowTracks: ['op-sre', 'op-trad', 'op-devops'], aliases: ['数据库/存储', '慢查询'] },
+  { id: 'cache', name: '缓存', module: 'devops', allowTracks: ['op-sre', 'op-trad', 'op-devops'], aliases: ['Redis', '缓存中间件'] },
+  { id: 'observability', name: '监控与可观测', module: 'devops', allowTracks: '*', aliases: ['监控', '可观测', 'Prometheus'] },
+  { id: 'iac', name: '基础设施即代码', module: 'devops', allowTracks: ['op-devops', 'op-cloud', 'op-sre'], aliases: ['IaC', 'Terraform'] },
 
   // ---------------- AI 工程 ----------------
   // 说明：原「部署与成本」单标签覆盖了 43% 的 AI 题目（算法/应用/推理混在一起），
