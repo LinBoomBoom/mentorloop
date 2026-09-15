@@ -221,6 +221,43 @@ const SCOPES = [
     ]
   },
   {
+    // op-sre「SRE」占 91%。探针量化后发现 331 题里有 74 道是错标（数据库 56 / Redis 18），
+    // 其余可按 SRE 职责拆出「监控与可观测」。op-k8s 则相反——356 题里只有 10 道异构（3%），
+    // 内容确实都属于 K8s，那种情况保持现状才是正确的，不要为了降占比而硬拆。
+    track: 'op-sre', module: 'devops', from: ['SRE'], default: 'SRE',
+    cands: [
+      { tech: '数据库', kw: [[/慢 ?SQL|慢查询|锁等待|死锁|数据库|主从|主备|读写分离|分库分表|Binlog|执行计划/i, 2], /索引|事务|连接池|\bSQL\b|表结构/i] },
+      { tech: '缓存', kw: [[/\bRedis\b|缓存|RDB|\bAOF\b|持久化|击穿|雪崩|穿透|热 key|大 key/i, 2]] },
+      { tech: '监控与可观测', kw: [[/监控|告警|指标|Prometheus|Grafana|可观测|日志采集|链路追踪|Tracing|仪表盘|SLI|SLO/i, 2], /采集|采样|埋点/i] },
+      { tech: 'SRE', kw: [[/故障|应急|预案|演练|混沌|Chaos|复盘|postmortem|值守|值班|OnCall|容量|压测|错误预算|Error Budget/i, 2]] }
+    ]
+  },
+  {
+    // op-devops「CI/CD」占 91%，其中 43% 是错标：Terraform/IaC 60 题、监控 17 题、微服务 15 题。
+    track: 'op-devops', module: 'devops', from: ['CI/CD'], default: 'CI/CD',
+    cands: [
+      { tech: '基础设施即代码', kw: [[/Terraform|\bHCL\b|\bIaC\b|基础设施即代码|Ansible|Puppet|Chef|SaltStack/i, 2], /provider|resource 块|variable|output 块|state 文件|模块化|plan\/apply/i] },
+      { tech: '监控与可观测', kw: [[/监控|Prometheus|Grafana|告警|指标|可观测|DORA|追踪|日志/i, 2]] },
+      { tech: '数据库', kw: [[/数据库|慢 ?SQL|索引|事务|主从/i, 2]] },
+      { tech: '容器/Docker', kw: [[/Docker|容器|镜像|Dockerfile|Registry|Harbor|Artifactory|Nexus|制品仓库/i, 2]] },
+      { tech: 'Kubernetes', kw: [[/Kubernetes|\bK8s\b|\bPod\b|kubectl|Helm|容器编排/i, 2]] },
+      { tech: 'CI/CD', kw: [[/流水线|Pipeline|Jenkins|GitLab CI|GitHub Actions|构建|编译|打包|灰度|蓝绿|金丝雀|滚动|回滚|门禁/i, 2]] }
+    ]
+  },
+  {
+    // fe-arch「工程化」占 93%，其中 31% 是错标：架构设计 35 题（Design Token / 模块联邦）、测试 18 题。
+    track: 'fe-arch', module: 'frontend', from: ['工程化'], default: '工程化',
+    cands: [
+      { tech: '架构设计', kw: [[/架构|Design Token|设计系统|模块联邦|Module Federation|微前端|分层|解耦|边界|治理|monorepo 架构|组件库/i, 2], /模式|原则|权衡|选型/i] },
+      { tech: '测试', kw: [[/测试|单测|单元测试|\bE2E\b|端到端|覆盖率|\bMock\b|断言|Jest|Vitest|Cypress|Playwright|契约测试/i, 2]] },
+      // 注意不要把 Tree Shaking 放进性能优化：它是构建工具特性（webpack/Vite 的产物优化），
+      // 题干常只写「Tree Shaking 为什么只对 ESM 有效」而不出现性能类词汇，
+      // 放进来会把这类题从工程化抢走。
+      { tech: '性能优化', kw: [[/性能优化|首屏|FCP|LCP|加载性能|体积优化|拆包|代码分割|预加载|懒加载|长任务|重排|重绘/i, 2]] },
+      { tech: '工程化', kw: [[/webpack|Vite|Rollup|esbuild|构建|打包|Babel|编译|Source ?Map|Tree ?Shaking|ES ?Modules?|ESM|CommonJS/i, 2], [/pnpm|workspace|ESLint|Prettier|Husky|commitlint|规范/i, 2]] }
+    ]
+  },
+  {
     // ai-infra 推理栈再细分：蒸馏/量化/KV Cache → 模型压缩，Serving/路由/流式 → 服务化架构，
     // TensorRT/vLLM/ONNX → 推理引擎。不做这步 ai-infra 正好卡在 A4 的 60% 红线上。
     track: 'ai-infra', module: 'ai', from: ['推理与部署'], default: '推理与部署',

@@ -64,51 +64,8 @@ function vocabAllows (module, trackId) {
   return VOCAB.filter(v => v.module === module && (v.allowTracks === '*' || v.allowTracks.includes(trackId))).map(v => v.name)
 }
 
-// ---- 题面特征探针：用于筛选「疑似错标」的桶 ----
-// null = 该标签无稳定题面特征（如「综合应用」「数据库原理」），不参与筛选
-const PROBE = {
-  'PostgreSQL': /Postgre/i, 'Redis': /Redis/i,
-  'NoSQL': /NoSQL|MongoDB|Cassandra|HBase|文档数据|键值/i,
-  'MySQL': /MySQL|InnoDB|B\+ ?树|聚簇索引/i, '数据库原理': null,
-  'ECharts': /ECharts/i, 'D3': /\bD3\b|d3\./i,
-  'WebGL': /WebGL|Three\.js|着色器|shader/i, '可视化基础': null, 'Canvas': /canvas/i,
-  'CV': /CV|图像|卷积|目标检测|分割|视觉|YOLO|OCR/i,
-  'NLP': /NLP|自然语言|BERT|分词|文本分类|序列标注|翻译/i,
-  '推荐系统': /推荐|召回|CTR|协同过滤|双塔|精排/i, '模型与训练': null,
-  'Elasticsearch': /Elastic|倒排索引|Lucene/i,
-  '微服务': /微服务|服务注册|服务发现|熔断|限流|网关|注册中心|Nacos|Consul/i,
-  '消息队列': /消息队列|MQ|Kafka|RocketMQ|RabbitMQ|削峰|死信/i,
-  'Flutter': /Flutter|Dart/i, 'React Native': /React Native|RN 的|桥接/i,
-  'iOS': /iOS|Swift|UIKit|SwiftUI/i, 'Android': /Android|Kotlin|Jetpack/i,
-  'Electron': /Electron|主进程|渲染进程|IPC|BrowserWindow/i, 'Tauri': /Tauri|Rust/i,
-  'uni-app': /uni-?app/i, 'HarmonyOS': /鸿蒙|Harmony|ArkTS|UIAbility|Ability/i,
-  '小程序': /小程序/i, 'Node.js': /Node\.js|Node 的|Express|Koa|NestJS/i,
-  'Kafka': /Kafka/i, 'Spark': /Spark|DataFrame|RDD|Catalyst/i,
-  'Flink': /Flink/i, 'Hive': /Hive/i,
-  'Java/Spring': /Java|Spring|JVM/i, 'Go': /Go 语言|Golang|goroutine|Gin/i,
-  'Python': /Python|FastAPI|Django/i, 'Gin': /Gin|Golang|goroutine/i, 'FastAPI': /FastAPI|Python/i,
-  'React': /React|Hook|useState|Redux/i, 'Vue': /Vue|响应式/i,
-  'TypeScript': /TypeScript|TS 的|泛型/i,
-  'JavaScript': /JavaScript|JS 的|闭包|原型链|事件循环/i,
-  'RAG': /RAG|检索增强|向量检索|embedding/i, 'Agent': /Agent|智能体|工具调用|function call/i,
-  'Prompt 工程': /提示|prompt|few-?shot|思维链/i,
-  '端侧 AI': /端侧|边缘|移动端推理|量化|NPU/i,
-  '推理与部署': /推理|部署|TensorRT|ONNX|vLLM/i,
-  '性能优化': /性能|优化|首屏|加载|渲染性能/i,
-  '工程化': /工程化|构建|webpack|Vite|CI|打包/i,
-  '网络': /HTTP|TCP|TLS|DNS|网络/i,
-  '安全': /安全|XSS|CSRF|注入|越权|加密|鉴权/i,
-  'SRE': /SRE|可用性|SLO|SLI|故障|应急预案|值守/i,
-  'CI/CD': /CI|CD |流水线|持续集成/i,
-  'Kubernetes': /Kubernetes|K8s|Pod|Deployment|容器编排/i,
-  '综合应用': null, 'Web 基础': null, '系统设计': null, '操作系统': null,
-  '数据与标注': /标注|数据质量|样本|清洗|分布偏移|一致性/i,
-  '模型评估': null, '数据仓库': /数仓|数据仓库|ETL|离线|维度建模|分层/i,
-  '调度与集成': /调度|Airflow|DolphinScheduler|任务依赖/i,
-  '缓存': /缓存|cache/i, 'Linux': /Linux|shell 命令|进程|内核/i,
-  '监控': /监控|Prometheus|Grafana|告警|指标/i,
-  '云原生': /云原生|Serverless|Service ?Mesh|Istio/i
-}
+import { PROBE } from './tech-probe.mjs'
+
 
 const KEY = process.env.DEEPSEEK_API_KEY
 const BASE_URL = (process.env.LLM_BASE_URL || 'https://api.deepseek.com/v1').replace(/\/$/, '')
