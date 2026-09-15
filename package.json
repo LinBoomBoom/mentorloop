@@ -35,7 +35,10 @@
     "taxonomy:audit": "node scripts/audit-taxonomy.mjs",
     "taxonomy:baseline": "node scripts/audit-taxonomy.mjs --baseline",
     "taxonomy:reclassify": "node scripts/taxonomy-reclassify.mjs",
-    "taxonomy:sync": "node scripts/sync-tech-names.mjs --apply"
+    "taxonomy:sync": "node scripts/sync-tech-names.mjs --apply",
+    "taxonomy:coverage": "node scripts/audit-content-coverage.mjs",
+    "taxonomy:quality": "node scripts/audit-question-quality.mjs",
+    "taxonomy:retag": "node scripts/retag-llm.mjs"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
