@@ -226,14 +226,35 @@ export function listSections(chapterId?: string, track?: string) {
   return sqlite.prepare('SELECT * FROM sections ORDER BY chapter_id, position').all()
 }
 export function getSection(id: string) { return sqlite.prepare('SELECT * FROM sections WHERE id=?').get(id) || null }
+/* ---------- 内容发布门禁（任务 2.5）----------
+ * 规则：来源属「明示禁止再分发」或「未标注来源」的内容，不得发布。
+ * 边界：只拦截「发布动作」——即 status 由非 published 跃迁到 published。
+ *      已发布内容的日常编辑（改标题/正文等）不拦截，否则存量无源内容将完全无法维护。
+ * 依据：docs/plans/task2-task3-execution-plan.md 批次 2.5
+ */
+const BLOCKED_LICENSES = new Set(['proprietary'])
+function assertPublishable(kind: string, d: { license?: string | null; source_type?: string | null }) {
+  if (BLOCKED_LICENSES.has(String(d.license || ''))) {
+    throw new Error(`BLOCKED_PROPRIETARY_LICENSE: ${kind} 来源明示禁止再分发，不得发布`)
+  }
+  if (!d.source_type || d.source_type === 'unknown') {
+    throw new Error(`BLOCKED_NO_SOURCE: ${kind} 未标注来源，补全 source_url/source_type 后方可发布`)
+  }
+}
+
 export function createSection(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,80}$/.test(id)) throw new Error('INVALID_ID')
   if (getSection(id)) throw new Error('DUP_ID')
   if (!getChapter(data.chapterId)) throw new Error('NO_CHAPTER')
+  // 新内容默认 draft：必须补全来源后再显式发布，避免无源内容直接上线
+  const status = data.status || 'draft'
+  if (status === 'published') assertPublishable('section', data)
   const pos = data.position ?? listSections(data.chapterId).length
-  sqlite.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
-    .run(id, data.chapterId, data.title || id, data.objective ?? data.direction ?? '', data.content || '', pos)
+  sqlite.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position,source_url,source_type,license,rewrite_level,status,reviewed_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(id, data.chapterId, data.title || id, data.objective ?? data.direction ?? '', data.content || '', pos,
+      data.source_url ?? null, data.source_type ?? 'unknown', data.license ?? 'unknown',
+      data.rewrite_level ?? 'paraphrased', status, data.reviewed_at ?? null, 1)
   return getSection(id)
 }
 export function updateSection(id: string, patch: any) {
@@ -244,6 +265,22 @@ export function updateSection(id: string, patch: any) {
   if (patch.objective !== undefined) { sets.push('objective=?'); v.push(patch.objective) }
   if (patch.content !== undefined) { sets.push('content=?'); v.push(patch.content) }
   if (patch.position !== undefined) { sets.push('position=?'); v.push(patch.position) }
+  // 2.5 合规字段（补全来源后才能发布）
+  if (patch.sourceUrl !== undefined) { sets.push('source_url=?'); v.push(patch.sourceUrl) }
+  if (patch.sourceType !== undefined) { sets.push('source_type=?'); v.push(patch.sourceType) }
+  if (patch.license !== undefined) { sets.push('license=?'); v.push(patch.license) }
+  if (patch.rewriteLevel !== undefined) { sets.push('rewrite_level=?'); v.push(patch.rewriteLevel) }
+  if (patch.reviewedAt !== undefined) { sets.push('reviewed_at=?'); v.push(patch.reviewedAt) }
+  if (patch.status !== undefined) {
+    // 仅「发布动作」校验；已发布内容的日常编辑放行
+    if (patch.status === 'published' && s.status !== 'published') {
+      assertPublishable('section', {
+        license: patch.license ?? s.license,
+        source_type: patch.sourceType ?? s.source_type
+      })
+    }
+    sets.push('status=?'); v.push(patch.status)
+  }
   if (!sets.length) return s
   v.push(id); sqlite.prepare(`UPDATE sections SET ${sets.join(',')} WHERE id=?`).run(...v)
   return getSection(id)
@@ -348,8 +385,13 @@ export function createInterview(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,60}$/.test(id)) throw new Error('INVALID_ID')
   if (getInterviewQuestion(id)) throw new Error('DUP_ID')
-  sqlite.prepare('INSERT INTO interview_questions (id,track,type,q,a,keywords,section_id) VALUES (?,?,?,?,?,?,?)')
-    .run(id, data.track || 'frontend', data.type || 'hot', data.q || '', data.a || '', JSON.stringify(data.keywords || []), data.sectionId || null)
+  // 2.5：新题默认 draft，补全来源后方可发布
+  const status = data.status || 'draft'
+  if (status === 'published') assertPublishable('question', data)
+  sqlite.prepare('INSERT INTO interview_questions (id,track,type,q,a,keywords,section_id,source,source_type,license,rewrite_level,status,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(id, data.track || 'frontend', data.type || 'hot', data.q || '', data.a || '', JSON.stringify(data.keywords || []), data.sectionId || null,
+      data.source ?? null, data.source_type ?? 'unknown', data.license ?? 'unknown',
+      data.rewrite_level ?? 'paraphrased', status, 1)
   return getInterviewQuestion(id)
 }
 export function updateInterview(id: string, patch: any) {
@@ -361,6 +403,21 @@ export function updateInterview(id: string, patch: any) {
   if (patch.a !== undefined) { sets.push('a=?'); v.push(patch.a) }
   if (patch.keywords !== undefined) { sets.push('keywords=?'); v.push(JSON.stringify(patch.keywords)) }
   if (patch.sectionId !== undefined) { sets.push('section_id=?'); v.push(patch.sectionId || null) }
+  // 2.5 合规字段
+  if (patch.source !== undefined) { sets.push('source=?'); v.push(patch.source) }
+  if (patch.sourceType !== undefined) { sets.push('source_type=?'); v.push(patch.sourceType) }
+  if (patch.license !== undefined) { sets.push('license=?'); v.push(patch.license) }
+  if (patch.rewriteLevel !== undefined) { sets.push('rewrite_level=?'); v.push(patch.rewriteLevel) }
+  if (patch.reviewedAt !== undefined) { sets.push('reviewed_at=?'); v.push(patch.reviewedAt) }
+  if (patch.status !== undefined) {
+    if (patch.status === 'published' && r.status !== 'published') {
+      assertPublishable('question', {
+        license: patch.license ?? r.license,
+        source_type: patch.sourceType ?? r.source_type
+      })
+    }
+    sets.push('status=?'); v.push(patch.status)
+  }
   if (!sets.length) return r
   v.push(id); sqlite.prepare(`UPDATE interview_questions SET ${sets.join(',')} WHERE id=?`).run(...v)
   return getInterviewQuestion(id)

@@ -1170,6 +1170,38 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
         db.exec('ALTER TABLE sections RENAME COLUMN direction TO objective')
       }
     }
+  },
+  {
+    // 内容合规字段（任务 2.3）：让每条内容可溯源、可分级、可发布控制。
+    // 事实源是 data/seed-content.json（2.2 已写入），这里只是把字段投影到 DB 供查询与门禁使用。
+    // 全部分列加，幂等；老库重跑为 no-op。
+    version: 35,
+    name: 'content_compliance_fields',
+    up: (db: any) => {
+      const secCols = (db.prepare('PRAGMA table_info(sections)').all() as any[]).map((c: any) => c.name)
+      const addSec = (col: string, ddl: string) => { if (!secCols.includes(col)) db.exec(`ALTER TABLE sections ADD COLUMN ${ddl}`) }
+      addSec('source_url', 'source_url TEXT')
+      addSec('source_type', 'source_type TEXT')
+      addSec('license', "license TEXT")
+      addSec('rewrite_level', "rewrite_level TEXT DEFAULT 'paraphrased'")
+      addSec('status', "status TEXT DEFAULT 'published'")
+      addSec('reviewed_at', 'reviewed_at INTEGER')
+      addSec('version', 'version INTEGER DEFAULT 1')
+
+      const qCols = (db.prepare('PRAGMA table_info(interview_questions)').all() as any[]).map((c: any) => c.name)
+      const addQ = (col: string, ddl: string) => { if (!qCols.includes(col)) db.exec(`ALTER TABLE interview_questions ADD COLUMN ${ddl}`) }
+      // 注意：既有 source 列保留不动（避免影响既有查询与测试）
+      addQ('source_type', 'source_type TEXT')
+      addQ('license', 'license TEXT')
+      addQ('rewrite_level', "rewrite_level TEXT DEFAULT 'paraphrased'")
+      addQ('status', "status TEXT DEFAULT 'published'")
+      addQ('reviewed_at', 'reviewed_at INTEGER')
+      addQ('version', 'version INTEGER DEFAULT 1')
+
+      db.exec('CREATE INDEX IF NOT EXISTS idx_sections_status ON sections(status)')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_questions_license ON interview_questions(license)')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_questions_status ON interview_questions(status)')
+    }
   }
 ]
 
@@ -1253,7 +1285,10 @@ function refreshContentIfNeeded(db: any) {
   console.log(`[db] 检测到种子版本变化（applied=${applied ?? '∅'} → seed=${seedVersion}），刷新内容表…`)
   const upsMod = db.prepare('INSERT OR REPLACE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
   const upsCh = db.prepare('INSERT OR REPLACE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-  const upsSec = db.prepare('INSERT OR REPLACE INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
+  // 2.3：纳入合规字段。注意 INSERT OR REPLACE 会整行覆盖，遗漏新列会在种子刷新时把已有数据清成 NULL。
+  const upsSec = db.prepare(
+    'INSERT OR REPLACE INTO sections (id,chapter_id,title,objective,content,position,source_url,source_type,license,rewrite_level,status,reviewed_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+  )
   // 顺序满足 FK：先父表后子表；INSERT OR REPLACE 按主键覆盖，新增章节被补入、已有章节被更新。
   const tx = db.transaction(() => {
     for (const m of content.modules || []) {
@@ -1263,7 +1298,12 @@ function refreshContentIfNeeded(db: any) {
         upsCh.run(ch.id, m.id, ch.title, ch.goal, ci, ch.subtrack ?? null)
         for (let si = 0; si < (ch.sections || []).length; si++) {
           const s = ch.sections[si]
-          upsSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si)
+          upsSec.run(
+            s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si,
+            s.source_url ?? null, s.source_type ?? null, s.license ?? null,
+            s.rewrite_level ?? 'paraphrased', s.status ?? 'published',
+            s.reviewed_at ?? null, s.version ?? 1
+          )
         }
       }
     }
@@ -1319,7 +1359,9 @@ function seedIfEmpty(db: any) {
   const content = JSON.parse(fs.readFileSync(file, 'utf-8'))
   const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
   const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-  const insSec = db.prepare('INSERT OR IGNORE INTO sections (id,chapter_id,title,objective,content,position) VALUES (?,?,?,?,?,?)')
+  const insSec = db.prepare(
+    'INSERT OR IGNORE INTO sections (id,chapter_id,title,objective,content,position,source_url,source_type,license,rewrite_level,status,reviewed_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+  )
 
   // 根据章节标题/ID 推断技术方向，用于模块页方向筛选与首页方向标签
   function assignChapterSubtrack(moduleId: string, chapterId: string, title: string): string | null {
@@ -1426,7 +1468,7 @@ function seedIfEmpty(db: any) {
   }
   // 题型 / 权重 / 难度必须在插入时写死，原因见下方 insQ.run 处注释
   const insQ = db.prepare(
-    'INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,weight,difficulty,tech,subtrack,skill) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+    'INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,weight,difficulty,tech,subtrack,skill,source,source_type,license,rewrite_level,status,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
   )
   const insSet = db.prepare('INSERT OR IGNORE INTO exam_sets (id,name,track,level,duration,vip_only) VALUES (?,?,?,?,?,?)')
   const insC = db.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,explain,multi) VALUES (?,?,?,?,?,?,?,?)')
@@ -1437,7 +1479,12 @@ function seedIfEmpty(db: any) {
       m.chapters.forEach((ch: any, ci: number) => {
         insCh.run(ch.id, m.id, ch.title, ch.goal, ci, ch.subtrack || assignChapterSubtrack(m.id, ch.id, ch.title))
         ch.sections.forEach((s: any, si: number) => {
-          insSec.run(s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si)
+          insSec.run(
+            s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si,
+            s.source_url ?? null, s.source_type ?? null, s.license ?? null,
+            s.rewrite_level ?? 'paraphrased', s.status ?? 'published',
+            s.reviewed_at ?? null, s.version ?? 1
+          )
         })
       })
     })
@@ -1457,7 +1504,13 @@ function seedIfEmpty(db: any) {
         const weight = typeof q.weight === 'number' ? q.weight : (type === 'special' ? 5 : 3)
         // 过闸：种子自带的 tech 若为历史标签（如「模型基础/训练」）会被收敛为规范名；
         // 缺失时才用关键词分类，其结果同样必须过闸。
-        insQ.run(q.id, track, type, q.q, q.a, kw, weight, difficulty, canonicalizeTech(track, q.tech || classifyTech(track, q.q, kw)), q.subtrack || null, q.skill || null)
+        insQ.run(
+          q.id, track, type, q.q, q.a, kw, weight, difficulty,
+          canonicalizeTech(track, q.tech || classifyTech(track, q.q, kw)),
+          q.subtrack || null, q.skill || null,
+          q.source || null, q.source_type ?? null, q.license ?? null,
+          q.rewrite_level ?? 'paraphrased', q.status ?? 'published', q.version ?? 1
+        )
       }
     })
     content.examSets.forEach((set: any) => {
