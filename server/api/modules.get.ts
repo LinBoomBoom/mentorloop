@@ -1,6 +1,7 @@
 // 学习模块概览（B6：消除 N+1——用 GROUP BY 聚合一次取出章节/小节计数，不再逐模块嵌套查询）
 export default defineEventHandler(async (event) => {
-  const list = await sqlite.prepare('SELECT id,name,icon,color,desc,position FROM modules ORDER BY position').all()
+  // 列名 desc 是 MySQL 保留字，必须反引号（SQLite 也兼容反引号标识符；本地裸名能跑是方言差异，云端 mysql2 直接 ERROR 1064）
+  const list = await sqlite.prepare('SELECT id,name,icon,color,`desc`,position FROM modules ORDER BY position').all()
   // 模块 icon 在数据库里存的是 emoji，而前端 <Icon> 只认图标表里的 key；
   // 这里按模块 id 归一化成合法 key，避免前端渲染空白（Icon.vue 的回退兜底也修了，但源头修更稳）。
   const ICON_BY_ID: Record<string, string> = { frontend: 'code', backend: 'server', devops: 'cpu', ai: 'sparkles' }

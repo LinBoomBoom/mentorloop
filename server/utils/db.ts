@@ -1286,7 +1286,7 @@ function refreshContentIfNeeded(db: any) {
   const applied = getMeta(db, 'seed_version')
   if (applied === seedVersion) return // 已是最新，跳过
   console.log(`[db] 检测到种子版本变化（applied=${applied ?? '∅'} → seed=${seedVersion}），刷新内容表…`)
-  const upsMod = db.prepare('INSERT OR REPLACE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
+  const upsMod = db.prepare('INSERT OR REPLACE INTO modules (id,name,icon,color,`desc`,position) VALUES (?,?,?,?,?,?)')
   const upsCh = db.prepare('INSERT OR REPLACE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
   // 2.3：纳入合规字段。注意 INSERT OR REPLACE 会整行覆盖，遗漏新列会在种子刷新时把已有数据清成 NULL。
   const upsSec = db.prepare(
@@ -1471,7 +1471,7 @@ async function seedIfEmptyAsync(db: any) {
   const file = SEED_PATH
   if (!fs.existsSync(file)) return
   const content = JSON.parse(fs.readFileSync(file, 'utf-8'))
-  const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
+  const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,`desc`,position) VALUES (?,?,?,?,?,?)')
   const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
   const insSec = db.prepare(
     'INSERT OR IGNORE INTO sections (id,chapter_id,title,objective,content,position,source_url,source_type,license,rewrite_level,status,reviewed_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
@@ -1569,7 +1569,7 @@ function seedIfEmptySync(db: any) {
     'INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,weight,difficulty,tech,subtrack,skill,source,source_type,license,rewrite_level,status,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
   )
   const insSet = db.prepare('INSERT OR IGNORE INTO exam_sets (id,name,track,level,duration,vip_only) VALUES (?,?,?,?,?,?)')
-  const insC = db.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,explain,multi) VALUES (?,?,?,?,?,?,?,?)')
+  const insC = db.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,`explain`,multi) VALUES (?,?,?,?,?,?,?,?)')
   const insW = db.prepare('INSERT OR IGNORE INTO exam_written (id,set_id,q,points,reference) VALUES (?,?,?,?,?)')
   const tx = db.transaction(() => {
     content.modules.forEach((m: any, mi: number) => {
