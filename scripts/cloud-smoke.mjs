@@ -31,8 +31,11 @@ const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x)
 
 async function main() {
   console.log(`[cloud-smoke] 目标 ${BASE}`)
-  if (process.env.MYSQL_HOST) console.log(`[cloud-smoke] 驱动=mysql2 → ${process.env.MYSQL_HOST}:${process.env.MYSQL_PORT || 3306}/${process.env.MYSQL_DATABASE || 'mentorloop'}`)
-  else console.log('[cloud-smoke] 警告：未注入 MYSQL_HOST，当前为 SQLite 本地驱动（云端部署应注入）')
+  if (!process.argv[2]) {
+    // 仅本地直跑（无远程目标参数）时，运行环境才是服务端环境
+    if (process.env.MYSQL_HOST) console.log(`[cloud-smoke] 驱动=mysql2 → ${process.env.MYSQL_HOST}:${process.env.MYSQL_PORT || 3306}/${process.env.MYSQL_DATABASE || 'mentorloop'}`)
+    else console.log('[cloud-smoke] 警告：未注入 MYSQL_HOST，当前为 SQLite 本地驱动（云端部署应注入）')
+  }
 
   // 1. healthz：db 组件 up 是「mysql2 → 云 MySQL 连通」的直接证据
   const h = await req('GET', '/healthz')
