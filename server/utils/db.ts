@@ -1328,7 +1328,10 @@ function runMigrations(db: any) {
   }
 }
 
-async function createDb() {
+// 同步打开：better-sqlite3 全程同步 API，async 化只是历史习惯。
+// 不能用顶层 await——Nitro 构建的 esbuild 目标 es2019 不支持 TLA（实测 nuxt build 在
+// prerenderer 阶段报 "Top-level await is not available in the configured target environment"）。
+function createDb() {
   const db = new Database(DB_PATH)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
@@ -1537,7 +1540,8 @@ function seedIfEmpty(db: any) {
 // M1 双驱动：云端（注入 MYSQL_HOST）走 mysql2 连接池门面；本地/桌面端维持 better-sqlite3，
 // 调用侧统一 `await sqlite.prepare(...).get/all/run(...)`（本地对同步结果 await 为 no-op，行为零变化）。
 // 云端完全跳过 createDb（迁移/seed/数据目录均为本地 SQLite 专属），表结构由云托管基线库提供。
-export const sqlite: SqliteHandle = g.__dmDb ?? (g.__dmDb = isCloudDb ? createCloudSqlite() : createLocalSqlite(await createDb()))
+// 注意：此处不能有顶层 await（nitro esbuild 目标 es2019），createDb 为同步打开（见其注释）
+export const sqlite: SqliteHandle = g.__dmDb ?? (g.__dmDb = isCloudDb ? createCloudSqlite() : createLocalSqlite(createDb()))
 
 // 云端过期数据清理定时器（本地路径的定时器挂在 createDb 内，云端走这里；构建阶段不起定时器）
 if (isCloudDb && !process.env.MENTORLOOP_BUILD_PHASE) {
