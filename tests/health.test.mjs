@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { collectHealth } from '../server/utils/health'
 
 describe('collectHealth (C6 组件级健康)', () => {
-  it('返回结构化健康报告，含组件级状态', () => {
-    const h = collectHealth()
+  it('返回结构化健康报告，含组件级状态', async () => {
+    const h = await collectHealth()
     expect(['ok', 'degraded']).toContain(h.status)
     expect(h.components).toHaveProperty('db')
     expect(h.components).toHaveProperty('tts')

@@ -21,8 +21,8 @@ const {
 const { sqlite } = await import('../server/utils/db.ts')
 
 // 满足 user_id 外键约束：测试用户先落库（生产代码只对已登录用户调用，天然满足）
-function ensureUser(id) {
-  sqlite.prepare('INSERT OR IGNORE INTO users (id, username, created_at) VALUES (?,?,?)').run(id, id, Date.now())
+async function ensureUser(id) {
+  await sqlite.prepare('INSERT OR IGNORE INTO users (id, username, created_at) VALUES (?,?,?)').run(id, id, Date.now())
 }
 
 describe('skillKey 与 computeStatus 纯函数', () => {
@@ -60,91 +60,91 @@ describe('skillKey 与 computeStatus 纯函数', () => {
   })
 })
 
-describe('掌握度持久化（临时库）', () => {
+describe('掌握度持久化（临时库）', async () => {
   const uid = 'u_test'
   const key = skillKey('frontend', 'fe-react', 'React Hooks')
-  ensureUser(uid)
+  await ensureUser(uid)
 
-  it('setMark 后 getMasteryMap 标记 mastered', () => {
-    setMark(uid, key, 'frontend', 'fe-react', 'React Hooks', true)
-    const map = getMasteryMap(uid)
+  it('setMark 后 getMasteryMap 标记 mastered', async () => {
+    await setMark(uid, key, 'frontend', 'fe-react', 'React Hooks', true)
+    const map = await getMasteryMap(uid)
     expect(map[key].marked).toBe(true)
     expect(map[key].status).toBe('mastered')
     // 取消标记
-    setMark(uid, key, 'frontend', 'fe-react', 'React Hooks', false)
-    expect(getMasteryMap(uid)[key].marked).toBe(false)
+    await setMark(uid, key, 'frontend', 'fe-react', 'React Hooks', false)
+    expect(await (await getMasteryMap(uid))[key].marked).toBe(false)
   })
 
-  it('recordPractice 累加练习信号', () => {
-    recordPractice(uid, key, 'frontend', 'fe-react', 'React Hooks', true)
-    recordPractice(uid, key, 'frontend', 'fe-react', 'React Hooks', true)
-    recordPractice(uid, key, 'frontend', 'fe-react', 'React Hooks', false)
-    const m = getMasteryMap(uid)[key]
+  it('recordPractice 累加练习信号', async () => {
+    await recordPractice(uid, key, 'frontend', 'fe-react', 'React Hooks', true)
+    await recordPractice(uid, key, 'frontend', 'fe-react', 'React Hooks', true)
+    await recordPractice(uid, key, 'frontend', 'fe-react', 'React Hooks', false)
+    const m = await (await getMasteryMap(uid))[key]
     expect(m.practiced_total).toBe(3)
   })
 
-  it('recordExamSkill 累加自测信号', () => {
-    recordExamSkill(uid, key, 'frontend', 'fe-react', 'React Hooks', true)
-    const m = getMasteryMap(uid)[key]
+  it('recordExamSkill 累加自测信号', async () => {
+    await recordExamSkill(uid, key, 'frontend', 'fe-react', 'React Hooks', true)
+    const m = await (await getMasteryMap(uid))[key]
     expect(m.exam_total).toBe(1)
   })
 })
 
-describe('错题本 + SRS（临时库）', () => {
+describe('错题本 + SRS（临时库）', async () => {
   const uid = 'u_wrong'
-  ensureUser(uid)
+  await ensureUser(uid)
 
-  it('recordWrongItem 幂等累加 wrong_count', () => {
-    const a = recordWrongItem(uid, { source: 'practice', itemId: 'x1', q: '什么是闭包？', answer: '函数+词法环境' })
-    const b = recordWrongItem(uid, { source: 'practice', itemId: 'x1', q: '什么是闭包？', answer: '函数+词法环境' })
+  it('recordWrongItem 幂等累加 wrong_count', async () => {
+    const a = await recordWrongItem(uid, { source: 'practice', itemId: 'x1', q: '什么是闭包？', answer: '函数+词法环境' })
+    const b = await recordWrongItem(uid, { source: 'practice', itemId: 'x1', q: '什么是闭包？', answer: '函数+词法环境' })
     expect(a).toBe(b)
-    const list = listWrongItems(uid, false)
+    const list = await listWrongItems(uid, false)
     expect(list.length).toBe(1)
     expect(list[0].wrong_count).toBe(2)
   })
 
-  it('review 排期下次（SRS 间隔递增）', () => {
-    const list = listWrongItems(uid, false)
-    const r = actWrongItem(uid, list[0].id, 'review')
+  it('review 排期下次（SRS 间隔递增）', async () => {
+    const list = await listWrongItems(uid, false)
+    const r = await actWrongItem(uid, list[0].id, 'review')
     expect(r.next_review_at).toBeGreaterThan(Date.now())
     // dueOnly 现在应排除该项
-    expect(listWrongItems(uid, true).length).toBe(0)
+    expect(await (await listWrongItems(uid, true)).length).toBe(0)
   })
 
-  it('dismiss 移除', () => {
-    const list = listWrongItems(uid, false)
-    const r = actWrongItem(uid, list[0].id, 'dismiss')
+  it('dismiss 移除', async () => {
+    const list = await listWrongItems(uid, false)
+    const r = await actWrongItem(uid, list[0].id, 'dismiss')
     expect(r.removed).toBe(true)
-    expect(listWrongItems(uid, false).length).toBe(0)
+    expect(await (await listWrongItems(uid, false)).length).toBe(0)
   })
 })
 
-describe('错题本分页 listWrongItemsPaginated（临时库）', () => {
+describe('错题本分页 listWrongItemsPaginated（临时库）', async () => {
   const uid = 'u_paginate'
-  ensureUser(uid)
+  await ensureUser(uid)
   // 造 25 条错题（超过一页 20）
   for (let i = 0; i < 25; i++) {
-    recordWrongItem(uid, { source: 'exam', itemId: 'p' + i, q: '题' + i, answer: '答' + i })
+    await recordWrongItem(uid, { source: 'exam', itemId: 'p' + i, q: '题' + i, answer: '答' + i })
   }
 
-  it('默认每页 20，返回 total/dueTotal', () => {
-    const r = listWrongItemsPaginated(uid, false, 1, 20)
+  it('默认每页 20，返回 total/dueTotal', async () => {
+    const r = await listWrongItemsPaginated(uid, false, 1, 20)
     expect(r.pageSize).toBe(20)
     expect(r.total).toBe(25)
     expect(r.dueTotal).toBe(25)
     expect(r.items.length).toBe(20)
   })
 
-  it('第二页返回剩余 5 条', () => {
-    const r = listWrongItemsPaginated(uid, false, 2, 20)
+  it('第二页返回剩余 5 条', async () => {
+    const r = await listWrongItemsPaginated(uid, false, 2, 20)
     expect(r.items.length).toBe(5)
     expect(r.page).toBe(2)
   })
 
-  it('dueOnly 过滤掉已排期项', () => {
-    const all = listWrongItemsPaginated(uid, false, 1, 100)
-    actWrongItem(uid, all.items[0].id, 'review') // 第一条不再 due
-    const due = listWrongItemsPaginated(uid, true, 1, 100)
+  it('dueOnly 过滤掉已排期项', async () => {
+    const all = await listWrongItemsPaginated(uid, false, 1, 100)
+    await actWrongItem(uid, all.items[0].id, 'review') // 第一条不再 due
+    const due = await listWrongItemsPaginated(uid, true, 1, 100)
     expect(due.total).toBe(24)
     expect(due.items.every(x => x.due)).toBe(true)
   })

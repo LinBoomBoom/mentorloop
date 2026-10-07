@@ -6,12 +6,12 @@ import path from 'node:path'
 import { runBackup } from '../scripts/backup-db.mjs'
 
 describe('B4 WAL 在线备份', () => {
-  it('VACUUM INTO 产出一致快照并通过 integrity_check', () => {
+  it('VACUUM INTO 产出一致快照并通过 integrity_check', async () => {
     const src = path.join(os.tmpdir(), 'ml-bak-src-' + Date.now() + '.db')
     const d = new Database(src)
-    d.exec('CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)')
-    d.prepare('INSERT INTO t(id,v) VALUES (?,?)').run(1, 'hello')
-    d.prepare('INSERT INTO t(id,v) VALUES (?,?)').run(2, 'world')
+    await d.exec('CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)')
+    await d.prepare('INSERT INTO t(id,v) VALUES (?,?)').run(1, 'hello')
+    await d.prepare('INSERT INTO t(id,v) VALUES (?,?)').run(2, 'world')
     d.close()
 
     const dest = runBackup(src, path.join(os.tmpdir(), 'ml-bak-dest-' + Date.now()))

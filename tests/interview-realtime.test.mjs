@@ -47,6 +47,7 @@ const EVAL_LAST = {
   summary: '面试结束，建议巩固异步与闭包。'
 }
 
+// 注意：这里不能 await handleSpeechFinal——barge 用例依赖「collect 立即返回、编排仍在途」注入打断
 function collect(conn, text) {
   const msgs = []
   return { msgs, promise: handleSpeechFinal(conn, text, { send: (m) => msgs.push(m) }) }
@@ -63,7 +64,7 @@ describe('handleSpeechFinal 正常轮', () => {
   it('评分 → 推 turn_eval → 逐句 ai_token+audio → turn_end', async () => {
     answerInterview.mockResolvedValue(EVAL)
     const conn = createRealtimeConn('u1', 's1')
-    const { msgs, promise } = collect(conn, '我的回答')
+    const { msgs, promise } = await collect(conn, '我的回答')
     await promise
 
     expect(msgs[0].type).toBe('turn_eval')
@@ -88,7 +89,7 @@ describe('handleSpeechFinal 正常轮', () => {
   it('结束轮（isLast）口播用 summary 收尾，且无下一题', async () => {
     answerInterview.mockResolvedValue(EVAL_LAST)
     const conn = createRealtimeConn('u1', 's1')
-    const { msgs, promise } = collect(conn, '最后一题回答')
+    const { msgs, promise } = await collect(conn, '最后一题回答')
     await promise
 
     const aiTokens = msgs.filter((m) => m.type === 'ai_token').map((m) => m.text)
@@ -100,7 +101,7 @@ describe('handleSpeechFinal 正常轮', () => {
   it('评测抛错时回 error 且不推音频/turn_end', async () => {
     answerInterview.mockRejectedValue(Object.assign(new Error('面试已结束'), { statusCode: 409, statusMessage: '面试已结束' }))
     const conn = createRealtimeConn('u1', 's1')
-    const { msgs, promise } = collect(conn, '再答一次')
+    const { msgs, promise } = await collect(conn, '再答一次')
     const res = await promise
     expect(res.error).toBe('面试已结束')
     expect(msgs.length).toBe(1)
@@ -114,7 +115,7 @@ describe('handleBarge 打断', () => {
     let resolveAnswer
     answerInterview.mockImplementation(() => new Promise((r) => { resolveAnswer = r }))
     const conn = createRealtimeConn('u1', 's1')
-    const { msgs, promise } = collect(conn, '我的回答')
+    const { msgs, promise } = await collect(conn, '我的回答')
     // 评测尚未返回即插话 → 置取消标志（wasSpeaking=false 因为是 THINKING）
     expect(handleBarge(conn)).toBe(false)
     resolveAnswer(EVAL)
@@ -139,7 +140,7 @@ describe('handleBarge 打断', () => {
     }
 
     const conn = createRealtimeConn('u1', 's1')
-    const { msgs, promise } = collect(conn, '我的回答')
+    const { msgs, promise } = await collect(conn, '我的回答')
     // 等首句首块 + ai_token 发出
     await new Promise((r) => setImmediate(r))
     expect(handleBarge(conn)).toBe(true) // 此时已在 SPEAKING

@@ -1,12 +1,12 @@
 // 当前用户的会员状态、有效订阅与订单历史
-export default defineEventHandler((event) => {
-  const user = getUser(event)
+export default defineEventHandler(async (event) => {
+  const user = await getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
-  const sub = getActiveSubscription(user.id)
+  const sub = await getActiveSubscription(user.id)
   const now = Date.now()
   // 真正落库过期：把已超时的待支付订单收敛为 expired，避免它们永远挂在「待支付」
-  expirePendingOrders(user.id, now)
-  const orders = sqlite.prepare(
+  await expirePendingOrders(user.id, now)
+  const orders = await sqlite.prepare(
     `SELECT id, plan_id, amount, status, provider, created_at, paid_at, expire_at FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 10`
   ).all(user.id)
   return json(event, 200, {

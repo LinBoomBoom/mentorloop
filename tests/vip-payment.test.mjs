@@ -4,22 +4,22 @@ import { PLANS, getPlan, VIP_ENABLED } from '../server/utils/plans'
 import { getProvider, USING_REAL_PAY } from '../server/utils/payment'
 
 const testIds = []
-afterAll(() => {
-  for (const id of testIds) sqlite.prepare('DELETE FROM orders WHERE id=?').run(id)
-  sqlite.prepare("DELETE FROM subscriptions WHERE user_id LIKE 'u_test_%'").run()
-  sqlite.prepare("DELETE FROM users WHERE id LIKE 'u_test_%'").run()
+afterAll(async () => {
+  for (const id of testIds) await sqlite.prepare('DELETE FROM orders WHERE id=?').run(id)
+  await sqlite.prepare("DELETE FROM subscriptions WHERE user_id LIKE 'u_test_%'").run()
+  await sqlite.prepare("DELETE FROM users WHERE id LIKE 'u_test_%'").run()
 })
 
-function makeUser() {
+async function makeUser() {
   const id = uid('u_test_')
-  sqlite.prepare('INSERT INTO users (id,username,nickname,vip,created_at) VALUES (?,?,?,?,?)')
+  await sqlite.prepare('INSERT INTO users (id,username,nickname,vip,created_at) VALUES (?,?,?,?,?)')
     .run(id, 'tu_' + id, 'T', JSON.stringify({ level: 0, expireAt: null }), Date.now())
   return id
 }
-function makeOrder(userId, planId = 'yearly') {
+async function makeOrder(userId, planId = 'yearly') {
   const id = uid('o_test_')
   const plan = getPlan(planId)
-  sqlite.prepare(`INSERT INTO orders (id,user_id,plan_id,amount,currency,status,provider,subject,created_at,expire_at)
+  await sqlite.prepare(`INSERT INTO orders (id,user_id,plan_id,amount,currency,status,provider,subject,created_at,expire_at)
     VALUES (?,?,?,?,'CNY','pending','sandbox',?,?,?)`)
     .run(id, userId, planId, Math.round(plan.price * 100), 'x', Date.now(), Date.now() + 900000)
   testIds.push(id)
@@ -44,37 +44,37 @@ describe('支付通道', () => {
 })
 
 describe('开通/续费状态机 (fulfillOrder)', () => {
-  it('首次购买：用户升级为 level=3、建立有效订阅', () => {
-    const uid1 = makeUser()
-    const oid = makeOrder(uid1, 'yearly')
-    expect(fulfillOrder(oid)).toBe(true)
-    const vip = JSON.parse(sqlite.prepare('SELECT vip FROM users WHERE id=?').get(uid1).vip)
+  it('首次购买：用户升级为 level=3、建立有效订阅', async () => {
+    const uid1 = await makeUser()
+    const oid = await makeOrder(uid1, 'yearly')
+    expect(await fulfillOrder(oid)).toBe(true)
+    const vip = JSON.parse((await sqlite.prepare('SELECT vip FROM users WHERE id=?').get(uid1)).vip)
     expect(vip.level).toBe(3)
     expect(vip.expireAt).toBeGreaterThan(Date.now())
-    const sub = getActiveSubscription(uid1)
+    const sub = await getActiveSubscription(uid1)
     expect(sub).toBeTruthy()
     expect(sub.plan_id).toBe('yearly')
     // P0#2：当前为一次性付费（无自动续费），fulfillOrder 强制写入 auto_renew=0（见 db.ts:890/895）
     expect(sub.auto_renew).toBe(0)
   })
 
-  it('幂等：重复确认同一订单不会二次顺延/重复计费', () => {
-    const uid1 = makeUser()
-    const oid = makeOrder(uid1, 'yearly')
-    fulfillOrder(oid)
-    const before = getActiveSubscription(uid1).expire_at
-    expect(fulfillOrder(oid)).toBe(false)
-    expect(getActiveSubscription(uid1).expire_at).toBe(before)
+  it('幂等：重复确认同一订单不会二次顺延/重复计费', async () => {
+    const uid1 = await makeUser()
+    const oid = await makeOrder(uid1, 'yearly')
+    await fulfillOrder(oid)
+    const before = await (await getActiveSubscription(uid1)).expire_at
+    expect(await fulfillOrder(oid)).toBe(false)
+    expect(await (await getActiveSubscription(uid1)).expire_at).toBe(before)
   })
 
-  it('续费：第二个订单在现有订阅基础上顺延有效期', () => {
-    const uid1 = makeUser()
-    const oid1 = makeOrder(uid1, 'yearly')
-    fulfillOrder(oid1)
-    const before = getActiveSubscription(uid1).expire_at
-    const oid2 = makeOrder(uid1, 'yearly')
-    fulfillOrder(oid2)
-    expect(getActiveSubscription(uid1).expire_at).toBeGreaterThan(before)
+  it('续费：第二个订单在现有订阅基础上顺延有效期', async () => {
+    const uid1 = await makeUser()
+    const oid1 = await makeOrder(uid1, 'yearly')
+    await fulfillOrder(oid1)
+    const before = await (await getActiveSubscription(uid1)).expire_at
+    const oid2 = await makeOrder(uid1, 'yearly')
+    await fulfillOrder(oid2)
+    expect(await (await getActiveSubscription(uid1)).expire_at).toBeGreaterThan(before)
   })
 
   it('到期自动失效（门禁会拦截）', () => {

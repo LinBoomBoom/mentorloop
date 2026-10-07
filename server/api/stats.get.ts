@@ -11,8 +11,8 @@ function ymd(d: Date) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
 }
 
-export default defineEventHandler((event) => {
-  const user = getUser(event)
+export default defineEventHandler(async (event) => {
+  const user = await getUser(event)
   if (!user) {
     // 未登录：返回空结构，供公开首页优雅渲染（不报错）
     return json(event, 200, {
@@ -25,7 +25,7 @@ export default defineEventHandler((event) => {
     })
   }
   const prog: any = {}
-  sqlite.prepare('SELECT module_id,chapter_id,section_id,done_at FROM progress WHERE user_id=?').all(user.id)
+  (await sqlite.prepare('SELECT module_id,chapter_id,section_id,done_at FROM progress WHERE user_id=?').all(user.id))
     .forEach((r: any) => { prog[`${r.module_id}/${r.chapter_id}/${r.section_id}`] = r.done_at })
 
   // 内存分组：按模块统计已完成小节数（避免逐模块查 done）
@@ -36,16 +36,16 @@ export default defineEventHandler((event) => {
   }
 
   // B6：单条聚合取出每个模块的小节总数（通过章节归属），替代 modules→chapters→sections 三层嵌套查询
-  const totalRows = sqlite.prepare(
+  const totalRows = await sqlite.prepare(
     'SELECT c.module_id AS module_id, COUNT(*) AS total FROM sections s JOIN chapters c ON c.id=s.chapter_id GROUP BY c.module_id'
   ).all() as any[]
   const totalMap: any = {}
   for (const r of totalRows) totalMap[r.module_id] = r.total
 
   /* ---------- 答卷：按方向聚合客观题正确率（供雷达「学 + 练」融合打分） ---------- */
-  const recs = sqlite.prepare('SELECT * FROM exam_records WHERE user_id=? ORDER BY created_at DESC').all(user.id) as any[]
+  const recs = await sqlite.prepare('SELECT * FROM exam_records WHERE user_id=? ORDER BY created_at DESC').all(user.id) as any[]
   // 运行时重算得分（基于子表/主表 fallback，兼容历史脏数据），保证统计与判分逻辑一致，永不显示旧 0 分
-  const computed = recs.map((r: any) => ({ ...r, ...recomputeRecordScore(r.id, r.choice_review, r.written_review) }))
+  const computed = await Promise.all(recs.map(async (r: any) => ({ ...r, ...await recomputeRecordScore(r.id, r.choice_review, r.written_review) })))
   const scores: number[] = computed.map((r: any) => r.score)
 
   // 按方向汇总「答对题数 / 总题数」——聚合正确率比「各卷得分求平均」更能反映真实水平
@@ -58,7 +58,7 @@ export default defineEventHandler((event) => {
     slot.count += 1
   }
 
-  const modRows = sqlite.prepare('SELECT id,name FROM modules ORDER BY position').all() as any[]
+  const modRows = await sqlite.prepare('SELECT id,name FROM modules ORDER BY position').all() as any[]
   const modules = modRows.map((m: any) => {
     const total = totalMap[m.id] || 0
     const done = doneByModule[m.id] || 0
@@ -85,7 +85,7 @@ export default defineEventHandler((event) => {
     days[key] = (days[key] || 0) + 1
   })
   // 合并每日打卡：打卡日期同样点亮热力图、计入连续活跃
-  sqlite.prepare('SELECT check_date FROM checkins WHERE user_id=?').all(user.id).forEach((r: any) => {
+  (await sqlite.prepare('SELECT check_date FROM checkins WHERE user_id=?').all(user.id)).forEach((r: any) => {
     days[r.check_date] = (days[r.check_date] || 0) + 1
   })
 
@@ -179,7 +179,7 @@ export default defineEventHandler((event) => {
   }
 
   // 续学锚点：按「模块→章节→小节」顺序找出第一个未完成的小节，供首页「继续学习」一键直达
-  const sectRows = sqlite.prepare(
+  const sectRows = await sqlite.prepare(
     `SELECT s.id sid, s.title stitle, c.id cid, c.title ctitle, c.module_id mid, m.name mname
      FROM sections s JOIN chapters c ON c.id=s.chapter_id JOIN modules m ON m.id=c.module_id
      ORDER BY m.position, c.position, s.position`

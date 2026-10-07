@@ -37,10 +37,10 @@ function ttsStatus(): 'ready' | 'missing' {
   return 'ready'
 }
 
-export function collectHealth(): HealthReport {
+export async function collectHealth(): HealthReport {
   let db: 'up' | 'down' = 'down'
   try {
-    sqlite.prepare('SELECT 1').get()
+    await sqlite.prepare('SELECT 1').get()
     db = 'up'
   } catch {
     /* 仅标记，不抛出，便于监控区分"活但异常" */

@@ -7,13 +7,16 @@ import { getHeader, getCookie, setCookie, setResponseStatus, createError } from 
 import { logWarn } from './logger'
 import { SEED_PATH, DB_PATH } from './paths'
 import { resolveLegacySubtrack } from './interviewSubtrackMap'
+import { isCloudDb, createCloudSqlite, createLocalSqlite } from './db-driver'
+import type { SqliteHandle } from './db-driver'
 import { canonicalizeTech } from '../../app/data/techVocabulary'
 // 注意：DB_PATH 统一由 ./paths 定义并导出，本文件仅引用，**不要**在此 re-export，
 // 否则 Nitro 会报 "Duplicated imports DB_PATH"（db.ts 与 paths.ts 同时导出）。
 
 /* ---------------- 单例数据库 ---------------- */
 const g = globalThis as any
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
+// 云端（MySQL）：不落本地文件、不建数据目录；SQLite 目录初始化仅本地/桌面端执行
+if (!isCloudDb) fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 
 /* ---------------- 版本化迁移（B8：替代脆弱的内联 CREATE + try/catch ALTER） ----------------
  * 规则：每个迁移均幂等（IF NOT EXISTS / 列存在性检查），因此对"已存在的老库"重跑也是安全的 no-op。
@@ -93,8 +96,8 @@ function classifyTech(track: string, q: string, keywordsJson?: string, a?: strin
 function normSectionText(s: string) {
   return (s || '').toLowerCase().replace(/[\s,，。？?、；;：:！!().（）「」"'""'']/g, '')
 }
-export function findBestSection(track: string, q: string, keywords: string[]): { id: string; title: string; chapterTitle: string } | null {
-  const rows = sqlite.prepare(
+export async function findBestSection(track: string, q: string, keywords: string[]): { id: string; title: string; chapterTitle: string } | null {
+  const rows = await sqlite.prepare(
     `SELECT s.id, s.title, c.title AS chapter_title, s.content FROM sections s JOIN chapters c ON c.id = s.chapter_id WHERE c.module_id = ?`
   ).all(track) as any[]
   if (!rows.length) return null
@@ -342,7 +345,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
   {
     version: 4,
     name: 'exam-review-split',
-    up: (db) => {
+    up: async (db) => {
       // B7 拆表：将 exam_records 的 choice_review/written_review 大文本字段拆到子表，消除行膨胀。
       // 安全策略：保留主表老列（新数据双写 + 回滚安全网），读取统一走子表（子表为空 fallback 主表老列）。
       db.exec(`CREATE TABLE IF NOT EXISTS exam_choice_reviews (
@@ -357,7 +360,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
         FOREIGN KEY(record_id) REFERENCES exam_records(id) ON DELETE CASCADE
       )`)
       db.exec('CREATE INDEX IF NOT EXISTS idx_ewr_record ON exam_written_reviews(record_id)')
-      backfillExamReviews(db)
+      await backfillExamReviews(db)
     }
   },
   {
@@ -462,7 +465,7 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
   {
     version: 9,
     name: 'interview-type-weight-heal',
-    up: (db) => {
+    up: async (db) => {
       // 题库由 300 扩到 2600+ 后暴露的两处存量漂移，此迁移一次性自愈（新库为空表时自动空跑）：
       //
       // ① 题型误判：seedIfEmpty 曾用 id[1]==='s' 推导题型，只对 fq/fs 两字母前缀成立。
@@ -489,8 +492,8 @@ const MIGRATIONS: { version: number; name: string; up: (db: any) => void }[] = [
             }
           }
           for (const bank of Object.values(seed.interview || {}) as any[]) {
-            collect(bank.hot, 'hot')
-            collect(bank.special, 'special')
+            await collect(bank.hot, 'hot')
+            await collect(bank.special, 'special')
           }
           const upd = db.prepare(
             `UPDATE interview_questions SET type=?, difficulty=?, weight=?
@@ -1325,7 +1328,7 @@ function runMigrations(db: any) {
   }
 }
 
-function createDb() {
+async function createDb() {
   const db = new Database(DB_PATH)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
@@ -1339,8 +1342,8 @@ function createDb() {
   // 此时不启动定时器，否则 setInterval 会让构建进程事件循环无法退出。
   if (!process.env.MENTORLOOP_BUILD_PHASE) {
     const CLEANUP_INTERVAL_MS = 15 * 60 * 1000
-    setInterval(() => {
-      try { cleanupExpired() } catch (e: any) { logWarn('cleanup.expired_failed', { error: e?.message }) }
+    setInterval(async () => {
+      try { await cleanupExpired() } catch (e: any) { logWarn('cleanup.expired_failed', { error: e?.message }) }
     }, CLEANUP_INTERVAL_MS)
   }
   seedIfEmpty(db)
@@ -1531,7 +1534,17 @@ function seedIfEmpty(db: any) {
   qtx()
 }
 
-export const sqlite = g.__dmDb ?? (g.__dmDb = createDb())
+// M1 双驱动：云端（注入 MYSQL_HOST）走 mysql2 连接池门面；本地/桌面端维持 better-sqlite3，
+// 调用侧统一 `await sqlite.prepare(...).get/all/run(...)`（本地对同步结果 await 为 no-op，行为零变化）。
+// 云端完全跳过 createDb（迁移/seed/数据目录均为本地 SQLite 专属），表结构由云托管基线库提供。
+export const sqlite: SqliteHandle = g.__dmDb ?? (g.__dmDb = isCloudDb ? createCloudSqlite() : createLocalSqlite(await createDb()))
+
+// 云端过期数据清理定时器（本地路径的定时器挂在 createDb 内，云端走这里；构建阶段不起定时器）
+if (isCloudDb && !process.env.MENTORLOOP_BUILD_PHASE) {
+  setInterval(async () => {
+    await cleanupExpired().catch((e: any) => logWarn('cleanup.expired_failed', { error: e?.message }))
+  }, 3600_000)
+}
 
 /* ---------------- 工具 ---------------- */
 export const DEV_CODE = process.env.DEV_CODE === 'true' // 演示模式：验证码明文下发；生产必须 unset / 置 false，并接入真实短信/邮件
@@ -1571,34 +1584,34 @@ export function effectiveVip(u: any) {
 const VIP_LEVEL_BY_PLAN: Record<string, number> = { monthly: 1, quarterly: 1, yearly: 3 }
 
 // 开通/续费状态机：支付成功后调用。首次购买创建订阅，续费则顺延 expireAt。
-export function fulfillOrder(orderId: string, transactionId?: string, paidAt?: number) {
+export async function fulfillOrder(orderId: string, transactionId?: string, paidAt?: number) {
   const now = Date.now()
-  const order = sqlite.prepare('SELECT * FROM orders WHERE id=?').get(orderId) as any
+  const order = await sqlite.prepare('SELECT * FROM orders WHERE id=?').get(orderId) as any
   if (!order || order.status === 'paid') return false
   const planLevel = VIP_LEVEL_BY_PLAN[order.plan_id] || 1
   const durationMs = planDurationMs(order.plan_id)
-  const tx = sqlite.transaction(() => {
-    sqlite.prepare(`UPDATE orders SET status='paid', paid_at=?, provider_order_id=? WHERE id=?`)
+  const tx = sqlite.transaction(async () => {
+    await sqlite.prepare(`UPDATE orders SET status='paid', paid_at=?, provider_order_id=? WHERE id=?`)
       .run(paidAt || now, transactionId || null, orderId)
-    const existing = sqlite.prepare(
+    const existing = await sqlite.prepare(
       `SELECT * FROM subscriptions WHERE user_id=? AND status='active' AND expire_at>? ORDER BY expire_at DESC LIMIT 1`
     ).get(order.user_id, now) as any
     let newExpire: number
     if (existing) {
       newExpire = Math.max(existing.expire_at, now) + durationMs
       // A4b：当前为一次性付费（无自动续费），强制写入 0；待真实支付通道与资质就绪后再按用户选择切换
-      sqlite.prepare(`UPDATE subscriptions SET expire_at=?, level=?, plan_id=?, auto_renew=0 WHERE id=?`)
+      await sqlite.prepare(`UPDATE subscriptions SET expire_at=?, level=?, plan_id=?, auto_renew=0 WHERE id=?`)
         .run(newExpire, planLevel, order.plan_id, existing.id)
     } else {
       newExpire = now + durationMs
-      sqlite.prepare(`INSERT INTO subscriptions (id,user_id,plan_id,level,status,auto_renew,start_at,expire_at,created_at)
+      await sqlite.prepare(`INSERT INTO subscriptions (id,user_id,plan_id,level,status,auto_renew,start_at,expire_at,created_at)
         VALUES (?,?,?,?,'active',0,?,?,?)`)
         .run(uid('s_'), order.user_id, order.plan_id, planLevel, now, newExpire, now)
     }
-    sqlite.prepare(`UPDATE users SET vip=? WHERE id=?`)
+    await sqlite.prepare(`UPDATE users SET vip=? WHERE id=?`)
       .run(JSON.stringify({ level: planLevel, expireAt: newExpire }), order.user_id)
   })
-  tx()
+  await tx()
   return true
 }
 
@@ -1611,38 +1624,38 @@ function planDurationMs(planId: string): number {
 // 待支付订单超时收敛：把超过 expire_at 仍未支付的订单落库为 expired。
 // 只处理 pending 且已设置 expire_at 的行，已支付/已退款订单不受影响。
 // userId 省略时对全表生效（供定时任务/维护脚本使用）。
-export function expirePendingOrders(userId?: string, now = Date.now()): number {
+export async function expirePendingOrders(userId?: string, now = Date.now()): number {
   const sql = userId
     ? `UPDATE orders SET status='expired' WHERE user_id=? AND status='pending' AND expire_at IS NOT NULL AND expire_at < ?`
     : `UPDATE orders SET status='expired' WHERE status='pending' AND expire_at IS NOT NULL AND expire_at < ?`
   const args = userId ? [userId, now] : [now]
   try {
-    return sqlite.prepare(sql).run(...args).changes || 0
+    return (await sqlite.prepare(sql).run(...args)).changes || 0
   } catch {
     return 0
   }
 }
 
-export function getActiveSubscription(userId: string): any {
-  return sqlite.prepare(
+export async function getActiveSubscription(userId: string): any {
+  return await sqlite.prepare(
     `SELECT * FROM subscriptions WHERE user_id=? AND status='active' AND expire_at>? ORDER BY expire_at DESC LIMIT 1`
   ).get(userId, Date.now()) || null
 }
-export function getUser(event: any): any {
+export async function getUser(event: any): any {
   // 优先 HttpOnly Cookie（A11：JS 不可读，防 XSS 盗用）；兼容旧 x-token 头（过渡期）
   const token = (event && getCookie(event, 'ml_token')) || getHeader(event, 'x-token')
   if (!token) return null
-  const row = sqlite.prepare('SELECT user_id, expires_at FROM sessions WHERE token = ?').get(token) as any
+  const row = await sqlite.prepare('SELECT user_id, expires_at FROM sessions WHERE token = ?').get(token) as any
   if (!row) return null
   const now = Date.now()
   if (row.expires_at && row.expires_at < now) {
-    sqlite.prepare('DELETE FROM sessions WHERE token = ?').run(token)
+    await sqlite.prepare('DELETE FROM sessions WHERE token = ?').run(token)
     return null
   }
-  const u = sqlite.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id) as any
+  const u = await sqlite.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id) as any
   if (u && u.banned) {
     // 被封禁用户：立即撤销其所有会话（改密/封禁后旧 token 不再有效）
-    try { sqlite.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id) } catch { /* ignore */ }
+    try { await sqlite.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id) } catch { /* ignore */ }
     return null
   }
   return u || null
@@ -1654,17 +1667,17 @@ export function getUser(event: any): any {
  * 每天最多续一次，写库开销可忽略。
  */
 const SESSION_RENEW_AFTER_MS = 86400000
-export function touchSession(event: any): void {
+export async function touchSession(event: any): void {
   try {
     const token = getCookie(event, 'ml_token')
     if (!token) return
-    const row = sqlite.prepare('SELECT expires_at FROM sessions WHERE token=?').get(token) as any
+    const row = await sqlite.prepare('SELECT expires_at FROM sessions WHERE token=?').get(token) as any
     if (!row) return
     const now = Date.now()
     if (row.expires_at && row.expires_at < now) return // 已过期交给 getUser 回收
     // 剩余有效期仍接近满额（说明今天已续过）→ 跳过
     if (row.expires_at && row.expires_at - now > SESSION_TTL_MS - SESSION_RENEW_AFTER_MS) return
-    sqlite.prepare('UPDATE sessions SET expires_at=? WHERE token=?').run(now + SESSION_TTL_MS, token)
+    await sqlite.prepare('UPDATE sessions SET expires_at=? WHERE token=?').run(now + SESSION_TTL_MS, token)
     if (event?.node?.res && !event.node.res.headersSent) {
       setCookie(event, 'ml_token', token, {
         httpOnly: true,
@@ -1676,14 +1689,17 @@ export function touchSession(event: any): void {
     }
   } catch { /* 续期失败不影响本次请求 */ }
 }
-export function newToken(user: any): string {
+export async function newToken(user: any): string {
   const t = crypto.randomBytes(16).toString('hex')
   const expires = Date.now() + SESSION_TTL_MS
-  sqlite.prepare('INSERT OR REPLACE INTO sessions (token, user_id, created_at, expires_at) VALUES (?,?,?,?)').run(t, user.id, Date.now(), expires)
+  await sqlite.prepare('INSERT OR REPLACE INTO sessions (token, user_id, created_at, expires_at) VALUES (?,?,?,?)').run(t, user.id, Date.now(), expires)
   return t
 }
 export function genCode() { return String(crypto.randomInt(100000, 1000000)) }
 export function uid(prefix = 'u_') { return prefix + crypto.randomBytes(6).toString('hex') }
+// 时间可排序 ID：前缀 + base36 毫秒时间戳 + 随机段。用于复盘子表 cr_/wr_（云端 MySQL 无 rowid，
+// 读取顺序 ORDER BY id，要求 id 按写入时间单调可排序；本地 SQLite 同样受益，两端语义一致）。
+export function uidSeq(prefix = 'u_') { return prefix + Date.now().toString(36) + '_' + crypto.randomBytes(4).toString('hex') }
 
 export function safeJson(s: any, d: any) {
   try { return JSON.parse(s) } catch { return d }
@@ -1734,9 +1750,9 @@ export function isAnswerRight(answerRaw: any, userRaw: any, optCount: number): b
 // B7 拆表后统一读取作答复盘：优先子表（结构化、可查询），子表为空则 fallback 主表老列
 // 关键：answer/userAnswer 统一规整为「下标数组」再判分，并就地重算 right/correct/score，
 // 使早期以字母存储答案、或判分逻辑有误的历史记录也能正确展示，无需数据迁移。
-export function loadExamReviews(recordId: string, fallbackChoice?: string | null, fallbackWritten?: string | null) {
-  const cr = sqlite.prepare('SELECT * FROM exam_choice_reviews WHERE record_id=? ORDER BY rowid').all(recordId) as any[]
-  const wr = sqlite.prepare('SELECT * FROM exam_written_reviews WHERE record_id=? ORDER BY rowid').all(recordId) as any[]
+export async function loadExamReviews(recordId: string, fallbackChoice?: string | null, fallbackWritten?: string | null) {
+  const cr = await sqlite.prepare('SELECT * FROM exam_choice_reviews WHERE record_id=? ORDER BY rowid').all(recordId) as any[]
+  const wr = await sqlite.prepare('SELECT * FROM exam_written_reviews WHERE record_id=? ORDER BY rowid').all(recordId) as any[]
   if (cr.length) {
     const choiceReview = cr.map((r) => {
       const optCount = (safeJson(r.options, []) || []).length
@@ -1780,8 +1796,8 @@ export function loadExamReviews(recordId: string, fallbackChoice?: string | null
 // 重算单条答卷的得分/正确数/总分/薄弱点/等级建议。
 // 统一供列表、统计、详情等所有读取 exam_records.score 的入口调用，保证与判分逻辑一致；
 // 历史脏数据（字母答案、标量 userAnswer 等）在读取时即被修正，无需数据迁移。
-export function recomputeRecordScore(recordId: string, fallbackChoice?: string | null, fallbackWritten?: string | null) {
-  const { choiceReview, correct, score, total } = loadExamReviews(recordId, fallbackChoice, fallbackWritten)
+export async function recomputeRecordScore(recordId: string, fallbackChoice?: string | null, fallbackWritten?: string | null) {
+  const { choiceReview, correct, score, total } = await loadExamReviews(recordId, fallbackChoice, fallbackWritten)
   const wrongTags: any = {}
   choiceReview.filter((c: any) => !c.right).forEach((c: any) => { wrongTags[c.tag] = (wrongTags[c.tag] || 0) + 1 })
   const weakPoints = Object.entries(wrongTags).sort((a: any, b: any) => b[1] - a[1]).map(([tag, n]) => ({ tag, count: n }))
@@ -1794,7 +1810,7 @@ export function recomputeRecordScore(recordId: string, fallbackChoice?: string |
 }
 
 // B7 迁移回填：解析主表 choice_review/written_review JSON 写入子表（幂等：已有子表记录则跳过）
-export function backfillExamReviews(db: any) {
+export async function backfillExamReviews(db: any) {
   const rows = db.prepare("SELECT id, choice_review, written_review FROM exam_records WHERE choice_review IS NOT NULL AND choice_review <> '[]'").all() as any[]
   const insC = db.prepare('INSERT OR IGNORE INTO exam_choice_reviews (id,record_id,choice_id,q,options,user_answer,answer,right,explain,tag) VALUES (?,?,?,?,?,?,?,?,?,?)')
   const insW = db.prepare('INSERT OR IGNORE INTO exam_written_reviews (id,record_id,written_id,q,user_answer,reference,points) VALUES (?,?,?,?,?,?,?)')
@@ -1803,34 +1819,34 @@ export function backfillExamReviews(db: any) {
     if (cnt > 0) continue
     try {
       const cr = JSON.parse(rec.choice_review || '[]')
-      for (const c of cr) insC.run(uid('cr_'), rec.id, c.id, c.q, JSON.stringify(c.options), JSON.stringify(c.userAnswer), JSON.stringify(c.answer), c.right ? 1 : 0, c.explain, c.tag)
+      for (const c of cr) insC.run(uidSeq('cr_'), rec.id, c.id, c.q, JSON.stringify(c.options), JSON.stringify(c.userAnswer), JSON.stringify(c.answer), c.right ? 1 : 0, c.explain, c.tag)
     } catch { /* ignore malformed */ }
     try {
       const wr = JSON.parse(rec.written_review || '[]')
-      for (const w of wr) insW.run(uid('wr_'), rec.id, w.id, w.q, w.userAnswer, w.reference, JSON.stringify(w.points))
+      for (const w of wr) insW.run(uidSeq('wr_'), rec.id, w.id, w.q, w.userAnswer, w.reference, JSON.stringify(w.points))
     } catch { /* ignore malformed */ }
   }
 }
-export function sendCode(type: string, identifier: string): string {
+export async function sendCode(type: string, identifier: string): string {
   const code = genCode()
-  sqlite.prepare('INSERT OR REPLACE INTO auth_codes (key, code, expires_at) VALUES (?,?,?)')
+  await sqlite.prepare('INSERT OR REPLACE INTO auth_codes (`key`, code, expires_at) VALUES (?,?,?)')
     .run(type + ':' + String(identifier).toLowerCase(), code, Date.now() + 5 * 60 * 1000)
   return code
 }
-export function verifyCode(type: string, identifier: string, code: string): boolean {
+export async function verifyCode(type: string, identifier: string, code: string): boolean {
   const key = type + ':' + String(identifier).toLowerCase()
-  const row = sqlite.prepare('SELECT * FROM auth_codes WHERE key = ?').get(key) as any
+  const row = await sqlite.prepare('SELECT * FROM auth_codes WHERE `key` = ?').get(key) as any
   if (!row) return false
-  if (row.expires_at < Date.now()) { sqlite.prepare('DELETE FROM auth_codes WHERE key=?').run(key); return false }
+  if (row.expires_at < Date.now()) { await sqlite.prepare('DELETE FROM auth_codes WHERE `key`=?').run(key); return false }
   if (String(row.code) !== String(code)) return false
-  sqlite.prepare('DELETE FROM auth_codes WHERE key=?').run(key)
+  await sqlite.prepare('DELETE FROM auth_codes WHERE `key`=?').run(key)
   return true
 }
-export function findByIdentifier(type: string, identifier: string): any {
+export async function findByIdentifier(type: string, identifier: string): any {
   const id = String(identifier || '').toLowerCase()
   const row = type === 'email'
-    ? sqlite.prepare('SELECT * FROM users WHERE lower(email)=?').get(id)
-    : sqlite.prepare('SELECT * FROM users WHERE lower(phone)=?').get(id)
+    ? await sqlite.prepare('SELECT * FROM users WHERE lower(email)=?').get(id)
+    : await sqlite.prepare('SELECT * FROM users WHERE lower(phone)=?').get(id)
   return row || null
 }
 export function requireVip(user: any, item: any): boolean {
@@ -1845,16 +1861,16 @@ export function requireVip(user: any, item: any): boolean {
 }
 
 // 管理后台闸口：未登录 401 / 非管理员 403。需在事件处理函数中调用，失败抛出 h3 错误。
-export function requireAdmin(event: any): any {
-  const user = getUser(event)
+export async function requireAdmin(event: any): any {
+  const user = await getUser(event)
   if (!user) throw createError({ statusCode: 401, statusMessage: '未登录' })
   if (user.role !== 'admin') throw createError({ statusCode: 403, statusMessage: '需要管理员权限' })
   return user
 }
 
 // VIP 门禁：未登录 401 / 非有效会员 403。与 effectiveVip 到期回收逻辑一致。
-export function requireVipUser(event: any): any {
-  const user = getUser(event)
+export async function requireVipUser(event: any): any {
+  const user = await getUser(event)
   if (!user) throw createError({ statusCode: 401, statusMessage: '未登录' })
   if (!effectiveVip(user).active) throw createError({ statusCode: 403, statusMessage: '该功能为 VIP 专属，请先开通会员' })
   return user
@@ -1865,16 +1881,16 @@ export function json(event: any, code: number, data: any) {
 }
 
 // 清理过期会话与验证码（可由定时任务/启动钩子调用）。getUser 也兜底回收单次过期会话。
-export function cleanupExpired() {
+export async function cleanupExpired() {
   const now = Date.now()
-  sqlite.prepare('DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < ?').run(now)
-  sqlite.prepare('DELETE FROM auth_codes WHERE expires_at < ?').run(now)
+  await sqlite.prepare('DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < ?').run(now)
+  await sqlite.prepare('DELETE FROM auth_codes WHERE expires_at < ?').run(now)
 }
 
 // G7 操作审计：写入审计日志（失败仅告警，不阻断主流程）。
-export function logAudit(adminId: string, action: string, target: string, meta?: any) {
+export async function logAudit(adminId: string, action: string, target: string, meta?: any) {
   try {
-    sqlite.prepare('INSERT INTO audit_logs (id,admin_id,action,target,meta,created_at) VALUES (?,?,?,?,?,?)')
+    await sqlite.prepare('INSERT INTO audit_logs (id,admin_id,action,target,meta,created_at) VALUES (?,?,?,?,?,?)')
       .run(uid('a_'), adminId, action, target, meta !== undefined ? JSON.stringify(meta) : null, Date.now())
   } catch (e: any) {
     logWarn('audit.write_failed', { error: e?.message })
@@ -1882,16 +1898,16 @@ export function logAudit(adminId: string, action: string, target: string, meta?:
 }
 
 // A12 账号注销：级联清理该用户全部数据后删除账号（个保法删除权）。
-export function deleteAccount(userId: string) {
-  const tx = sqlite.transaction(() => {
-    sqlite.prepare('DELETE FROM exam_records WHERE user_id=?').run(userId)
-    sqlite.prepare('DELETE FROM progress WHERE user_id=?').run(userId)
-    sqlite.prepare('DELETE FROM user_skill_mastery WHERE user_id=?').run(userId)
-    sqlite.prepare('DELETE FROM user_wrong_items WHERE user_id=?').run(userId)
-    sqlite.prepare('DELETE FROM sessions WHERE user_id=?').run(userId)
-    sqlite.prepare('DELETE FROM orders WHERE user_id=?').run(userId)
-    sqlite.prepare('DELETE FROM subscriptions WHERE user_id=?').run(userId)
-    sqlite.prepare('DELETE FROM users WHERE id=?').run(userId)
+export async function deleteAccount(userId: string) {
+  const tx = sqlite.transaction(async () => {
+    await sqlite.prepare('DELETE FROM exam_records WHERE user_id=?').run(userId)
+    await sqlite.prepare('DELETE FROM progress WHERE user_id=?').run(userId)
+    await sqlite.prepare('DELETE FROM user_skill_mastery WHERE user_id=?').run(userId)
+    await sqlite.prepare('DELETE FROM user_wrong_items WHERE user_id=?').run(userId)
+    await sqlite.prepare('DELETE FROM sessions WHERE user_id=?').run(userId)
+    await sqlite.prepare('DELETE FROM orders WHERE user_id=?').run(userId)
+    await sqlite.prepare('DELETE FROM subscriptions WHERE user_id=?').run(userId)
+    await sqlite.prepare('DELETE FROM users WHERE id=?').run(userId)
   })
-  tx()
+  await tx()
 }

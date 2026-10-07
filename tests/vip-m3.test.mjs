@@ -43,7 +43,7 @@ beforeAll(async () => {
 
   // resume_diags / referral_applications 带 user_id→users 外键，需先有父行
   for (const u of ['u_test', 'u_cache', 'u_nollm', 'u_app']) {
-    sqlite.prepare("INSERT OR IGNORE INTO users (id,username,password,vip,created_at) VALUES (?,?,?,?,?)").run(u, u, 'x', '{}', 0)
+    await sqlite.prepare("INSERT OR IGNORE INTO users (id,username,password,vip,created_at) VALUES (?,?,?,?,?)").run(u, u, 'x', '{}', 0)
   }
 })
 
@@ -52,15 +52,15 @@ afterAll(() => {
 })
 
 describe('M3 迁移与表', () => {
-  it('version:5 已执行，referrals 写入 10 条种子', () => {
-    const vers = sqlite.prepare('SELECT version FROM schema_migrations').all().map((r) => r.version).sort()
+  it('version:5 已执行，referrals 写入 10 条种子', async () => {
+    const vers = (await sqlite.prepare('SELECT version FROM schema_migrations').all()).map((r) => r.version).sort()
     expect(vers).toContain(5)
-    const n = sqlite.prepare('SELECT COUNT(*) AS c FROM referrals').get().c
+    const n = (await sqlite.prepare('SELECT COUNT(*) AS c FROM referrals').get()).c
     expect(n).toBe(10)
   })
-  it('resume_diags / referral_applications 带外键', () => {
-    expect(sqlite.prepare('PRAGMA foreign_key_list(resume_diags)').all().length).toBeGreaterThan(0)
-    expect(sqlite.prepare('PRAGMA foreign_key_list(referral_applications)').all().length).toBeGreaterThan(0)
+  it('resume_diags / referral_applications 带外键', async () => {
+    expect((await sqlite.prepare('PRAGMA foreign_key_list(resume_diags)').all()).length).toBeGreaterThan(0)
+    expect((await sqlite.prepare('PRAGMA foreign_key_list(referral_applications)').all()).length).toBeGreaterThan(0)
   })
 })
 
@@ -97,30 +97,30 @@ describe('H3 简历诊断', () => {
 })
 
 describe('H4 内推资源库', () => {
-  it('listReferrals 全量与按方向筛选', () => {
-    expect(listReferrals({}).length).toBe(10)
-    const fe = listReferrals({ track: 'frontend' })
+  it('listReferrals 全量与按方向筛选', async () => {
+    expect(await (await listReferrals({})).length).toBe(10)
+    const fe = await listReferrals({ track: 'frontend' })
     expect(fe.length).toBeGreaterThan(0)
     expect(fe.every((r) => r.track === 'frontend')).toBe(true)
   })
   it('applyReferral 落库 + 防重复申请', async () => {
-    const rf = sqlite.prepare('SELECT id FROM referrals LIMIT 1').get()
+    const rf = await sqlite.prepare('SELECT id FROM referrals LIMIT 1').get()
     const r = await applyReferral('u_app', { referralId: rf.id, name: '张三', contact: 'wx:abc' })
     expect(r.status).toBe('pending')
     await expect(applyReferral('u_app', { referralId: rf.id, name: '张三', contact: 'wx:abc' })).rejects.toMatchObject({ name: 'AlreadyAppliedError' })
-    const mine = listMyApplications('u_app')
+    const mine = await listMyApplications('u_app')
     expect(mine.length).toBe(1)
   })
   it('不存在的 referral 抛 ReferralNotFoundError', async () => {
     await expect(applyReferral('u_app', { referralId: 'nope', name: 'x', contact: 'y' })).rejects.toMatchObject({ name: 'ReferralNotFoundError' })
   })
-  it('FK 级联：删用户级联删 resume_diags / referral_applications', () => {
-    sqlite.prepare("INSERT INTO users (id,username,password,vip,created_at) VALUES ('u_casc','casc','x','{}',0)").run()
-    sqlite.prepare("INSERT INTO resume_diags (id,user_id,content_hash,content,result,created_at) VALUES ('rd_c','u_casc','h','c','{}',0)").run()
-    const rfId = sqlite.prepare('SELECT id FROM referrals LIMIT 1').get().id
-    sqlite.prepare("INSERT INTO referral_applications (id,user_id,referral_id,name,contact,status,created_at) VALUES ('ra_c','u_casc',?, 'n','c','pending',0)").run(rfId)
-    sqlite.prepare('DELETE FROM users WHERE id=?').run('u_casc')
-    expect(sqlite.prepare("SELECT COUNT(*) AS c FROM resume_diags WHERE user_id='u_casc'").get().c).toBe(0)
-    expect(sqlite.prepare("SELECT COUNT(*) AS c FROM referral_applications WHERE user_id='u_casc'").get().c).toBe(0)
+  it('FK 级联：删用户级联删 resume_diags / referral_applications', async () => {
+    await sqlite.prepare("INSERT INTO users (id,username,password,vip,created_at) VALUES ('u_casc','casc','x','{}',0)").run()
+    await sqlite.prepare("INSERT INTO resume_diags (id,user_id,content_hash,content,result,created_at) VALUES ('rd_c','u_casc','h','c','{}',0)").run()
+    const rfId = (await sqlite.prepare('SELECT id FROM referrals LIMIT 1').get()).id
+    await sqlite.prepare("INSERT INTO referral_applications (id,user_id,referral_id,name,contact,status,created_at) VALUES ('ra_c','u_casc',?, 'n','c','pending',0)").run(rfId)
+    await sqlite.prepare('DELETE FROM users WHERE id=?').run('u_casc')
+    expect((await sqlite.prepare("SELECT COUNT(*) AS c FROM resume_diags WHERE user_id='u_casc'").get()).c).toBe(0)
+    expect((await sqlite.prepare("SELECT COUNT(*) AS c FROM referral_applications WHERE user_id='u_casc'").get()).c).toBe(0)
   })
 })

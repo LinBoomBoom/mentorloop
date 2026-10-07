@@ -19,13 +19,13 @@ function mapErr(e: any) {
     return new HttpErr(400, m || '请求错误')
 }
 
-export function adminDispatch(admin: any, method: string, seg: string[], q: any, body: any) {
+export async function adminDispatch(admin: any, method: string, seg: string[], q: any, body: any) {
   const ok = (data: any) => ({ ok: true, data })
   const list = (data: any) => ({ ok: true, ...data })
 
   let result: any
   try {
-    result = run()
+    result = await run()
   } catch (e: any) {
     if (e instanceof HttpErr) throw e
     if (e?.statusCode) throw e
@@ -35,109 +35,109 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
   // G7 操作审计：仅记录变更类动作（POST/PATCH/DELETE），读操作不记。
   const isMutating = method === 'POST' || method === 'PATCH' || method === 'DELETE'
   if (isMutating && result && result.ok) {
-    logAudit(admin.id, method, '/' + (seg || []).join('/'), { seg: seg || [] })
+    await logAudit(admin.id, method, '/' + (seg || []).join('/'), { seg: seg || [] })
   }
   return result
 
-  function run(): any {
+  async function run(): any {
     // 自身信息 & 看板
-    if (seg[0] === 'me' && method === 'GET') return ok(A.getUserById(admin.id))
-    if (seg[0] === 'dashboard' && method === 'GET') return ok(A.dashboardStats())
+    if (seg[0] === 'me' && method === 'GET') return ok(await A.getUserById(admin.id))
+    if (seg[0] === 'dashboard' && method === 'GET') return ok(await A.dashboardStats())
 
     // 用户体系 (G4)
     if (seg[0] === 'users') {
-      if (method === 'GET' && seg.length === 1) return list(A.listUsers({ q: q.q as string, role: q.role as string, page: +q.page || 1, pageSize: +q.pageSize || 20 }))
-      if (method === 'POST' && seg.length === 1) return ok(A.createUser(body))
+      if (method === 'GET' && seg.length === 1) return list(await A.listUsers({ q: q.q as string, role: q.role as string, page: +q.page || 1, pageSize: +q.pageSize || 20 }))
+      if (method === 'POST' && seg.length === 1) return ok(await A.createUser(body))
       if (seg.length === 2) {
-        if (method === 'GET') return ok(A.getUserById(seg[1]))
-        if (method === 'PATCH') return ok(A.updateUser(seg[1], body))
+        if (method === 'GET') return ok(await A.getUserById(seg[1]))
+        if (method === 'PATCH') return ok(await A.updateUser(seg[1], body))
         if (method === 'DELETE') {
           if (seg[1] === admin.id) throw new HttpErr(400, '不能删除当前登录账号')
-          return ok({ deleted: A.deleteUser(seg[1]) })
+          return ok({ deleted: await A.deleteUser(seg[1]) })
         }
       }
     }
 
     // 内容：模块 (G2)
     if (seg[0] === 'modules') {
-      if (method === 'GET' && seg.length === 1) return list({ items: A.listModules() })
-      if (method === 'POST' && seg.length === 1) return ok(A.createModule(body))
+      if (method === 'GET' && seg.length === 1) return list({ items: await A.listModules() })
+      if (method === 'POST' && seg.length === 1) return ok(await A.createModule(body))
       if (seg.length === 2) {
-        if (method === 'GET') return ok(A.getModule(seg[1]))
-        if (method === 'PATCH') return ok(A.updateModule(seg[1], body))
-        if (method === 'DELETE') return ok({ deleted: A.deleteModule(seg[1]) })
+        if (method === 'GET') return ok(await A.getModule(seg[1]))
+        if (method === 'PATCH') return ok(await A.updateModule(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: await A.deleteModule(seg[1]) })
       }
     }
 
     // 内容：章节 (G2)
     if (seg[0] === 'chapters') {
-      if (method === 'GET' && seg.length === 1) return list({ items: A.listChapters(q.moduleId as string) })
-      if (method === 'POST' && seg.length === 1) return ok(A.createChapter(body))
+      if (method === 'GET' && seg.length === 1) return list({ items: await A.listChapters(q.moduleId as string) })
+      if (method === 'POST' && seg.length === 1) return ok(await A.createChapter(body))
       if (seg.length === 2) {
-        if (method === 'GET') return ok(A.getChapter(seg[1]))
-        if (method === 'PATCH') return ok(A.updateChapter(seg[1], body))
-        if (method === 'DELETE') return ok({ deleted: A.deleteChapter(seg[1]) })
+        if (method === 'GET') return ok(await A.getChapter(seg[1]))
+        if (method === 'PATCH') return ok(await A.updateChapter(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: await A.deleteChapter(seg[1]) })
       }
     }
 
     // 内容：小节 (G2)
     if (seg[0] === 'sections') {
-      if (method === 'GET' && seg.length === 1) return list({ items: A.listSections(q.chapterId as string, q.track as string) })
-      if (method === 'POST' && seg.length === 1) return ok(A.createSection(body))
+      if (method === 'GET' && seg.length === 1) return list({ items: await A.listSections(q.chapterId as string, q.track as string) })
+      if (method === 'POST' && seg.length === 1) return ok(await A.createSection(body))
       if (seg.length === 2) {
-        if (method === 'GET') return ok(A.getSection(seg[1]))
-        if (method === 'PATCH') return ok(A.updateSection(seg[1], body))
-        if (method === 'DELETE') return ok({ deleted: A.deleteSection(seg[1]) })
+        if (method === 'GET') return ok(await A.getSection(seg[1]))
+        if (method === 'PATCH') return ok(await A.updateSection(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: await A.deleteSection(seg[1]) })
       }
     }
 
     // 题库：试卷 (G3)
     if (seg[0] === 'exam-sets') {
-      if (method === 'GET' && seg.length === 1) return list({ items: A.listExamSets(q.track as string) })
-      if (method === 'POST' && seg.length === 1) return ok(A.createExamSet(body))
+      if (method === 'GET' && seg.length === 1) return list({ items: await A.listExamSets(q.track as string) })
+      if (method === 'POST' && seg.length === 1) return ok(await A.createExamSet(body))
       if (seg.length === 2) {
-        if (method === 'GET') return ok(A.getExamSetDetail(seg[1]))
-        if (method === 'PATCH') return ok(A.updateExamSet(seg[1], body))
-        if (method === 'DELETE') return ok({ deleted: A.deleteExamSet(seg[1]) })
+        if (method === 'GET') return ok(await A.getExamSetDetail(seg[1]))
+        if (method === 'PATCH') return ok(await A.updateExamSet(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: await A.deleteExamSet(seg[1]) })
       }
     }
 
     // 题库：面试题 (G3)
     if (seg[0] === 'interview') {
-      if (method === 'GET' && seg.length === 1) return list({ items: A.listInterview(q.track as string, q.q as string) })
-      if (method === 'POST' && seg.length === 1) return ok(A.createInterview(body))
+      if (method === 'GET' && seg.length === 1) return list({ items: await A.listInterview(q.track as string, q.q as string) })
+      if (method === 'POST' && seg.length === 1) return ok(await A.createInterview(body))
       if (seg.length === 2) {
-        if (method === 'GET') return ok(A.getInterviewQuestion(seg[1]))
-        if (method === 'PATCH') return ok(A.updateInterview(seg[1], body))
-        if (method === 'DELETE') return ok({ deleted: A.deleteInterview(seg[1]) })
+        if (method === 'GET') return ok(await A.getInterviewQuestion(seg[1]))
+        if (method === 'PATCH') return ok(await A.updateInterview(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: await A.deleteInterview(seg[1]) })
       }
     }
 
     // 订单 / 订阅 (G5)
-    if (seg[0] === 'orders' && method === 'GET' && seg.length === 1) return list({ items: A.listOrders() })
-    if (seg[0] === 'subscriptions' && method === 'GET' && seg.length === 1) return list({ items: A.listSubscriptions() })
+    if (seg[0] === 'orders' && method === 'GET' && seg.length === 1) return list({ items: await A.listOrders() })
+    if (seg[0] === 'subscriptions' && method === 'GET' && seg.length === 1) return list({ items: await A.listSubscriptions() })
 
     // 内推资源库管理 (H4, M4 维护)
     if (seg[0] === 'referrals') {
-      if (method === 'GET' && seg.length === 1) return list({ items: A.listReferralsAdmin({ track: q.track as string, city: q.city as string, level: q.level as string }) })
-      if (method === 'POST' && seg.length === 1) return ok(A.createReferral(body))
+      if (method === 'GET' && seg.length === 1) return list({ items: await A.listReferralsAdmin({ track: q.track as string, city: q.city as string, level: q.level as string }) })
+      if (method === 'POST' && seg.length === 1) return ok(await A.createReferral(body))
       if (seg.length === 2) {
-        if (method === 'GET') return ok(A.getReferral(seg[1]))
-        if (method === 'PATCH') return ok(A.updateReferral(seg[1], body))
-        if (method === 'DELETE') return ok({ deleted: A.deleteReferral(seg[1]) })
+        if (method === 'GET') return ok(await A.getReferral(seg[1]))
+        if (method === 'PATCH') return ok(await A.updateReferral(seg[1], body))
+        if (method === 'DELETE') return ok({ deleted: await A.deleteReferral(seg[1]) })
       }
     }
     if (seg[0] === 'referral-applications') {
-      if (method === 'GET' && seg.length === 1) return list({ items: A.listReferralApplications(q.status as string) })
-      if (seg.length === 2 && method === 'PATCH') return ok(A.updateReferralApplication(seg[1], body.status))
+      if (method === 'GET' && seg.length === 1) return list({ items: await A.listReferralApplications(q.status as string) })
+      if (seg.length === 2 && method === 'PATCH') return ok(await A.updateReferralApplication(seg[1], body.status))
     }
 
     // 面试题库待补充池（收录自用户提问，题库未命中经 LLM 增强）
     if (seg[0] === 'user-questions' && method === 'GET' && seg.length === 1) {
-      return list({ items: A.listUserQuestions({ status: q.status as string, track: q.track as string, page: +q.page || 1, pageSize: +q.pageSize || 30 }) })
+      return list({ items: await A.listUserQuestions({ status: q.status as string, track: q.track as string, page: +q.page || 1, pageSize: +q.pageSize || 30 }) })
     }
     if (seg[0] === 'user-questions' && method === 'PATCH' && seg.length === 2) {
-      return ok(A.reviewUserQuestion(seg[1], body.decision, body))
+      return ok(await A.reviewUserQuestion(seg[1], body.decision, body))
     }
     // 批量审核：body.ids 为待处理项 ID 数组，decision=accept|reject，patch 为可选统一覆盖字段
     if (seg[0] === 'user-questions' && seg[1] === 'batch' && method === 'POST' && seg.length === 2) {
@@ -149,7 +149,7 @@ export function adminDispatch(admin: any, method: string, seg: string[], q: any,
       const failed: string[] = []
       for (const id of ids) {
         try {
-          const r = A.reviewUserQuestion(id, decision, body.patch || {})
+          const r = await A.reviewUserQuestion(id, decision, body.patch || {})
           if (r) okCount++
           else skipped.push(String(id))
         } catch (e: any) {

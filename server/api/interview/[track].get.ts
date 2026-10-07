@@ -4,7 +4,7 @@
 // 故改为服务端分页：只返回当前页的题目（含答案），并附带计数与技术子类供前端渲染筛选器。
 const PAGE_SIZE_MAX = 50
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const track = getRouterParam(event, 'track')
   const query = getQuery(event)
   const type = query.type === 'special' ? 'special' : 'hot'
@@ -56,14 +56,14 @@ export default defineEventHandler((event) => {
   const where = cond.join(' AND ')
 
   // 两个题型的命中数（供 tab 上的数字与分页 total 使用）
-  const countRows = sqlite.prepare(
+  const countRows = await sqlite.prepare(
     `SELECT type, count(*) c FROM interview_questions WHERE ${where} GROUP BY type`
   ).all(...args) as any[]
   const counts = { hot: 0, special: 0 }
   for (const r of countRows) if (r.type in counts) (counts as any)[r.type] = r.c
 
   // 当前页数据：仅取当前题型，按 weight 降序（高频题优先）再按 id 稳定排序
-  const rows = sqlite.prepare(
+  const rows = await sqlite.prepare(
     `SELECT id,q,a,keywords,tech,difficulty,section_id,subtrack,skill,
        (SELECT s.title FROM sections s WHERE s.id = interview_questions.section_id) AS section_title
      FROM interview_questions
@@ -87,7 +87,7 @@ export default defineEventHandler((event) => {
     techCond.push(`(q LIKE ? ESCAPE '\\' OR a LIKE ? ESCAPE '\\' OR keywords LIKE ? ESCAPE '\\')`)
     techArgs.push(like, like, like)
   }
-  const techRows = sqlite.prepare(
+  const techRows = await sqlite.prepare(
     `SELECT tech, count(*) c FROM interview_questions WHERE ${techCond.join(' AND ')}
      GROUP BY tech ORDER BY c DESC`
   ).all(...techArgs) as any[]

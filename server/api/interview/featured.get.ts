@@ -4,8 +4,8 @@
 // 改为单次轻量请求，不返回答案正文，响应 ~2KB。
 const TRACKS = ['frontend', 'backend', 'devops', 'ai'] as const
 
-export default defineEventHandler((event) => {
-  const stmt = sqlite.prepare(
+export default defineEventHandler(async (event) => {
+  const stmt = await sqlite.prepare(
     `SELECT id,q,keywords FROM interview_questions
      WHERE track=? AND type=?
      ORDER BY COALESCE(weight,0) DESC, id
@@ -14,7 +14,7 @@ export default defineEventHandler((event) => {
   const questions: any[] = []
   for (const track of TRACKS) {
     for (const type of ['hot', 'special'] as const) {
-      const r = stmt.get(track, type) as any
+      const r = await stmt.get(track, type) as any
       if (r) questions.push({ id: r.id, q: r.q, keywords: JSON.parse(r.keywords || '[]'), track })
     }
   }

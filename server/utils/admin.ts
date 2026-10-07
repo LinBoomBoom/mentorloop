@@ -5,7 +5,7 @@ import { trackName } from './interview'
 
 /* ============ 用户体系 (G4) ============ */
 export interface UserFilter { q?: string; role?: string; page?: number; pageSize?: number }
-export function listUsers(f: UserFilter = {}) {
+export async function listUsers(f: UserFilter = {}) {
   const where: string[] = []
   const params: any[] = []
   if (f.q) {
@@ -15,47 +15,47 @@ export function listUsers(f: UserFilter = {}) {
   }
   if (f.role) { where.push('role=?'); params.push(f.role) }
   const w = where.length ? 'WHERE ' + where.join(' AND ') : ''
-  const total = (sqlite.prepare(`SELECT COUNT(*) c FROM users ${w}`).get(...params) as any).c
+  const total = (await sqlite.prepare(`SELECT COUNT(*) c FROM users ${w}`).get(...params) as any).c
   const page = Math.max(1, f.page || 1)
   const pageSize = Math.min(100, f.pageSize || 20)
-  const rows = sqlite.prepare(`SELECT * FROM users ${w} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+  const rows = await sqlite.prepare(`SELECT * FROM users ${w} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .all(...params, pageSize, (page - 1) * pageSize)
   return { total, page, pageSize, items: rows.map((r: any) => publicUser(r)) }
 }
-export function getUserById(id: string) {
-  const u = sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
+export async function getUserById(id: string) {
+  const u = await sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
   return u ? publicUser(u) : null
 }
 
 /* ============ 面试题库待补充池（收录自用户提问，经 LLM 语义化增强） ============ */
 export interface UserQuestionFilter { status?: string; track?: string; page?: number; pageSize?: number }
-export function listUserQuestions(f: UserQuestionFilter = {}) {
+export async function listUserQuestions(f: UserQuestionFilter = {}) {
   const where: string[] = []
   const params: any[] = []
   if (f.status) { where.push('status=?'); params.push(f.status) }
   if (f.track) { where.push('track=?'); params.push(f.track) }
   const w = where.length ? 'WHERE ' + where.join(' AND ') : ''
-  const total = (sqlite.prepare(`SELECT COUNT(*) c FROM user_questions ${w}`).get(...params) as any).c
+  const total = (await sqlite.prepare(`SELECT COUNT(*) c FROM user_questions ${w}`).get(...params) as any).c
   const page = Math.max(1, f.page || 1)
   const pageSize = Math.min(100, f.pageSize || 30)
-  const rows = sqlite.prepare(`SELECT * FROM user_questions ${w} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+  const rows = await sqlite.prepare(`SELECT * FROM user_questions ${w} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .all(...params, pageSize, (page - 1) * pageSize) as any[]
-  const items = rows.map((it: any) => {
+  const items = await Promise.all(rows.map(async (it: any) => {
     const safeTags = (() => { try { return JSON.parse(it.enhanced_tags || '[]') } catch { return [] } })()
     const base: any = { ...it, enhanced_tags: it.enhanced_tags || '[]' }
     if (it.status === 'pending') {
       // 待审核：预计算建议关联的小节，供审核页展示与一键采纳
-      base.suggest = findBestSection(it.track || 'frontend', it.enhanced_title || it.raw_question || '', safeTags)
+      base.suggest = await findBestSection(it.track || 'frontend', it.enhanced_title || it.raw_question || '', safeTags)
     } else if (it.status === 'accepted' && it.result_question_id) {
       // 已采纳：回显实际关联的小节
-      const iq = sqlite.prepare('SELECT section_id FROM interview_questions WHERE id=?').get(it.result_question_id) as any
+      const iq = await sqlite.prepare('SELECT section_id FROM interview_questions WHERE id=?').get(it.result_question_id) as any
       if (iq && iq.section_id) {
-        const s = sqlite.prepare(`SELECT s.title, c.title AS chapter_title FROM sections s JOIN chapters c ON c.id=s.chapter_id WHERE s.id=?`).get(iq.section_id) as any
+        const s = await sqlite.prepare(`SELECT s.title, c.title AS chapter_title FROM sections s JOIN chapters c ON c.id=s.chapter_id WHERE s.id=?`).get(iq.section_id) as any
         if (s) base.section = { id: iq.section_id, title: s.title, chapterTitle: s.chapter_title }
       }
     }
     return base
-  })
+  }))
   return { total, page, pageSize, items }
 }
 
@@ -63,14 +63,14 @@ export function listUserQuestions(f: UserQuestionFilter = {}) {
 // decision='reject'：仅置为 rejected，不入库。
 // decision='accept'：将 LLM 增强后的标题/答案/标签写入正式面试题库（patch 可覆盖微调），
 //   并回填 result_question_id、status='accepted'，便于后台追踪。已审过的不可重复审核。
-export function reviewUserQuestion(id: string, decision: string, patch: any = {}) {
-  const uq = sqlite.prepare('SELECT * FROM user_questions WHERE id=?').get(id) as any
+export async function reviewUserQuestion(id: string, decision: string, patch: any = {}) {
+  const uq = await sqlite.prepare('SELECT * FROM user_questions WHERE id=?').get(id) as any
   if (!uq) return null
   if (uq.status !== 'pending') throw new Error('ALREADY_REVIEWED')
   const now = Date.now()
 
   if (decision === 'reject') {
-    sqlite.prepare('UPDATE user_questions SET status=?, reviewed_at=?, updated_at=? WHERE id=?')
+    await sqlite.prepare('UPDATE user_questions SET status=?, reviewed_at=?, updated_at=? WHERE id=?')
       .run('rejected', now, now, id)
     return { id, status: 'rejected' }
   }
@@ -85,19 +85,19 @@ export function reviewUserQuestion(id: string, decision: string, patch: any = {}
   const keywords = Array.isArray(patch.keywords) ? patch.keywords : tags
 
   // 自动关联：优先用管理员指定的小节，否则按方向 + 题干 + 标签自动匹配最相关小节
-  const sectionId = patch.sectionId || findBestSection(track, qText, keywords)?.id || null
+  const sectionId = patch.sectionId || await (await findBestSection(track, qText, keywords))?.id || null
 
   // 生成唯一且合规的正式题 ID；允许管理员显式指定，冲突则自动回退
   let nid = patch.id && /^[a-z0-9_-]{2,60}$/.test(String(patch.id)) ? String(patch.id) : ''
-  if (!nid || getInterviewQuestion(nid)) nid = uid('iq_')
-  createInterview({ id: nid, track, type, q: qText, a: aText, keywords, sectionId })
+  if (!nid || await getInterviewQuestion(nid)) nid = uid('iq_')
+  await createInterview({ id: nid, track, type, q: qText, a: aText, keywords, sectionId })
 
-  sqlite.prepare('UPDATE user_questions SET status=?, result_question_id=?, reviewed_at=?, updated_at=? WHERE id=?')
+  await sqlite.prepare('UPDATE user_questions SET status=?, result_question_id=?, reviewed_at=?, updated_at=? WHERE id=?')
     .run('accepted', nid, now, now, id)
   return { id, status: 'accepted', questionId: nid, sectionId }
 }
-export function updateUser(id: string, patch: any) {
-  const u = sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
+export async function updateUser(id: string, patch: any) {
+  const u = await sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
   if (!u) return null
   const sets: string[] = []; const vals: any[] = []
   if (patch.role !== undefined) { sets.push('role=?'); vals.push(patch.role === 'admin' ? 'admin' : 'user') }
@@ -112,55 +112,55 @@ export function updateUser(id: string, patch: any) {
   const revoke = !!(patch.password || (patch.banned !== undefined && patch.banned))
   if (!sets.length) return publicUser(u)
   vals.push(id)
-  sqlite.prepare(`UPDATE users SET ${sets.join(',')} WHERE id=?`).run(...vals)
+  await sqlite.prepare(`UPDATE users SET ${sets.join(',')} WHERE id=?`).run(...vals)
   if (revoke) {
-    try { sqlite.prepare('DELETE FROM sessions WHERE user_id=?').run(id) } catch { /* ignore */ }
+    try { await sqlite.prepare('DELETE FROM sessions WHERE user_id=?').run(id) } catch { /* ignore */ }
   }
-  return publicUser(sqlite.prepare('SELECT * FROM users WHERE id=?').get(id))
+  return publicUser(await sqlite.prepare('SELECT * FROM users WHERE id=?').get(id))
 }
-export function deleteUser(id: string) {
-  const u = sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
+export async function deleteUser(id: string) {
+  const u = await sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
   if (!u) return false
-  const tx = sqlite.transaction(() => {
-    sqlite.prepare('DELETE FROM sessions WHERE user_id=?').run(id)
-    sqlite.prepare('DELETE FROM progress WHERE user_id=?').run(id)
-    sqlite.prepare('DELETE FROM exam_records WHERE user_id=?').run(id)
-    sqlite.prepare('DELETE FROM orders WHERE user_id=?').run(id)
-    sqlite.prepare('DELETE FROM subscriptions WHERE user_id=?').run(id)
-    sqlite.prepare('DELETE FROM users WHERE id=?').run(id)
+  const tx = sqlite.transaction(async () => {
+    await sqlite.prepare('DELETE FROM sessions WHERE user_id=?').run(id)
+    await sqlite.prepare('DELETE FROM progress WHERE user_id=?').run(id)
+    await sqlite.prepare('DELETE FROM exam_records WHERE user_id=?').run(id)
+    await sqlite.prepare('DELETE FROM orders WHERE user_id=?').run(id)
+    await sqlite.prepare('DELETE FROM subscriptions WHERE user_id=?').run(id)
+    await sqlite.prepare('DELETE FROM users WHERE id=?').run(id)
   })
-  tx()
+  await tx()
   return true
 }
-export function createUser(data: any) {
+export async function createUser(data: any) {
   const username = String(data.username || '').trim()
   const email = String(data.email || '').trim()
   const password = String(data.password || '')
   if (!username && !email) throw new Error('INVALID_ID')
-  if (username && (sqlite.prepare('SELECT 1 FROM users WHERE username=?').get(username))) throw new Error('DUP_ID')
-  if (email && (sqlite.prepare('SELECT 1 FROM users WHERE lower(email)=?').get(email.toLowerCase()))) throw new Error('DUP_ID')
+  if (username && (await sqlite.prepare('SELECT 1 FROM users WHERE username=?').get(username))) throw new Error('DUP_ID')
+  if (email && (await sqlite.prepare('SELECT 1 FROM users WHERE lower(email)=?').get(email.toLowerCase()))) throw new Error('DUP_ID')
   if (!password || password.length < 8) throw new Error('WEAK_PASSWORD')
   const id = 'u_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
-  sqlite.prepare('INSERT INTO users (id,username,nickname,password,email,phone,providers,vip,role,banned,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+  await sqlite.prepare('INSERT INTO users (id,username,nickname,password,email,phone,providers,vip,role,banned,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
     .run(id, username || null, data.nickname || username || email, hashPwd(password), email || null, null, '{}',
       JSON.stringify(data.vip || { level: 0, expireAt: null }), data.role === 'admin' ? 'admin' : 'user', data.banned ? 1 : 0, Date.now())
-  return publicUser(sqlite.prepare('SELECT * FROM users WHERE id=?').get(id))
+  return publicUser(await sqlite.prepare('SELECT * FROM users WHERE id=?').get(id))
 }
 
 /* ============ 内容：模块 (G2) ============ */
-export function listModules() { return sqlite.prepare('SELECT * FROM modules ORDER BY position').all() }
-export function getModule(id: string) { return sqlite.prepare('SELECT * FROM modules WHERE id=?').get(id) || null }
-export function createModule(data: any) {
+export async function listModules() { return await sqlite.prepare('SELECT * FROM modules ORDER BY position').all() }
+export async function getModule(id: string) { return await sqlite.prepare('SELECT * FROM modules WHERE id=?').get(id) || null }
+export async function createModule(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,40}$/.test(id)) throw new Error('INVALID_ID')
-  if (getModule(id)) throw new Error('DUP_ID')
-  const pos = data.position ?? listModules().length
-  sqlite.prepare('INSERT INTO modules (id,name,icon,color,"desc",position) VALUES (?,?,?,?,?,?)')
+  if (await getModule(id)) throw new Error('DUP_ID')
+  const pos = data.position ?? await (await listModules()).length
+  await sqlite.prepare('INSERT INTO modules (id,name,icon,color,"desc",position) VALUES (?,?,?,?,?,?)')
     .run(id, data.name || id, data.icon || '📘', data.color || '#3b82f6', data.desc || '', pos)
-  return getModule(id)
+  return await getModule(id)
 }
-export function updateModule(id: string, patch: any) {
-  const m = getModule(id); if (!m) return null
+export async function updateModule(id: string, patch: any) {
+  const m = await getModule(id); if (!m) return null
   const sets: string[] = []; const v: any[] = []
   if (patch.name !== undefined) { sets.push('name=?'); v.push(patch.name) }
   if (patch.icon !== undefined) { sets.push('icon=?'); v.push(patch.icon) }
@@ -168,64 +168,64 @@ export function updateModule(id: string, patch: any) {
   if (patch.desc !== undefined) { sets.push('"desc"=?'); v.push(patch.desc) }
   if (patch.position !== undefined) { sets.push('position=?'); v.push(patch.position) }
   if (!sets.length) return m
-  v.push(id); sqlite.prepare(`UPDATE modules SET ${sets.join(',')} WHERE id=?`).run(...v)
-  return getModule(id)
+  v.push(id); await sqlite.prepare(`UPDATE modules SET ${sets.join(',')} WHERE id=?`).run(...v)
+  return await getModule(id)
 }
-export function deleteModule(id: string) {
-  const m = getModule(id); if (!m) return false
-  const chs = (sqlite.prepare('SELECT id FROM chapters WHERE module_id=?').all(id) as any[]).map((r: any) => r.id)
-  const tx = sqlite.transaction(() => {
-    for (const ch of chs) sqlite.prepare('DELETE FROM sections WHERE chapter_id=?').run(ch)
-    sqlite.prepare('DELETE FROM chapters WHERE module_id=?').run(id)
-    sqlite.prepare('DELETE FROM modules WHERE id=?').run(id)
+export async function deleteModule(id: string) {
+  const m = await getModule(id); if (!m) return false
+  const chs = (await sqlite.prepare('SELECT id FROM chapters WHERE module_id=?').all(id) as any[]).map((r: any) => r.id)
+  const tx = sqlite.transaction(async () => {
+    for (const ch of chs) await sqlite.prepare('DELETE FROM sections WHERE chapter_id=?').run(ch)
+    await sqlite.prepare('DELETE FROM chapters WHERE module_id=?').run(id)
+    await sqlite.prepare('DELETE FROM modules WHERE id=?').run(id)
   })
-  tx()
+  await tx()
   return true
 }
 
 /* ============ 内容：章节 (G2) ============ */
-export function listChapters(moduleId?: string) {
-  if (moduleId) return sqlite.prepare('SELECT * FROM chapters WHERE module_id=? ORDER BY position').all(moduleId)
-  return sqlite.prepare('SELECT * FROM chapters ORDER BY module_id, position').all()
+export async function listChapters(moduleId?: string) {
+  if (moduleId) return await sqlite.prepare('SELECT * FROM chapters WHERE module_id=? ORDER BY position').all(moduleId)
+  return await sqlite.prepare('SELECT * FROM chapters ORDER BY module_id, position').all()
 }
-export function getChapter(id: string) { return sqlite.prepare('SELECT * FROM chapters WHERE id=?').get(id) || null }
-export function createChapter(data: any) {
+export async function getChapter(id: string) { return await sqlite.prepare('SELECT * FROM chapters WHERE id=?').get(id) || null }
+export async function createChapter(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,60}$/.test(id)) throw new Error('INVALID_ID')
-  if (getChapter(id)) throw new Error('DUP_ID')
-  if (!getModule(data.moduleId)) throw new Error('NO_MODULE')
-  const pos = data.position ?? listChapters(data.moduleId).length
-  sqlite.prepare('INSERT INTO chapters (id,module_id,title,goal,position) VALUES (?,?,?,?,?)')
+  if (await getChapter(id)) throw new Error('DUP_ID')
+  if (!await getModule(data.moduleId)) throw new Error('NO_MODULE')
+  const pos = data.position ?? await (await listChapters(data.moduleId)).length
+  await sqlite.prepare('INSERT INTO chapters (id,module_id,title,goal,position) VALUES (?,?,?,?,?)')
     .run(id, data.moduleId, data.title || id, data.goal || '', pos)
-  return getChapter(id)
+  return await getChapter(id)
 }
-export function updateChapter(id: string, patch: any) {
-  const c = getChapter(id); if (!c) return null
+export async function updateChapter(id: string, patch: any) {
+  const c = await getChapter(id); if (!c) return null
   const sets: string[] = []; const v: any[] = []
-  if (patch.moduleId !== undefined) { if (!getModule(patch.moduleId)) throw new Error('NO_MODULE'); sets.push('module_id=?'); v.push(patch.moduleId) }
+  if (patch.moduleId !== undefined) { if (!await getModule(patch.moduleId)) throw new Error('NO_MODULE'); sets.push('module_id=?'); v.push(patch.moduleId) }
   if (patch.title !== undefined) { sets.push('title=?'); v.push(patch.title) }
   if (patch.goal !== undefined) { sets.push('goal=?'); v.push(patch.goal) }
   if (patch.position !== undefined) { sets.push('position=?'); v.push(patch.position) }
   if (!sets.length) return c
-  v.push(id); sqlite.prepare(`UPDATE chapters SET ${sets.join(',')} WHERE id=?`).run(...v)
-  return getChapter(id)
+  v.push(id); await sqlite.prepare(`UPDATE chapters SET ${sets.join(',')} WHERE id=?`).run(...v)
+  return await getChapter(id)
 }
-export function deleteChapter(id: string) {
-  const c = getChapter(id); if (!c) return false
-  const tx = sqlite.transaction(() => {
-    sqlite.prepare('DELETE FROM sections WHERE chapter_id=?').run(id)
-    sqlite.prepare('DELETE FROM chapters WHERE id=?').run(id)
-  }); tx()
+export async function deleteChapter(id: string) {
+  const c = await getChapter(id); if (!c) return false
+  const tx = sqlite.transaction(async () => {
+    await sqlite.prepare('DELETE FROM sections WHERE chapter_id=?').run(id)
+    await sqlite.prepare('DELETE FROM chapters WHERE id=?').run(id)
+  }); await tx()
   return true
 }
 
 /* ============ 内容：小节 (G2) ============ */
-export function listSections(chapterId?: string, track?: string) {
-  if (chapterId) return sqlite.prepare('SELECT * FROM sections WHERE chapter_id=? ORDER BY position').all(chapterId)
-  if (track) return sqlite.prepare(`SELECT s.id, s.title, c.title AS chapter_title FROM sections s JOIN chapters c ON c.id = s.chapter_id WHERE c.module_id=? ORDER BY c.title, s.position`).all(track)
-  return sqlite.prepare('SELECT * FROM sections ORDER BY chapter_id, position').all()
+export async function listSections(chapterId?: string, track?: string) {
+  if (chapterId) return await sqlite.prepare('SELECT * FROM sections WHERE chapter_id=? ORDER BY position').all(chapterId)
+  if (track) return await sqlite.prepare(`SELECT s.id, s.title, c.title AS chapter_title FROM sections s JOIN chapters c ON c.id = s.chapter_id WHERE c.module_id=? ORDER BY c.title, s.position`).all(track)
+  return await sqlite.prepare('SELECT * FROM sections ORDER BY chapter_id, position').all()
 }
-export function getSection(id: string) { return sqlite.prepare('SELECT * FROM sections WHERE id=?').get(id) || null }
+export async function getSection(id: string) { return await sqlite.prepare('SELECT * FROM sections WHERE id=?').get(id) || null }
 /* ---------- 内容发布门禁（任务 2.5）----------
  * 规则：来源属「明示禁止再分发」或「未标注来源」的内容，不得发布。
  * 边界：只拦截「发布动作」——即 status 由非 published 跃迁到 published。
@@ -242,25 +242,25 @@ function assertPublishable(kind: string, d: { license?: string | null; source_ty
   }
 }
 
-export function createSection(data: any) {
+export async function createSection(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,80}$/.test(id)) throw new Error('INVALID_ID')
-  if (getSection(id)) throw new Error('DUP_ID')
-  if (!getChapter(data.chapterId)) throw new Error('NO_CHAPTER')
+  if (await getSection(id)) throw new Error('DUP_ID')
+  if (!await getChapter(data.chapterId)) throw new Error('NO_CHAPTER')
   // 新内容默认 draft：必须补全来源后再显式发布，避免无源内容直接上线
   const status = data.status || 'draft'
   if (status === 'published') assertPublishable('section', data)
-  const pos = data.position ?? listSections(data.chapterId).length
-  sqlite.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position,source_url,source_type,license,rewrite_level,status,reviewed_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  const pos = data.position ?? await (await listSections(data.chapterId)).length
+  await sqlite.prepare('INSERT INTO sections (id,chapter_id,title,objective,content,position,source_url,source_type,license,rewrite_level,status,reviewed_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(id, data.chapterId, data.title || id, data.objective ?? data.direction ?? '', data.content || '', pos,
       data.source_url ?? null, data.source_type ?? 'unknown', data.license ?? 'unknown',
       data.rewrite_level ?? 'paraphrased', status, data.reviewed_at ?? null, 1)
-  return getSection(id)
+  return await getSection(id)
 }
-export function updateSection(id: string, patch: any) {
-  const s = getSection(id); if (!s) return null
+export async function updateSection(id: string, patch: any) {
+  const s = await getSection(id); if (!s) return null
   const sets: string[] = []; const v: any[] = []
-  if (patch.chapterId !== undefined) { if (!getChapter(patch.chapterId)) throw new Error('NO_CHAPTER'); sets.push('chapter_id=?'); v.push(patch.chapterId) }
+  if (patch.chapterId !== undefined) { if (!await getChapter(patch.chapterId)) throw new Error('NO_CHAPTER'); sets.push('chapter_id=?'); v.push(patch.chapterId) }
   if (patch.title !== undefined) { sets.push('title=?'); v.push(patch.title) }
   if (patch.objective !== undefined) { sets.push('objective=?'); v.push(patch.objective) }
   if (patch.content !== undefined) { sets.push('content=?'); v.push(patch.content) }
@@ -282,65 +282,65 @@ export function updateSection(id: string, patch: any) {
     sets.push('status=?'); v.push(patch.status)
   }
   if (!sets.length) return s
-  v.push(id); sqlite.prepare(`UPDATE sections SET ${sets.join(',')} WHERE id=?`).run(...v)
-  return getSection(id)
+  v.push(id); await sqlite.prepare(`UPDATE sections SET ${sets.join(',')} WHERE id=?`).run(...v)
+  return await getSection(id)
 }
-export function deleteSection(id: string) {
-  const s = getSection(id); if (!s) return false
-  sqlite.prepare('DELETE FROM sections WHERE id=?').run(id)
+export async function deleteSection(id: string) {
+  const s = await getSection(id); if (!s) return false
+  await sqlite.prepare('DELETE FROM sections WHERE id=?').run(id)
   return true
 }
 
 /* ============ 题库：试卷 + 选择题 + 笔试题 (G3) ============ */
-export function listExamSets(track?: string) {
-  if (track) return sqlite.prepare('SELECT * FROM exam_sets WHERE track=? ORDER BY level, name').all(track)
-  return sqlite.prepare('SELECT * FROM exam_sets ORDER BY track, level, name').all()
+export async function listExamSets(track?: string) {
+  if (track) return await sqlite.prepare('SELECT * FROM exam_sets WHERE track=? ORDER BY level, name').all(track)
+  return await sqlite.prepare('SELECT * FROM exam_sets ORDER BY track, level, name').all()
 }
-export function getExamSet(id: string) { return sqlite.prepare('SELECT * FROM exam_sets WHERE id=?').get(id) || null }
-function upsertChoices(setId: string, choices: any[] = []) {
-  sqlite.prepare('DELETE FROM exam_choices WHERE set_id=?').run(setId)
-  const ins = sqlite.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,"explain",multi) VALUES (?,?,?,?,?,?,?,?)')
+export async function getExamSet(id: string) { return await sqlite.prepare('SELECT * FROM exam_sets WHERE id=?').get(id) || null }
+async function upsertChoices(setId: string, choices: any[] = []) {
+  await sqlite.prepare('DELETE FROM exam_choices WHERE set_id=?').run(setId)
+  const ins = await sqlite.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,"explain",multi) VALUES (?,?,?,?,?,?,?,?)')
   let n = 0
   for (const c of (choices || [])) {
     if (!c.id || !c.q) continue
-    ins.run(c.id, setId, c.tag || '', c.q, JSON.stringify(c.options || []), JSON.stringify(c.answer), c.explain || '', c.multi ? 1 : 0)
+    await ins.run(c.id, setId, c.tag || '', c.q, JSON.stringify(c.options || []), JSON.stringify(c.answer), c.explain || '', c.multi ? 1 : 0)
     n++
   }
   return n
 }
-function upsertWritten(setId: string, written: any[] = []) {
-  sqlite.prepare('DELETE FROM exam_written WHERE set_id=?').run(setId)
-  const ins = sqlite.prepare('INSERT OR IGNORE INTO exam_written (id,set_id,q,points,reference) VALUES (?,?,?,?,?)')
+async function upsertWritten(setId: string, written: any[] = []) {
+  await sqlite.prepare('DELETE FROM exam_written WHERE set_id=?').run(setId)
+  const ins = await sqlite.prepare('INSERT OR IGNORE INTO exam_written (id,set_id,q,points,reference) VALUES (?,?,?,?,?)')
   let n = 0
   for (const w of (written || [])) {
     if (!w.id || !w.q) continue
-    ins.run(w.id, setId, w.q, JSON.stringify(w.points || []), w.reference || '')
+    await ins.run(w.id, setId, w.q, JSON.stringify(w.points || []), w.reference || '')
     n++
   }
   return n
 }
-export function getExamSetDetail(id: string) {
-  const s = getExamSet(id); if (!s) return null
+export async function getExamSetDetail(id: string) {
+  const s = await getExamSet(id); if (!s) return null
   return {
     ...s,
-    choices: sqlite.prepare('SELECT * FROM exam_choices WHERE set_id=? ORDER BY id').all(id),
-    written: sqlite.prepare('SELECT * FROM exam_written WHERE set_id=? ORDER BY id').all(id)
+    choices: await sqlite.prepare('SELECT * FROM exam_choices WHERE set_id=? ORDER BY id').all(id),
+    written: await sqlite.prepare('SELECT * FROM exam_written WHERE set_id=? ORDER BY id').all(id)
   }
 }
-export function createExamSet(data: any) {
+export async function createExamSet(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,60}$/.test(id)) throw new Error('INVALID_ID')
-  if (getExamSet(id)) throw new Error('DUP_ID')
-  const tx = sqlite.transaction(() => {
-    sqlite.prepare('INSERT INTO exam_sets (id,name,track,level,duration,vip_only) VALUES (?,?,?,?,?,?)')
+  if (await getExamSet(id)) throw new Error('DUP_ID')
+  const tx = sqlite.transaction(async () => {
+    await sqlite.prepare('INSERT INTO exam_sets (id,name,track,level,duration,vip_only) VALUES (?,?,?,?,?,?)')
       .run(id, data.name || id, data.track || 'frontend', data.level || '初级', data.duration || 30, data.vipOnly ? 1 : 0)
-    upsertChoices(id, data.choices)
-    upsertWritten(id, data.written)
-  }); tx()
-  return getExamSetDetail(id)
+    await upsertChoices(id, data.choices)
+    await upsertWritten(id, data.written)
+  }); await tx()
+  return await getExamSetDetail(id)
 }
-export function updateExamSet(id: string, patch: any) {
-  const s = getExamSet(id); if (!s) return null
+export async function updateExamSet(id: string, patch: any) {
+  const s = await getExamSet(id); if (!s) return null
   const sets: string[] = []; const v: any[] = []
   if (patch.name !== undefined) { sets.push('name=?'); v.push(patch.name) }
   if (patch.track !== undefined) { sets.push('track=?'); v.push(patch.track) }
@@ -348,54 +348,54 @@ export function updateExamSet(id: string, patch: any) {
   if (patch.duration !== undefined) { sets.push('duration=?'); v.push(patch.duration) }
   if (patch.vipOnly !== undefined) { sets.push('vip_only=?'); v.push(patch.vipOnly ? 1 : 0) }
   let detail: any = null
-  const tx = sqlite.transaction(() => {
-    if (sets.length) { v.push(id); sqlite.prepare(`UPDATE exam_sets SET ${sets.join(',')} WHERE id=?`).run(...v) }
-    if (patch.choices !== undefined) upsertChoices(id, patch.choices)
-    if (patch.written !== undefined) upsertWritten(id, patch.written)
-    detail = getExamSetDetail(id)
-  }); tx()
+  const tx = sqlite.transaction(async () => {
+    if (sets.length) { v.push(id); await sqlite.prepare(`UPDATE exam_sets SET ${sets.join(',')} WHERE id=?`).run(...v) }
+    if (patch.choices !== undefined) await upsertChoices(id, patch.choices)
+    if (patch.written !== undefined) await upsertWritten(id, patch.written)
+    detail = await getExamSetDetail(id)
+  }); await tx()
   return detail
 }
-export function deleteExamSet(id: string) {
-  const s = getExamSet(id); if (!s) return false
-  const tx = sqlite.transaction(() => {
-    sqlite.prepare('DELETE FROM exam_choices WHERE set_id=?').run(id)
-    sqlite.prepare('DELETE FROM exam_written WHERE set_id=?').run(id)
-    sqlite.prepare('DELETE FROM exam_sets WHERE id=?').run(id)
-  }); tx()
+export async function deleteExamSet(id: string) {
+  const s = await getExamSet(id); if (!s) return false
+  const tx = sqlite.transaction(async () => {
+    await sqlite.prepare('DELETE FROM exam_choices WHERE set_id=?').run(id)
+    await sqlite.prepare('DELETE FROM exam_written WHERE set_id=?').run(id)
+    await sqlite.prepare('DELETE FROM exam_sets WHERE id=?').run(id)
+  }); await tx()
   return true
 }
 
 /* ============ 题库：面试题 (G3) ============ */
-export function listInterview(track?: string, q?: string) {
+export async function listInterview(track?: string, q?: string) {
   let rows: any[] = track
-    ? sqlite.prepare('SELECT * FROM interview_questions WHERE track=? ORDER BY id').all(track)
-    : sqlite.prepare('SELECT * FROM interview_questions ORDER BY track, id').all()
+    ? await sqlite.prepare('SELECT * FROM interview_questions WHERE track=? ORDER BY id').all(track)
+    : await sqlite.prepare('SELECT * FROM interview_questions ORDER BY track, id').all()
   if (q) {
     const kw = String(q).toLowerCase()
     rows = rows.filter((r: any) => (r.q || '').toLowerCase().includes(kw) || (r.a || '').toLowerCase().includes(kw))
   }
   return rows.map((r: any) => ({ ...r, keywords: JSON.parse(r.keywords || '[]') }))
 }
-export function getInterviewQuestion(id: string) {
-  const r = sqlite.prepare('SELECT * FROM interview_questions WHERE id=?').get(id) as any
+export async function getInterviewQuestion(id: string) {
+  const r = await sqlite.prepare('SELECT * FROM interview_questions WHERE id=?').get(id) as any
   return r ? { ...r, keywords: JSON.parse(r.keywords || '[]') } : null
 }
-export function createInterview(data: any) {
+export async function createInterview(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,60}$/.test(id)) throw new Error('INVALID_ID')
-  if (getInterviewQuestion(id)) throw new Error('DUP_ID')
+  if (await getInterviewQuestion(id)) throw new Error('DUP_ID')
   // 2.5：新题默认 draft，补全来源后方可发布
   const status = data.status || 'draft'
   if (status === 'published') assertPublishable('question', data)
-  sqlite.prepare('INSERT INTO interview_questions (id,track,type,q,a,keywords,section_id,source,source_type,license,rewrite_level,status,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  await sqlite.prepare('INSERT INTO interview_questions (id,track,type,q,a,keywords,section_id,source,source_type,license,rewrite_level,status,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(id, data.track || 'frontend', data.type || 'hot', data.q || '', data.a || '', JSON.stringify(data.keywords || []), data.sectionId || null,
       data.source ?? null, data.source_type ?? 'unknown', data.license ?? 'unknown',
       data.rewrite_level ?? 'paraphrased', status, 1)
-  return getInterviewQuestion(id)
+  return await getInterviewQuestion(id)
 }
-export function updateInterview(id: string, patch: any) {
-  const r = getInterviewQuestion(id); if (!r) return null
+export async function updateInterview(id: string, patch: any) {
+  const r = await getInterviewQuestion(id); if (!r) return null
   const sets: string[] = []; const v: any[] = []
   if (patch.track !== undefined) { sets.push('track=?'); v.push(patch.track) }
   if (patch.type !== undefined) { sets.push('type=?'); v.push(patch.type) }
@@ -419,89 +419,89 @@ export function updateInterview(id: string, patch: any) {
     sets.push('status=?'); v.push(patch.status)
   }
   if (!sets.length) return r
-  v.push(id); sqlite.prepare(`UPDATE interview_questions SET ${sets.join(',')} WHERE id=?`).run(...v)
-  return getInterviewQuestion(id)
+  v.push(id); await sqlite.prepare(`UPDATE interview_questions SET ${sets.join(',')} WHERE id=?`).run(...v)
+  return await getInterviewQuestion(id)
 }
-export function deleteInterview(id: string) {
-  const r = getInterviewQuestion(id); if (!r) return false
-  sqlite.prepare('DELETE FROM interview_questions WHERE id=?').run(id)
+export async function deleteInterview(id: string) {
+  const r = await getInterviewQuestion(id); if (!r) return false
+  await sqlite.prepare('DELETE FROM interview_questions WHERE id=?').run(id)
   return true
 }
 
 /* ============ 订单 / 订阅 (G5) ============ */
-export function listOrders() { return sqlite.prepare('SELECT * FROM orders ORDER BY created_at DESC').all() }
-export function listSubscriptions() { return sqlite.prepare('SELECT * FROM subscriptions ORDER BY created_at DESC').all() }
+export async function listOrders() { return await sqlite.prepare('SELECT * FROM orders ORDER BY created_at DESC').all() }
+export async function listSubscriptions() { return await sqlite.prepare('SELECT * FROM subscriptions ORDER BY created_at DESC').all() }
 
 /* ============ 数据看板 (G6) ============ */
-export function dashboardStats() {
-  const c = (sql: string, p: any[] = []) => (sqlite.prepare(sql).get(...p) as any).c
+export async function dashboardStats() {
+  const c = async (sql: string, p: any[] = []) => (await sqlite.prepare(sql).get(...p) as any).c
   return {
-    users: c('SELECT COUNT(*) c FROM users'),
-    admins: c("SELECT COUNT(*) c FROM users WHERE role='admin'"),
-    banned: c('SELECT COUNT(*) c FROM users WHERE banned=1'),
-    modules: c('SELECT COUNT(*) c FROM modules'),
-    chapters: c('SELECT COUNT(*) c FROM chapters'),
-    sections: c('SELECT COUNT(*) c FROM sections'),
-    examSets: c('SELECT COUNT(*) c FROM exam_sets'),
-    vipSets: c('SELECT COUNT(*) c FROM exam_sets WHERE vip_only=1'),
-    interview: c('SELECT COUNT(*) c FROM interview_questions'),
-    examRecords: c('SELECT COUNT(*) c FROM exam_records'),
-    orders: c('SELECT COUNT(*) c FROM orders'),
-    paidOrders: c("SELECT COUNT(*) c FROM orders WHERE status='paid'"),
-    revenue: (sqlite.prepare("SELECT COALESCE(SUM(amount),0) s FROM orders WHERE status='paid'").get() as any).s,
-    activeSubs: c('SELECT COUNT(*) c FROM subscriptions WHERE status=? AND expire_at>?', ['active', Date.now()])
+    users: await c('SELECT COUNT(*) c FROM users'),
+    admins: await c("SELECT COUNT(*) c FROM users WHERE role='admin'"),
+    banned: await c('SELECT COUNT(*) c FROM users WHERE banned=1'),
+    modules: await c('SELECT COUNT(*) c FROM modules'),
+    chapters: await c('SELECT COUNT(*) c FROM chapters'),
+    sections: await c('SELECT COUNT(*) c FROM sections'),
+    examSets: await c('SELECT COUNT(*) c FROM exam_sets'),
+    vipSets: await c('SELECT COUNT(*) c FROM exam_sets WHERE vip_only=1'),
+    interview: await c('SELECT COUNT(*) c FROM interview_questions'),
+    examRecords: await c('SELECT COUNT(*) c FROM exam_records'),
+    orders: await c('SELECT COUNT(*) c FROM orders'),
+    paidOrders: await c("SELECT COUNT(*) c FROM orders WHERE status='paid'"),
+    revenue: (await sqlite.prepare("SELECT COALESCE(SUM(amount),0) s FROM orders WHERE status='paid'").get() as any).s,
+    activeSubs: await c('SELECT COUNT(*) c FROM subscriptions WHERE status=? AND expire_at>?', ['active', Date.now()])
   }
 }
 
 /* ============ 内推资源库管理 (H4，M4 维护) ============ */
-export function listReferralsAdmin(filter: { track?: string; city?: string; level?: string } = {}) {
+export async function listReferralsAdmin(filter: { track?: string; city?: string; level?: string } = {}) {
   const where: string[] = []; const params: any[] = []
   if (filter.track) { where.push('track=?'); params.push(filter.track) }
   if (filter.city) { where.push('city=?'); params.push(filter.city) }
   if (filter.level) { where.push('level=?'); params.push(filter.level) }
   const sql = 'SELECT * FROM referrals' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY created_at DESC'
-  return (sqlite.prepare(sql).all(...params) as any[]).map((r: any) => ({ ...r, trackName: trackName(r.track) }))
+  return (await sqlite.prepare(sql).all(...params) as any[]).map((r: any) => ({ ...r, trackName: trackName(r.track) }))
 }
-export function getReferral(id: string) { return sqlite.prepare('SELECT * FROM referrals WHERE id=?').get(id) || null }
-export function createReferral(data: any) {
+export async function getReferral(id: string) { return await sqlite.prepare('SELECT * FROM referrals WHERE id=?').get(id) || null }
+export async function createReferral(data: any) {
   const id = String(data.id || '').trim()
   if (!/^[a-z0-9_-]{2,60}$/.test(id)) throw new Error('INVALID_ID')
-  if (getReferral(id)) throw new Error('DUP_ID')
-  sqlite.prepare('INSERT INTO referrals (id,company,title,track,city,level,type,requirement,intro,contact,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+  if (await getReferral(id)) throw new Error('DUP_ID')
+  await sqlite.prepare('INSERT INTO referrals (id,company,title,track,city,level,type,requirement,intro,contact,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
     .run(id, data.company || '', data.title || '', data.track || 'frontend', data.city || '', data.level || '',
       data.type || '社招', data.requirement || '', data.intro || '', data.contact || '', Date.now())
-  return getReferral(id)
+  return await getReferral(id)
 }
-export function updateReferral(id: string, patch: any) {
-  const r = getReferral(id); if (!r) return null
+export async function updateReferral(id: string, patch: any) {
+  const r = await getReferral(id); if (!r) return null
   const sets: string[] = []; const v: any[] = []
   for (const f of ['company', 'title', 'track', 'city', 'level', 'type', 'requirement', 'intro', 'contact']) {
     if (patch[f] !== undefined) { sets.push(`${f}=?`); v.push(patch[f]) }
   }
   if (!sets.length) return r
-  v.push(id); sqlite.prepare(`UPDATE referrals SET ${sets.join(',')} WHERE id=?`).run(...v)
-  return getReferral(id)
+  v.push(id); await sqlite.prepare(`UPDATE referrals SET ${sets.join(',')} WHERE id=?`).run(...v)
+  return await getReferral(id)
 }
-export function deleteReferral(id: string) {
-  const r = getReferral(id); if (!r) return false
-  sqlite.prepare('DELETE FROM referrals WHERE id=?').run(id)
+export async function deleteReferral(id: string) {
+  const r = await getReferral(id); if (!r) return false
+  await sqlite.prepare('DELETE FROM referrals WHERE id=?').run(id)
   return true
 }
 
-export function listReferralApplications(status?: string) {
+export async function listReferralApplications(status?: string) {
   const where = status ? 'WHERE a.status=?' : ''
-  const rows = sqlite.prepare(
+  const rows = await sqlite.prepare(
     `SELECT a.id,a.user_id,a.referral_id,a.name,a.contact,a.note,a.status,a.created_at,r.company,r.title,r.track
      FROM referral_applications a LEFT JOIN referrals r ON r.id=a.referral_id
      ${where} ORDER BY a.created_at DESC`
   ).all(...(status ? [status] : [])) as any[]
   return rows.map((r: any) => ({ ...r, trackName: trackName(r.track) }))
 }
-export function updateReferralApplication(id: string, status: string) {
-  const a = sqlite.prepare('SELECT * FROM referral_applications WHERE id=?').get(id) as any
+export async function updateReferralApplication(id: string, status: string) {
+  const a = await sqlite.prepare('SELECT * FROM referral_applications WHERE id=?').get(id) as any
   if (!a) return null
   const ok = ['pending', 'contacted', 'done', 'rejected']
   if (!ok.includes(status)) throw new Error('BAD_STATUS')
-  sqlite.prepare('UPDATE referral_applications SET status=? WHERE id=?').run(status, id)
-  return sqlite.prepare('SELECT * FROM referral_applications WHERE id=?').get(id)
+  await sqlite.prepare('UPDATE referral_applications SET status=? WHERE id=?').run(status, id)
+  return await sqlite.prepare('SELECT * FROM referral_applications WHERE id=?').get(id)
 }

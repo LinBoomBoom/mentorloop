@@ -60,12 +60,12 @@ describe('面试题库 · 新库 seed 落库正确性', () => {
     sqlite = (await import('../server/utils/db')).sqlite
   })
 
-  it('题型按所属数组落库，不受 id 前缀影响（回归①）', () => {
+  it('题型按所属数组落库，不受 id 前缀影响（回归①）', async () => {
     const expectHot = seedRows.filter((r) => r.type === 'hot').length
     const expectSpecial = seedRows.filter((r) => r.type === 'special').length
     const got = Object.fromEntries(
-      sqlite.prepare('SELECT type, COUNT(*) n FROM interview_questions GROUP BY type')
-        .all().map((r) => [r.type, r.n])
+      (await sqlite.prepare('SELECT type, COUNT(*) n FROM interview_questions GROUP BY type')
+        .all()).map((r) => [r.type, r.n])
     )
     expect(got.hot).toBe(expectHot)
     expect(got.special).toBe(expectSpecial)
@@ -74,27 +74,27 @@ describe('面试题库 · 新库 seed 落库正确性', () => {
     const newPrefixSpecial = seedRows.filter((r) => r.type === 'special' && r.id[1] !== 's')
     expect(newPrefixSpecial.length).toBeGreaterThan(0) // 前提：种子里确实存在这类 id
     for (const r of newPrefixSpecial.slice(0, 30)) {
-      const row = sqlite.prepare('SELECT type FROM interview_questions WHERE id=?').get(r.id)
+      const row = await sqlite.prepare('SELECT type FROM interview_questions WHERE id=?').get(r.id)
       expect(row?.type, `${r.id} 应为 special`).toBe('special')
     }
   })
 
-  it('weight / difficulty 在 seed 阶段即写入，不依赖迁移回填（回归②）', () => {
-    expect(sqlite.prepare('SELECT COUNT(*) n FROM interview_questions WHERE weight IS NULL').get().n).toBe(0)
-    expect(sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE difficulty IS NULL OR difficulty=''").get().n).toBe(0)
+  it('weight / difficulty 在 seed 阶段即写入，不依赖迁移回填（回归②）', async () => {
+    expect((await sqlite.prepare('SELECT COUNT(*) n FROM interview_questions WHERE weight IS NULL').get()).n).toBe(0)
+    expect((await sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE difficulty IS NULL OR difficulty=''").get()).n).toBe(0)
     // special 题必须拿到高权重与 hard 难度，否则 UI 的「较难」标签永远不出现
-    expect(sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE type='special' AND weight=5").get().n).toBeGreaterThan(0)
-    expect(sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE difficulty='hard'").get().n).toBeGreaterThan(0)
-    expect(sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE type='hot' AND weight=3").get().n).toBeGreaterThan(0)
+    expect((await sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE type='special' AND weight=5").get()).n).toBeGreaterThan(0)
+    expect((await sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE difficulty='hard'").get()).n).toBeGreaterThan(0)
+    expect((await sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE type='hot' AND weight=3").get()).n).toBeGreaterThan(0)
   })
 
-  it('tech 分类全部落库（无空值），且覆盖多个子类', () => {
-    expect(sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE tech IS NULL OR tech=''").get().n).toBe(0)
-    const kinds = sqlite.prepare("SELECT COUNT(DISTINCT tech) n FROM interview_questions WHERE track='frontend'").get().n
+  it('tech 分类全部落库（无空值），且覆盖多个子类', async () => {
+    expect((await sqlite.prepare("SELECT COUNT(*) n FROM interview_questions WHERE tech IS NULL OR tech=''").get()).n).toBe(0)
+    const kinds = (await sqlite.prepare("SELECT COUNT(DISTINCT tech) n FROM interview_questions WHERE track='frontend'").get()).n
     expect(kinds).toBeGreaterThanOrEqual(5)
   })
 
-  it('落库总数与种子一致（无静默丢题）', () => {
-    expect(sqlite.prepare('SELECT COUNT(*) n FROM interview_questions').get().n).toBe(seedRows.length)
+  it('落库总数与种子一致（无静默丢题）', async () => {
+    expect((await sqlite.prepare('SELECT COUNT(*) n FROM interview_questions').get()).n).toBe(seedRows.length)
   })
 })

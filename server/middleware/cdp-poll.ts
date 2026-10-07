@@ -3,7 +3,7 @@
 // 常见触发源：Electron/Edge WebView2、VS Code 内置浏览器、Chrome 扩展、其他 CDP 客户端。
 const CDP_PATHS = new Set(['/json/version', '/json/list'])
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
   if (CDP_PATHS.has(path)) {
     // 返回最小 CDP 兼容响应：空列表，告诉探测端这里没有调试目标。

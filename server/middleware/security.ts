@@ -23,7 +23,7 @@ const CSP = [
   "form-action 'self'"
 ].join('; ')
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   setResponseHeader(event, 'Content-Security-Policy', CSP)
   setResponseHeader(event, 'X-Content-Type-Options', 'nosniff')
   setResponseHeader(event, 'X-Frame-Options', 'DENY')

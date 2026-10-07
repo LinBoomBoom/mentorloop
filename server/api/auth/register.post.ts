@@ -8,22 +8,22 @@ export default defineEventHandler(async (event) => {
   const rl = rateLimit('register', ip, 5, 3_600_000)
   if (!rl.ok) return json(event, 429, { error: '操作过于频繁，请 ' + rl.retryAfter + ' 秒后重试' })
 
-  const insertUser = (identifier: string, identifierType: string, password: string | null, nickname: string) => {
+  const insertUser = async (identifier: string, identifierType: string, password: string | null, nickname: string) => {
     const isEmail = identifierType === 'email'
     const id = uid()
     // A8：昵称若有值则限长 32 字符（空则回退为账号标识），防止超长/异常昵称写入
     const safeNick = nickname ? assertInput(nickname, { name: '昵称', max: 32 }) : ''
-    sqlite.prepare('INSERT INTO users (id,username,nickname,password,email,phone,providers,vip,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+    await sqlite.prepare('INSERT INTO users (id,username,nickname,password,email,phone,providers,vip,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
       .run(id, identifier, safeNick || identifier, password, isEmail ? identifier : null, isEmail ? null : identifier, '{}', JSON.stringify({ level: 0, expireAt: null }), Date.now())
-    return sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
+    return await sqlite.prepare('SELECT * FROM users WHERE id=?').get(id)
   }
 
   if (!b.mode) {
     const username = assertInput(b.username, { name: '用户名', required: true, min: 2, max: 64 })
     const password = assertPassword(b.password)
-    if (sqlite.prepare('SELECT id FROM users WHERE username=?').get(username)) return json(event, 400, { error: '用户名已存在' })
+    if (await sqlite.prepare('SELECT id FROM users WHERE username=?').get(username)) return json(event, 400, { error: '用户名已存在' })
     const user = insertUser(username, 'username', hashPwd(password), b.nickname)
-    const token = newToken(user)
+    const token = await newToken(user)
     setAuthCookie(event, token)
     return json(event, 200, { user: publicUser(user) })
   }
@@ -33,9 +33,9 @@ export default defineEventHandler(async (event) => {
     const identifierType = assertInput(b.identifierType, { name: '账号类型', required: true, pattern: /^(email|phone)$/ })
     const password = assertPassword(b.password)
     if (!['email', 'phone'].includes(identifierType)) return json(event, 400, { error: '账号类型错误' })
-    if (findByIdentifier(identifierType, identifier)) return json(event, 400, { error: '该账号已注册，请直接登录' })
+    if (await findByIdentifier(identifierType, identifier)) return json(event, 400, { error: '该账号已注册，请直接登录' })
     const user = insertUser(identifier, identifierType, hashPwd(password), b.nickname)
-    const token = newToken(user)
+    const token = await newToken(user)
     setAuthCookie(event, token)
     return json(event, 200, { user: publicUser(user) })
   }
@@ -44,10 +44,10 @@ export default defineEventHandler(async (event) => {
     const identifier = assertInput(b.identifier, { name: '账号', required: true, min: 3, max: 128 })
     const identifierType = assertInput(b.identifierType, { name: '账号类型', required: true, pattern: /^(email|phone)$/ })
     const code = assertInput(b.code, { name: '验证码', required: true, min: 4, max: 12 })
-    if (!verifyCode(identifierType, identifier, code)) return json(event, 400, { error: '验证码错误或已过期' })
-    let u = findByIdentifier(identifierType, identifier)
+    if (!await verifyCode(identifierType, identifier, code)) return json(event, 400, { error: '验证码错误或已过期' })
+    let u = await findByIdentifier(identifierType, identifier)
     if (!u) u = insertUser(identifier, identifierType, null, b.nickname)
-    const token = newToken(u)
+    const token = await newToken(u)
     setAuthCookie(event, token)
     return json(event, 200, { user: publicUser(u) })
   }

@@ -1,12 +1,11 @@
 import crypto from 'node:crypto'
-import { assertInput, InputError } from '../../utils/security'
 
 // 提问式问答：先在本地面试题库做高置信度匹配；未命中则走大模型开放式解答。
 // 关键点：匹配必须要求「题目与提问在主题上高度重合」，否则宁可交给 LLM，
 // 绝不允许「问 A 答 B」的答非所问；同时默认检索方向补上 ai（之前漏搜导致 AI 类问题乱匹配）。
 export default defineEventHandler(async (event) => {
   // 内容可公开浏览，但「提问」属于交互动作，需登录（与前端 useLoginGate 一致）
-  const user = getUser(event)
+  const user = await getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
   const ip = getClientIp(event)
   const rl = rateLimit('interview-ask', user ? user.id : ip, 30, 60_000)
@@ -16,8 +15,10 @@ export default defineEventHandler(async (event) => {
   let question: string
   try {
     question = assertInput(rawQuestion, { name: '问题', required: true, min: 2, max: 500 })
-  } catch (e) {
-    if (e instanceof InputError) return json(event, 400, { error: e.message })
+  } catch (e: any) {
+    // assertInput/InputError 由 Nitro 从 server/utils 自动导入（路由文件禁止相对 import server/utils）；
+    // 按 name 判定类错误，与 vip/path.post.ts 的 NoRecordsError 处理方式一致
+    if (e?.name === 'InputError') return json(event, 400, { error: e.message })
     throw e
   }
   const tracks = track ? [track] : ['frontend', 'backend', 'devops', 'ai']
@@ -29,7 +30,7 @@ export default defineEventHandler(async (event) => {
 
   let bestConf: any = null, bestConfScore = -1
   for (const t of tracks) {
-    const all = sqlite.prepare('SELECT * FROM interview_questions WHERE track=?').all(t)
+    const all = await sqlite.prepare('SELECT * FROM interview_questions WHERE track=?').all(t)
     for (const item of all) {
       let kw: string[] = []
       try { kw = JSON.parse(item.keywords || '[]') } catch { /* ignore */ }
@@ -65,13 +66,13 @@ export default defineEventHandler(async (event) => {
       // 热门问题（如「Vue 响应式原理」）被多人提问时只烧一次 LLM，直接降本。
       const AI_ANSWER_TTL = 7 * 86400000
       const qHash = crypto.createHash('sha256').update(`${track || 'all'}|${qNorm}`).digest('hex')
-      const cached = sqlite.prepare('SELECT answer, enhanced FROM ai_answer_cache WHERE q_hash=? AND created_at>?').get(qHash, Date.now() - AI_ANSWER_TTL) as any
+      const cached = await sqlite.prepare('SELECT answer, enhanced FROM ai_answer_cache WHERE q_hash=? AND created_at>?').get(qHash, Date.now() - AI_ANSWER_TTL) as any
       if (cached && cached.answer) {
         let enh = { title: '', tags: [] as string[] }
         try { const p = JSON.parse(cached.enhanced || '{}'); if (p && typeof p === 'object') { enh = { title: String(p.title || ''), tags: Array.isArray(p.tags) ? p.tags.map((x: any) => String(x).trim()).filter(Boolean).slice(0, 6) : [] } } } catch { /* 容错 */ }
         const ans = cached.answer
         // 仍收录到该用户「待补充池」（不影响主响应），但不再消耗 LLM
-        collectUserQuestion({ userId: user.id, track: track || undefined, raw: question.trim(), enhancedTitle: enh.title, enhancedTags: enh.tags, aiAnswer: ans })
+        await collectUserQuestion({ userId: user.id, track: track || undefined, raw: question.trim(), enhancedTitle: enh.title, enhancedTags: enh.tags, aiAnswer: ans })
         return json(event, 200, { matched: false, answer: ans, source: 'ai-cache', track: track || undefined, collected: true })
       }
 
@@ -107,10 +108,10 @@ export default defineEventHandler(async (event) => {
       if (ans) {
         // 写入跨用户答案缓存（失败仅告警，不阻断主流程）
         try {
-          sqlite.prepare('INSERT OR REPLACE INTO ai_answer_cache (q_hash, track, answer, enhanced, model, created_at) VALUES (?,?,?,?,?,?)')
+          await sqlite.prepare('INSERT OR REPLACE INTO ai_answer_cache (q_hash, track, answer, enhanced, model, created_at) VALUES (?,?,?,?,?,?)')
             .run(qHash, track || null, ans, JSON.stringify({ title: enhancedTitle, tags: enhancedTags }), process.env.LLM_MODEL || 'deepseek-chat', Date.now())
         } catch { /* 缓存写入失败不影响主流程 */ }
-        const collected = collectUserQuestion({
+        const collected = await collectUserQuestion({
           userId: user.id,
           track: track || undefined,
           raw: question.trim(),
@@ -136,19 +137,19 @@ export default defineEventHandler(async (event) => {
 // 把「题库未命中」的用户提问收录进 user_questions（待补充池）。
 // 同用户 + 同一原始问题去重：已存在则更新增强结果与答案，避免反复提问产生重复行。
 // 收录失败不影响主响应（用户仍能拿到答案），仅静默返回 false。
-function collectUserQuestion(o: {
+async function collectUserQuestion(o: {
   userId: string; track?: string; raw: string;
   enhancedTitle: string; enhancedTags: string[]; aiAnswer: string
 }): boolean {
   try {
     const now = Date.now()
-    const existing = sqlite.prepare('SELECT id FROM user_questions WHERE user_id=? AND raw_question=?').get(o.userId, o.raw) as any
+    const existing = await sqlite.prepare('SELECT id FROM user_questions WHERE user_id=? AND raw_question=?').get(o.userId, o.raw) as any
     if (existing) {
-      sqlite.prepare(
+      await sqlite.prepare(
         'UPDATE user_questions SET track=?, enhanced_title=?, enhanced_tags=?, ai_answer=?, status=?, updated_at=? WHERE id=?'
       ).run(o.track || null, o.enhancedTitle, JSON.stringify(o.enhancedTags), o.aiAnswer, 'pending', now, existing.id)
     } else {
-      sqlite.prepare(
+      await sqlite.prepare(
         'INSERT INTO user_questions (id,user_id,track,raw_question,enhanced_title,enhanced_tags,ai_answer,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)'
       ).run(uid('uq_'), o.userId, o.track || null, o.raw, o.enhancedTitle, JSON.stringify(o.enhancedTags), o.aiAnswer, 'pending', now, now)
     }

@@ -1,13 +1,13 @@
 // 单条答卷复盘详情
-export default defineEventHandler((event) => {
-  const user = getUser(event)
+export default defineEventHandler(async (event) => {
+  const user = await getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
   const id = getRouterParam(event, 'id')
-  const rec = sqlite.prepare('SELECT * FROM exam_records WHERE id=? AND user_id=?').get(id, user.id)
+  const rec = await sqlite.prepare('SELECT * FROM exam_records WHERE id=? AND user_id=?').get(id, user.id)
   if (!rec) return json(event, 404, { error: '记录不存在' })
   // 读取时由 loadExamReviews 重算 correct/score/total（兼容早期以字母存储答案、或判分有误的历史记录），
   // 历史记录的分数展示也随复盘一并修正，无需数据迁移。
-  const reviews = loadExamReviews(rec.id, rec.choice_review, rec.written_review)
+  const reviews = await loadExamReviews(rec.id, rec.choice_review, rec.written_review)
   // 字段名需与 submit 内联 record / rowToRecord 保持一致（camelCase），
   // 否则前端 record.setName / record.usedSeconds 取到 undefined（表现为空标签、用时 NaN:NaN），
   // 且 choiceReview/writtenReview 为空时整段复盘会退化成"空白"。

@@ -31,6 +31,7 @@ globalThis.fetch = async (_url, opts) => {
     evaluation: { score: 8, feedback: `第${evalCount}题回答不错，注意细节。` },
     nextQuestion: isLast ? '' : `第${evalCount + 1}题：讲讲相关原理。`,
     isLast,
+    analysis: '本题考察核心概念，要点覆盖基本到位，建议补齐底层细节。',
     overall: isLast ? '整体表现良好，建议深入底层原理。' : '',
     overallScore: isLast ? 82 : 0
   }
@@ -38,19 +39,19 @@ globalThis.fetch = async (_url, opts) => {
 }
 
 const userIds = []
-const mkUser = (vip) => {
+const mkUser = async (vip) => {
   const id = 'u_vf_' + Math.random().toString(36).slice(2, 8)
-  sqlite.prepare('INSERT INTO users (id,username,nickname,password,vip,created_at) VALUES (?,?,?,?,?,?)')
+  await sqlite.prepare('INSERT INTO users (id,username,nickname,password,vip,created_at) VALUES (?,?,?,?,?,?)')
     .run(id, id, 'S', 'x', JSON.stringify(vip), Date.now())
   userIds.push(id)
   return id
 }
-afterAll(() => {
+afterAll(async () => {
   for (const id of userIds) {
-    sqlite.prepare('DELETE FROM interview_sessions WHERE user_id=?').run(id)
-    sqlite.prepare('DELETE FROM study_plans WHERE user_id=?').run(id)
-    sqlite.prepare('DELETE FROM exam_records WHERE user_id=?').run(id)
-    sqlite.prepare('DELETE FROM users WHERE id=?').run(id)
+    await sqlite.prepare('DELETE FROM interview_sessions WHERE user_id=?').run(id)
+    await sqlite.prepare('DELETE FROM study_plans WHERE user_id=?').run(id)
+    await sqlite.prepare('DELETE FROM exam_records WHERE user_id=?').run(id)
+    await sqlite.prepare('DELETE FROM users WHERE id=?').run(id)
   }
 })
 
@@ -75,17 +76,19 @@ describe('parseJsonBlock 健壮性', () => {
 
 describe('H1 AI 深度模拟面试', () => {
   it('开启面试生成首题并落库', async () => {
-    const uid1 = mkUser({ level: 1, expireAt: Date.now() + 86400000 })
+    const uid1 = await mkUser({ level: 1, expireAt: Date.now() + 86400000 })
     const res = await startInterview(uid1, { track: 'frontend', level: 'mid' })
     expect(res.sessionId).toBeTruthy()
-    expect(res.question).toContain('TCP')
-    const list = listInterviews(uid1)
+    // BUG-6 后首题改为从真实题库按方向+难度随机抽取（stub 的「请开始」分支不再触发），
+    // 断言只需保证题目非空即可（题库命中为真实题目，题库为空时降级为 stub 生成的 TCP 题）
+    expect(res.question.length).toBeGreaterThan(0)
+    const list = await listInterviews(uid1)
     expect(list.length).toBe(1)
     expect(list[0].status).toBe('active')
   })
 
   it('多轮作答直到结束，产生评分与总结', async () => {
-    const uid2 = mkUser({ level: 1, expireAt: Date.now() + 86400000 })
+    const uid2 = await mkUser({ level: 1, expireAt: Date.now() + 86400000 })
     const start = await startInterview(uid2, { track: 'backend', level: 'senior' })
     let last = null
     for (let i = 0; i < INTERVIEW_MAX_TURNS; i++) {
@@ -96,13 +99,13 @@ describe('H1 AI 深度模拟面试', () => {
     expect(last.score).toBeGreaterThanOrEqual(0)
     expect(last.score).toBeLessThanOrEqual(100)
     expect(last.summary).toBeTruthy()
-    const sess = getInterview(start.sessionId, uid2)
+    const sess = await getInterview(start.sessionId, uid2)
     expect(sess.status).toBe('done')
     expect(sess.messages.filter((m) => m.role === 'assistant' && m.score != null).length).toBe(INTERVIEW_MAX_TURNS)
   })
 
   it('结束后再次作答应被拒绝（409）', async () => {
-    const uid3 = mkUser({ level: 1, expireAt: Date.now() + 86400000 })
+    const uid3 = await mkUser({ level: 1, expireAt: Date.now() + 86400000 })
     const start = await startInterview(uid3, { track: 'frontend', level: 'junior' })
     for (let i = 0; i < INTERVIEW_MAX_TURNS; i++) {
       const r = await answerInterview(uid3, { sessionId: start.sessionId, answer: 'x' })
@@ -116,13 +119,13 @@ describe('H1 AI 深度模拟面试', () => {
 
 describe('H2 个性化学习路径', () => {
   it('无考试记录时抛出 NoRecordsError', async () => {
-    const uid4 = mkUser({ level: 1, expireAt: Date.now() + 86400000 })
+    const uid4 = await mkUser({ level: 1, expireAt: Date.now() + 86400000 })
     await expect(getOrCreateStudyPlan(uid4)).rejects.toThrow(NoRecordsError)
   })
 
   it('基于薄弱点生成路径，并带 7 天缓存', async () => {
-    const uid5 = mkUser({ level: 1, expireAt: Date.now() + 86400000 })
-    sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+    const uid5 = await mkUser({ level: 1, expireAt: Date.now() + 86400000 })
+    await sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
       .run(uid('r_'), uid5, 's1', '卷1', 'frontend', 60, 6, 10, JSON.stringify([{ tag: '网络', count: 3 }, { tag: 'React', count: 2 }]), '及格', '建议复习', Date.now())
     const p1 = await getOrCreateStudyPlan(uid5)
     expect(p1.plan.summary).toBeTruthy()
@@ -164,8 +167,8 @@ describe('H2 免 LLM 本地路径（诚实可降级）', () => {
     const prev = process.env.DEEPSEEK_API_KEY
     delete process.env.DEEPSEEK_API_KEY
     try {
-      const uid7 = mkUser({ level: 1, expireAt: Date.now() + 86400000 })
-      sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+      const uid7 = await mkUser({ level: 1, expireAt: Date.now() + 86400000 })
+      await sqlite.prepare('INSERT INTO exam_records (id,user_id,set_id,set_name,track,score,correct,total,weak_points,level,advice,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
         .run(uid('r_'), uid7, 's1', '卷1', 'frontend', 60, 6, 10, JSON.stringify([{ tag: 'React', count: 3 }, { tag: '网络', count: 2 }]), '及格', '建议复习', Date.now())
       const p = await getOrCreateStudyPlan(uid7)
       expect(p.plan.summary).toBeTruthy()

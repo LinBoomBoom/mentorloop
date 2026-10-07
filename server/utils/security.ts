@@ -38,30 +38,30 @@ const LOGIN_LOCK_MS = 15 * 60 * 1000 // 锁定 15 分钟
 export function recordLoginFailure(ip: string, identifier: string) {
   const key = ip + '|' + identifier
   const now = Date.now()
-  const row = sqlite.prepare('SELECT * FROM login_attempts WHERE key = ?').get(key) as any
+  const row = sqlite.prepare('SELECT * FROM login_attempts WHERE `key` = ?').get(key) as any
   if (!row) {
-    sqlite.prepare('INSERT INTO login_attempts (key, fails, locked_until, updated_at) VALUES (?,?,?,?)')
+    sqlite.prepare('INSERT INTO login_attempts (`key`, fails, locked_until, updated_at) VALUES (?,?,?,?)')
       .run(key, 1, 0, now)
   } else {
     const fails = row.fails + 1
     const locked_until = fails >= MAX_LOGIN_FAILS ? now + LOGIN_LOCK_MS : 0
-    sqlite.prepare('UPDATE login_attempts SET fails = ?, locked_until = ?, updated_at = ? WHERE key = ?')
+    sqlite.prepare('UPDATE login_attempts SET fails = ?, locked_until = ?, updated_at = ? WHERE `key` = ?')
       .run(fails, locked_until, now, key)
   }
 }
 // 返回剩余锁定时长（秒），未锁定返回 0。过期自动清零。
 export function getLoginLock(ip: string, identifier: string): number {
   const key = ip + '|' + identifier
-  const row = sqlite.prepare('SELECT * FROM login_attempts WHERE key = ?').get(key) as any
+  const row = sqlite.prepare('SELECT * FROM login_attempts WHERE `key` = ?').get(key) as any
   if (!row || !row.locked_until) return 0
   if (row.locked_until <= Date.now()) {
-    sqlite.prepare('UPDATE login_attempts SET locked_until = 0, fails = 0 WHERE key = ?').run(key)
+    sqlite.prepare('UPDATE login_attempts SET locked_until = 0, fails = 0 WHERE `key` = ?').run(key)
     return 0
   }
   return Math.ceil((row.locked_until - Date.now()) / 1000)
 }
 export function resetLoginFailure(ip: string, identifier: string) {
-  sqlite.prepare('DELETE FROM login_attempts WHERE key = ?').run(ip + '|' + identifier)
+  sqlite.prepare('DELETE FROM login_attempts WHERE `key` = ?').run(ip + '|' + identifier)
 }
 
 /* ---------------- A8 输入长度/类型校验 ---------------- */

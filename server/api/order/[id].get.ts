@@ -1,15 +1,15 @@
 // 查询订单状态（支付页轮询用）
 export default defineEventHandler(async (event) => {
-  const user = getUser(event)
+  const user = await getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
   const id = event.context.params?.id
-  const order = sqlite.prepare('SELECT * FROM orders WHERE id=?').get(id) as any
+  const order = await sqlite.prepare('SELECT * FROM orders WHERE id=?').get(id) as any
   if (!order) return json(event, 404, { error: '订单不存在' })
   if (order.user_id !== user.id) return json(event, 403, { error: '无权访问该订单' })
 
   // 待支付且已过 expire_at → 落库为 expired（演示环境 15 分钟窗口），保证前后端状态一致
   const expired = !!(order.status === 'pending' && order.expire_at && order.expire_at < Date.now())
-  if (expired) expirePendingOrders(user.id)
+  if (expired) await expirePendingOrders(user.id)
 
   let payUrl = null, qrContent = null
   if (order.status === 'pending' && !expired) {

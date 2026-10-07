@@ -4,7 +4,7 @@
 // 累加该技能的「模拟自测」掌握度信号，并把答错的题沉淀进错题本（供 SRS 复习）。
 // body: { track, subtrack, skill, answers: [{ id, q, answer, userAnswer, correct, skill?, subtrack? }] }
 export default defineEventHandler(async (event) => {
-  const user = getUser(event)
+  const user = await getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
   const rl = rateLimit('exam-practice', user.id, 30, 60_000)
   if (!rl.ok) return json(event, 429, { error: `提交过于频繁，请 ${rl.retryAfter} 秒后重试` })
@@ -16,9 +16,9 @@ export default defineEventHandler(async (event) => {
   for (const a of answers) {
     const sk = skillKey(track, subtrack || a.subtrack || '', skill || a.skill || '')
     const correct = !!a.correct
-    recordExamSkill(user.id, sk, track, subtrack || a.subtrack || '', skill || a.skill || '', correct)
+    await recordExamSkill(user.id, sk, track, subtrack || a.subtrack || '', skill || a.skill || '', correct)
     if (!correct) {
-      recordWrongItem(user.id, {
+      await recordWrongItem(user.id, {
         source: 'practice',
         itemId: String(a.id),
         track,

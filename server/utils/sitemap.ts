@@ -17,13 +17,13 @@ function group<T extends Record<string, any>>(rows: T[], key: string): Map<strin
 }
 
 // 纯函数：根据当前库内容生成全部 URL（批量查询，避免逐节嵌套 SELECT 的 N+1）
-export function buildSitemapUrls(base: string = BASE): string[] {
+export async function buildSitemapUrls(base: string = BASE): string[] {
   const urls: string[] = ['', '/learn', '/interview', '/exam', '/vip'].map((p) => base + p)
 
-  const modules = sqlite.prepare('SELECT id FROM modules').all() as any[]
-  const chapters = sqlite.prepare('SELECT id, module_id FROM chapters').all() as any[]
-  const sections = sqlite.prepare('SELECT id, chapter_id FROM sections').all() as any[]
-  const sets = sqlite.prepare('SELECT id FROM exam_sets').all() as any[]
+  const modules = await sqlite.prepare('SELECT id FROM modules').all() as any[]
+  const chapters = await sqlite.prepare('SELECT id, module_id FROM chapters').all() as any[]
+  const sections = await sqlite.prepare('SELECT id, chapter_id FROM sections').all() as any[]
+  const sets = await sqlite.prepare('SELECT id FROM exam_sets').all() as any[]
 
   const chapByMod = group(chapters, 'module_id')
   const secByChap = group(sections, 'chapter_id')
@@ -39,8 +39,8 @@ export function buildSitemapUrls(base: string = BASE): string[] {
   for (const st of sets) urls.push(`${base}/exam/sets/${st.id}`)
 
   // 面试题库：方向页 + 技术子类页（slug 由 techToSlug 统一映射，与服务端/客户端一致）
-  const tracks = sqlite.prepare("SELECT DISTINCT track FROM interview_questions").all() as any[]
-  const techRows = sqlite.prepare(
+  const tracks = await sqlite.prepare("SELECT DISTINCT track FROM interview_questions").all() as any[]
+  const techRows = await sqlite.prepare(
     "SELECT DISTINCT track, tech FROM interview_questions WHERE tech IS NOT NULL AND tech != ''"
   ).all() as any[]
   const seen = new Set<string>()
@@ -55,7 +55,7 @@ export function buildSitemapUrls(base: string = BASE): string[] {
 
   // 单题详情页：每道题一个独立可索引 URL（QAPage 结构化数据在各详情页注入），
   // 让 6565 道真题全部进入搜索引擎收录，最大化题库 SEO 价值。
-  const qRows = sqlite.prepare(
+  const qRows = await sqlite.prepare(
     "SELECT id, track, tech FROM interview_questions WHERE id IS NOT NULL AND id != '' AND track IS NOT NULL AND track != ''"
   ).all() as any[]
   for (const r of qRows) {
@@ -65,10 +65,10 @@ export function buildSitemapUrls(base: string = BASE): string[] {
   return urls
 }
 
-export function getSitemapXml(base: string = BASE, force = false): string {
+export async function getSitemapXml(base: string = BASE, force = false): string {
   const now = Date.now()
   if (!force && cache && now - cache.at < CACHE_TTL_MS) return cache.xml
-  const urls = buildSitemapUrls(base)
+  const urls = await buildSitemapUrls(base)
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +

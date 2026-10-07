@@ -1,6 +1,6 @@
 // GET /api/skill/mastery —— 读取当前用户全部技能掌握度（skillKey → 状态/掌握度/信号）
-export default defineEventHandler((event) => {
-  const user = getUser(event)
+export default defineEventHandler(async (event) => {
+  const user = await getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
-  return json(event, 200, { map: getMasteryMap(user.id) })
+  return json(event, 200, { map: await getMasteryMap(user.id) })
 })

@@ -6,15 +6,15 @@ import {
 } from '../server/utils/security'
 
 const testIds = []
-afterAll(() => {
+afterAll(async () => {
   for (const id of testIds) {
-    sqlite.prepare('DELETE FROM users WHERE id=?').run(id)
-    sqlite.prepare("DELETE FROM login_attempts WHERE key LIKE ?").run('%' + id + '%')
+    await sqlite.prepare('DELETE FROM users WHERE id=?').run(id)
+    await sqlite.prepare("DELETE FROM login_attempts WHERE key LIKE ?").run('%' + id + '%')
   }
 })
-function makeUser() {
+async function makeUser() {
   const id = 'u_sec_' + Math.random().toString(36).slice(2, 8)
-  sqlite.prepare('INSERT INTO users (id,username,nickname,vip,created_at) VALUES (?,?,?,?,?)')
+  await sqlite.prepare('INSERT INTO users (id,username,nickname,vip,created_at) VALUES (?,?,?,?,?)')
     .run(id, id, 'S', JSON.stringify({ level: 0, expireAt: null }), Date.now())
   testIds.push(id)
   return id
@@ -31,19 +31,19 @@ describe('A5 接口限流', () => {
 })
 
 describe('A6 登录防爆破', () => {
-  it('连续失败达阈值后锁定，reset 后解除', () => {
+  it('连续失败达阈值后锁定，reset 后解除', async () => {
     const ip = '1.2.3.4', id = 'p:sec@example.com'
-    resetLoginFailure(ip, id)
-    for (let i = 0; i < 5; i++) recordLoginFailure(ip, id)
-    expect(getLoginLock(ip, id)).toBeGreaterThan(0)
-    resetLoginFailure(ip, id)
-    expect(getLoginLock(ip, id)).toBe(0)
+    await resetLoginFailure(ip, id)
+    for (let i = 0; i < 5; i++) await recordLoginFailure(ip, id)
+    expect(await getLoginLock(ip, id)).toBeGreaterThan(0)
+    await resetLoginFailure(ip, id)
+    expect(await getLoginLock(ip, id)).toBe(0)
   })
-  it('未达阈值不锁定', () => {
+  it('未达阈值不锁定', async () => {
     const ip = '9.9.9.9', id = 'p:few@example.com'
-    resetLoginFailure(ip, id)
-    recordLoginFailure(ip, id)
-    expect(getLoginLock(ip, id)).toBe(0)
+    await resetLoginFailure(ip, id)
+    await recordLoginFailure(ip, id)
+    expect(await getLoginLock(ip, id)).toBe(0)
   })
 })
 
@@ -64,26 +64,26 @@ describe('A10 搜索 LIKE 转义', () => {
 })
 
 describe('A11 会话过期 + HttpOnly Cookie', () => {
-  it('newToken 写入带过期时间的会话', () => {
-    const uid = makeUser()
-    const token = newToken({ id: uid })
-    const row = sqlite.prepare('SELECT expires_at FROM sessions WHERE token=?').get(token)
+  it('newToken 写入带过期时间的会话', async () => {
+    const uid = await makeUser()
+    const token = await newToken({ id: uid })
+    const row = await sqlite.prepare('SELECT expires_at FROM sessions WHERE token=?').get(token)
     expect(row.expires_at).toBeGreaterThan(Date.now())
   })
-  it('过期会话被 getUser 回收', () => {
-    const uid = makeUser()
-    const token = newToken({ id: uid })
+  it('过期会话被 getUser 回收', async () => {
+    const uid = await makeUser()
+    const token = await newToken({ id: uid })
     // 手动把该会话改成已过期
-    sqlite.prepare('UPDATE sessions SET expires_at=? WHERE token=?').run(Date.now() - 1000, token)
+    await sqlite.prepare('UPDATE sessions SET expires_at=? WHERE token=?').run(Date.now() - 1000, token)
     const evt = { node: { req: { headers: { cookie: AUTH_COOKIE + '=' + token } } } }
-    expect(getUser(evt)).toBe(null)
-    expect(sqlite.prepare('SELECT * FROM sessions WHERE token=?').get(token)).toBeUndefined()
+    expect(await getUser(evt)).toBe(null)
+    expect(await sqlite.prepare('SELECT * FROM sessions WHERE token=?').get(token)).toBeUndefined()
   })
-  it('有效会话经 Cookie 可被 getUser 识别', () => {
-    const uid = makeUser()
-    const token = newToken({ id: uid })
+  it('有效会话经 Cookie 可被 getUser 识别', async () => {
+    const uid = await makeUser()
+    const token = await newToken({ id: uid })
     const evt = { node: { req: { headers: { cookie: AUTH_COOKIE + '=' + token } } } }
-    const u = getUser(evt)
+    const u = await getUser(evt)
     expect(u).toBeTruthy()
     expect(u.id).toBe(uid)
   })
@@ -117,11 +117,11 @@ describe('A11 会话过期 + HttpOnly Cookie', () => {
     expect(cookieStr).toContain('Path=/')
     clearAuthCookie(evt)
   })
-  it('cleanupExpired 删除过期会话', () => {
-    const uid = makeUser()
-    const token = newToken({ id: uid })
-    sqlite.prepare('UPDATE sessions SET expires_at=? WHERE token=?').run(Date.now() - 1000, token)
-    cleanupExpired()
-    expect(sqlite.prepare('SELECT * FROM sessions WHERE token=?').get(token)).toBeUndefined()
+  it('cleanupExpired 删除过期会话', async () => {
+    const uid = await makeUser()
+    const token = await newToken({ id: uid })
+    await sqlite.prepare('UPDATE sessions SET expires_at=? WHERE token=?').run(Date.now() - 1000, token)
+    await cleanupExpired()
+    expect(await sqlite.prepare('SELECT * FROM sessions WHERE token=?').get(token)).toBeUndefined()
   })
 })

@@ -42,11 +42,11 @@ describe('server 相对 import 全部可解析（防路径回归）', () => {
     expect(files.length).toBeGreaterThan(0)
   })
   for (const f of files) {
-    it(`解析 ${path.relative(ROOT, f)} 的相对 import`, () => {
+    it(`解析 ${path.relative(ROOT, f)} 的相对 import`, async () => {
       const src = fs.readFileSync(f, 'utf8')
       const bad = []
       let m
-      while ((m = RE.exec(src))) {
+      while ((m = await RE.exec(src))) {
         const spec = m[1] || m[2]
         if (!spec) continue
         if (spec.startsWith('.')) {
@@ -93,11 +93,11 @@ describe('route 文件禁止相对 import server/utils（应使用 Nitro 自动�
   for (const d of ROUTE_DIRS) {
     if (!fs.existsSync(d)) continue
     for (const f of walk(d)) {
-      it(`route 文件 ${path.relative(ROOT, f)} 不得相对 import server/utils`, () => {
+      it(`route 文件 ${path.relative(ROOT, f)} 不得相对 import server/utils`, async () => {
         const src = fs.readFileSync(f, 'utf8')
         const bad = []
         let m
-        while ((m = UTILS_IMPORT_RE.exec(src))) {
+        while ((m = await UTILS_IMPORT_RE.exec(src))) {
           const spec = m[1] || m[2]
           if (spec && spec.includes('utils/')) bad.push(spec)
         }

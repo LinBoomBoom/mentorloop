@@ -1,6 +1,6 @@
 import { setResponseHeader } from 'h3'
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const base = (process.env.SITE_URL || 'https://mentorloop.example.com').replace(/\/$/, '')
   setResponseHeader(event, 'content-type', 'text/plain; charset=utf-8')
   return [

@@ -58,8 +58,8 @@ export function computeStatus(r: Partial<SkillMasteryRow>): { status: SkillStatu
 }
 
 // 读取某用户全部技能掌握度（skillKey → 状态/掌握度/信号计数）
-export function getMasteryMap(userId: string): Record<string, any> {
-  const rows = sqlite.prepare('SELECT * FROM user_skill_mastery WHERE user_id=?').all(userId) as any[]
+export async function getMasteryMap(userId: string): Record<string, any> {
+  const rows = await sqlite.prepare('SELECT * FROM user_skill_mastery WHERE user_id=?').all(userId) as any[]
   const map: Record<string, any> = {}
   for (const r of rows) {
     const { status, mastery } = computeStatus(r)
@@ -75,29 +75,29 @@ export function getMasteryMap(userId: string): Record<string, any> {
   return map
 }
 
-function upsertMeta(stmt: any, userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, now: number) {
-  stmt.run(userId, skillKey, track, subtrackId, skillName, now)
+async function upsertMeta(stmt: any, userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, now: number) {
+  await stmt.run(userId, skillKey, track, subtrackId, skillName, now)
 }
 
 // 显式标记掌握 / 取消（免费核心闭环钩子）
-export function setMark(userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, marked: boolean) {
+export async function setMark(userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, marked: boolean) {
   const now = Date.now()
-  upsertMeta(
-    sqlite.prepare(`INSERT OR IGNORE INTO user_skill_mastery (user_id,skill_key,track,subtrack_id,skill_name,updated_at) VALUES (?,?,?,?,?,?)`),
+  await upsertMeta(
+    await sqlite.prepare(`INSERT OR IGNORE INTO user_skill_mastery (user_id,skill_key,track,subtrack_id,skill_name,updated_at) VALUES (?,?,?,?,?,?)`),
     userId, skillKey, track, subtrackId, skillName, now
   )
-  sqlite.prepare(`UPDATE user_skill_mastery SET marked=?, updated_at=? WHERE user_id=? AND skill_key=?`)
+  await sqlite.prepare(`UPDATE user_skill_mastery SET marked=?, updated_at=? WHERE user_id=? AND skill_key=?`)
     .run(marked ? 1 : 0, now, userId, skillKey)
 }
 
 // 题库练习 / 模拟自测 信号累加。correct 表示本次作答是否正确。
-export function recordPractice(userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, correct: boolean) {
-  bump(userId, skillKey, track, subtrackId, skillName, correct ? 'practiced_correct' : null, 'practiced_total')
+export async function recordPractice(userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, correct: boolean) {
+  await bump(userId, skillKey, track, subtrackId, skillName, correct ? 'practiced_correct' : null, 'practiced_total')
 }
-export function recordExamSkill(userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, correct: boolean) {
-  bump(userId, skillKey, track, subtrackId, skillName, correct ? 'exam_correct' : null, 'exam_total')
+export async function recordExamSkill(userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, correct: boolean) {
+  await bump(userId, skillKey, track, subtrackId, skillName, correct ? 'exam_correct' : null, 'exam_total')
 }
-function bump(userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, correctCol: string | null, totalCol: string) {
+async function bump(userId: string, skillKey: string, track: string, subtrackId: string, skillName: string, correctCol: string | null, totalCol: string) {
   const now = Date.now()
   const cols = ['user_id', 'skill_key', 'track', 'subtrack_id', 'skill_name', totalCol]
   const vals = [userId, skillKey, track, subtrackId, skillName, 1]
@@ -108,7 +108,7 @@ function bump(userId: string, skillKey: string, track: string, subtrackId: strin
   const setParts = [`${totalCol}=${totalCol}+1`]
   if (correctCol) setParts.push(`${correctCol}=${correctCol}+1`)
   setParts.push('updated_at=excluded.updated_at')
-  sqlite.prepare(
+  await sqlite.prepare(
     `INSERT INTO user_skill_mastery (${colList}) VALUES (${ph})
      ON CONFLICT(user_id,skill_key) DO UPDATE SET ${setParts.join(', ')}`
   ).run(...vals)
@@ -150,9 +150,9 @@ function sectTokens(text: string, scale: number): { t: string; w: number }[] {
 
 // 章节静态数据（章节/正文不随请求变化），首次加载后模块级缓存，避免每次请求重查+重归一化正文。
 let _sectionsCache: any[] | null = null
-function loadSections() {
+async function loadSections() {
   if (_sectionsCache) return _sectionsCache
-  const rows = sqlite.prepare(
+  const rows = await sqlite.prepare(
     `SELECT s.id, s.title, c.id AS chapter_id, c.module_id AS module_id, c.title AS chapter_title, s.content
      FROM sections s JOIN chapters c ON c.id = s.chapter_id`
   ).all() as any[]
@@ -163,9 +163,9 @@ function loadSections() {
   return _sectionsCache
 }
 
-export function mapSkillToSections(track: string, skillName: string, desc = '', subtrackId = '', limit = 3): { id: string; title: string; chapterTitle: string; chapterId: string; moduleId: string; score: number }[] {
+export async function mapSkillToSections(track: string, skillName: string, desc = '', subtrackId = '', limit = 3): { id: string; title: string; chapterTitle: string; chapterId: string; moduleId: string; score: number }[] {
   // 可靠的按方向过滤：chapters.module_id 是指向 modules 的外键，方向值恰好等于路线图 track（frontend/backend/devops/ai）。
-  const rows = loadSections().filter((r: any) => r.module_id === track && !NICHE_PREFIXES.some((p: string) => r.chapter_title.startsWith(p)))
+  const rows = await loadSections().filter((r: any) => r.module_id === track && !NICHE_PREFIXES.some((p: string) => r.chapter_title.startsWith(p)))
   if (!rows.length) return []
   const toks = sectTokens(skillName, 1).concat(sectTokens(desc, 0.6))
   if (!toks.length) return []
@@ -195,11 +195,11 @@ export function mapSkillToSections(track: string, skillName: string, desc = '', 
   best.sort((a: any, b: any) => b.score - a.score)
   best = best.slice(0, limit)
   // 缓存映射（带元数据，便于后续反向联动掌握度）
-  const cache = sqlite.prepare(
+  const cache = await sqlite.prepare(
     `INSERT OR REPLACE INTO skill_section_map (skill_key, section_id, track, subtrack_id, skill_name, score) VALUES (?,?,?,?,?,?)`
   )
   const key = skillKey(track, subtrackId, skillName)
-  sqlite.transaction(() => { for (const b of best) cache.run(key, b.id, track, subtrackId, skillName, b.score) })()
+  await sqlite.transaction(async () => { for (const b of best) await cache.run(key, b.id, track, subtrackId, skillName, b.score) })()
   return best.map(({ id, title, chapter_title, chapter_id, module_id, score }) => ({ id, title, chapterTitle: chapter_title, chapterId: chapter_id, moduleId: module_id, score }))
 }
 
@@ -222,10 +222,10 @@ export const LEARN_KEYWORD: Record<string, string> = {
 // 因此排除这些带赛道标签前缀的章节，避免主流技能误混入细分赛道章节。
 const NICHE_PREFIXES = Object.values(LEARN_KEYWORD).map((l) => l + ' ·')
 
-export function mapSkillToNicheChapters(track: string, subtrackId: string): { id: string; title: string; chapterTitle: string; chapterId: string; moduleId: string; score: number }[] | null {
+export async function mapSkillToNicheChapters(track: string, subtrackId: string): { id: string; title: string; chapterTitle: string; chapterId: string; moduleId: string; score: number }[] | null {
   const kw = LEARN_KEYWORD[subtrackId]
   if (!kw) return null // 非细分赛道 → 回退模糊匹配
-  const rows = sqlite.prepare(
+  const rows = await sqlite.prepare(
     `SELECT s.id, s.title, s.chapter_id, c.title AS chapter_title, c.module_id
      FROM sections s JOIN chapters c ON c.id = s.chapter_id
      WHERE c.module_id = ? AND c.title LIKE ?
@@ -238,18 +238,18 @@ export function mapSkillToNicheChapters(track: string, subtrackId: string): { id
 /* ---------------- 错题本（P2）+ 间隔复习 SRS ---------------- */
 const SRS_INTERVALS = [1, 3, 7, 16, 30] // 天
 
-export function recordWrongItem(userId: string, item: {
+export async function recordWrongItem(userId: string, item: {
   source: string; itemId: string; track?: string; subtrackId?: string; skillKey?: string;
   q: string; userAnswer?: string; answer?: string
 }) {
   const now = Date.now()
-  const existing = sqlite.prepare('SELECT id, wrong_count FROM user_wrong_items WHERE user_id=? AND source=? AND item_id=?').get(userId, item.source, item.itemId) as any
+  const existing = await sqlite.prepare('SELECT id, wrong_count FROM user_wrong_items WHERE user_id=? AND source=? AND item_id=?').get(userId, item.source, item.itemId) as any
   if (existing) {
-    sqlite.prepare('UPDATE user_wrong_items SET wrong_count=wrong_count+1, created_at=? WHERE id=?').run(now, existing.id)
+    await sqlite.prepare('UPDATE user_wrong_items SET wrong_count=wrong_count+1, created_at=? WHERE id=?').run(now, existing.id)
     return existing.id
   }
   const id = 'w_' + crypto.randomBytes(6).toString('hex')
-  sqlite.prepare(
+  await sqlite.prepare(
     `INSERT INTO user_wrong_items (id,user_id,source,item_id,track,subtrack_id,skill_key,q,user_answer,answer,next_review_at,created_at)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
   ).run(id, userId, item.source, item.itemId, item.track || null, item.subtrackId || null, item.skillKey || null,
@@ -257,9 +257,9 @@ export function recordWrongItem(userId: string, item: {
   return id
 }
 
-export function listWrongItems(userId: string, dueOnly: boolean) {
+export async function listWrongItems(userId: string, dueOnly: boolean) {
   const now = Date.now()
-  const rows = sqlite.prepare(
+  const rows = await sqlite.prepare(
     `SELECT * FROM user_wrong_items WHERE user_id=? ORDER BY wrong_count DESC, created_at DESC`
   ).all(userId) as any[]
   return rows
@@ -269,9 +269,9 @@ export function listWrongItems(userId: string, dueOnly: boolean) {
 
 // 分页版：默认每页 20，返回 { items, total, dueTotal, page, pageSize }
 // 保持 listWrongItems 数组签名不变（单测依赖），分页走此函数。
-export function listWrongItemsPaginated(userId: string, dueOnly: boolean, page = 1, pageSize = 20) {
+export async function listWrongItemsPaginated(userId: string, dueOnly: boolean, page = 1, pageSize = 20) {
   const now = Date.now()
-  const rows = sqlite.prepare(
+  const rows = await sqlite.prepare(
     `SELECT * FROM user_wrong_items WHERE user_id=? ORDER BY wrong_count DESC, created_at DESC`
   ).all(userId) as any[]
   const filtered = rows
@@ -285,17 +285,17 @@ export function listWrongItemsPaginated(userId: string, dueOnly: boolean, page =
 }
 
 // action: 'review' 排期下次复习（SRS，按错误次数递增间隔）；'dismiss' 移除该项
-export function actWrongItem(userId: string, id: string, action: string) {
-  const row = sqlite.prepare('SELECT * FROM user_wrong_items WHERE id=? AND user_id=?').get(id, userId) as any
+export async function actWrongItem(userId: string, id: string, action: string) {
+  const row = await sqlite.prepare('SELECT * FROM user_wrong_items WHERE id=? AND user_id=?').get(id, userId) as any
   if (!row) return null
   if (action === 'dismiss') {
-    sqlite.prepare('DELETE FROM user_wrong_items WHERE id=?').run(id)
+    await sqlite.prepare('DELETE FROM user_wrong_items WHERE id=?').run(id)
     return { removed: true }
   }
   if (action === 'review') {
     const idx = Math.min(SRS_INTERVALS.length - 1, (row.wrong_count || 1) - 1)
     const next = Date.now() + SRS_INTERVALS[idx] * 86400000
-    sqlite.prepare('UPDATE user_wrong_items SET next_review_at=?, reviewed_at=? WHERE id=?').run(next, Date.now(), id)
+    await sqlite.prepare('UPDATE user_wrong_items SET next_review_at=?, reviewed_at=? WHERE id=?').run(next, Date.now(), id)
     return { next_review_at: next }
   }
   return null

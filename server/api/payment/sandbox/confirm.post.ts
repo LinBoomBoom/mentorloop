@@ -9,15 +9,15 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => ({}))
   const orderId = body?.orderId
   if (!orderId) return json(event, 400, { error: '缺少 orderId' })
-  const order = sqlite.prepare('SELECT * FROM orders WHERE id=?').get(orderId) as any
+  const order = await sqlite.prepare('SELECT * FROM orders WHERE id=?').get(orderId) as any
   if (!order) return json(event, 404, { error: '订单不存在' })
   if (order.status === 'paid') return json(event, 200, { ok: true, alreadyPaid: true })
   // 过期订单不可再支付，需重新下单（与 /api/order/[id] 的过期收敛保持一致）
   const now = Date.now()
   if (order.status === 'expired' || (order.status === 'pending' && order.expire_at && order.expire_at < now)) {
-    expirePendingOrders(order.user_id, now)
+    await expirePendingOrders(order.user_id, now)
     return json(event, 410, { error: '订单已过期，请重新下单' })
   }
-  const ok = fulfillOrder(orderId, 'SANDBOX_' + orderId, Date.now())
+  const ok = await fulfillOrder(orderId, 'SANDBOX_' + orderId, Date.now())
   return json(event, 200, { ok, status: 'paid' })
 })

@@ -90,8 +90,17 @@ export function parseJsonBlock(text: string): any {
   const e = t.lastIndexOf('}')
   if (s >= 0 && e > s) t = t.slice(s, e + 1)
   try { return JSON.parse(t) } catch { /* fallthrough to loose */ }
+  // 守卫：looseExtract 恒返回带全键对象（值为 undefined），必须校验字段值真实有效，
+  // 否则纯垃圾文本会返回「全空幽灵对象」而非 null，被上层误当有效解析（score=0 的幽灵评分）。
+  // 有效判定：score 为数字，或 feedback/nextQuestion/analysis 至少一个非空。
   const loose = looseExtract(t)
-  if (loose && (loose.evaluation || loose.nextQuestion || loose.analysis)) return loose
+  const ev = loose.evaluation || {}
+  if (loose && (
+    ev.score != null ||
+    String(ev.feedback || '').trim() !== '' ||
+    String(loose.nextQuestion || '').trim() !== '' ||
+    String(loose.analysis || '').trim() !== ''
+  )) return loose
   return null
 }
 function stripFences(text: string): string {
@@ -130,7 +139,7 @@ ${goal ? '候选人目标岗位/方向：' + goal + '。' : ''}
 
 // BUG-6：原自由生成的首题在 Deepseek 下高度收敛到「自我介绍」，导致每天首次打开题目几乎相同。
 // 改为从真实题库按方向+难度随机抽取首题，保证具体技术问题、每天不同、且与后续 AI 追问自然衔接。
-function pickFirstQuestionFromBank(track: string, level: string): string | null {
+async function pickFirstQuestionFromBank(track: string, level: string): string | null {
   // 难度映射：初级偏基础(easy)，中级覆盖基础/较难，高级偏较难/困难
   const diffs: Record<string, string[]> = {
     junior: ['easy'],
@@ -139,14 +148,14 @@ function pickFirstQuestionFromBank(track: string, level: string): string | null 
   }
   const wanted = diffs[level] || diffs.mid
   const inClause = wanted.map(() => '?').join(',')
-  const row = sqlite.prepare(
+  const row = await sqlite.prepare(
     `SELECT q FROM interview_questions WHERE track=? AND type='hot' AND difficulty IN (${inClause}) ORDER BY RANDOM() LIMIT 1`
   ).get(track, ...wanted) as any
   return row?.q || null
 }
 
 async function generateFirstQuestion(track: string, level: string, goal: string): Promise<string> {
-  const bankQ = pickFirstQuestionFromBank(track, level)
+  const bankQ = await pickFirstQuestionFromBank(track, level)
   if (bankQ) return bankQ
   // 题库无匹配时降级为 LLM 生成（保留原能力）
   const sys = `你是一位资深${trackName(track)}${levelName(level)}技术面试官。请直接提出本次模拟面试的第一道题目。要求：题目具体、可考察基础与深度，只输出题目本身（1-3 句话），不要评分、不要额外说明、不要使用代码块标记。${goal ? '候选人目标岗位/方向：' + goal + '。' : ''}`
@@ -176,7 +185,7 @@ export async function startInterview(userId: string, opts: { track?: string; lev
   const id = uid('iv_')
   const now = Date.now()
   const messages = [{ role: 'assistant', content: question }]
-  sqlite.prepare(`INSERT INTO interview_sessions (id,user_id,track,level,goal,status,messages,turns,created_at,updated_at,mode,consent_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+  await sqlite.prepare(`INSERT INTO interview_sessions (id,user_id,track,level,goal,status,messages,turns,created_at,updated_at,mode,consent_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(id, userId, track, level, goal || null, 'active', JSON.stringify(messages), 0, now, now, mode, consentAt)
   return { sessionId: id, question, mode }
 }
@@ -186,7 +195,7 @@ export async function answerInterview(userId: string, body: { sessionId?: string
   const sessionId = body.sessionId
   const answer = body.answer
   if (!sessionId) throw createError({ statusCode: 400, statusMessage: '缺少 sessionId' })
-  const sess = sqlite.prepare('SELECT * FROM interview_sessions WHERE id=?').get(sessionId) as any
+  const sess = await sqlite.prepare('SELECT * FROM interview_sessions WHERE id=?').get(sessionId) as any
   if (!sess || sess.user_id !== userId) throw createError({ statusCode: 404, statusMessage: '会话不存在' })
   if (sess.status === 'done') throw createError({ statusCode: 409, statusMessage: '面试已结束' })
   if (!answer || !String(answer).trim()) throw new Error('回答不能为空')
@@ -243,7 +252,7 @@ export async function answerInterview(userId: string, body: { sessionId?: string
   const now = Date.now()
   const status = isLast ? 'done' : 'active'
   if (isLast && !summary) summary = '面试已完成，建议结合下方逐题反馈针对性补强。'
-  sqlite.prepare(`UPDATE interview_sessions SET messages=?, turns=?, status=?, score=?, summary=?, updated_at=?, finished_at=? WHERE id=?`)
+  await sqlite.prepare(`UPDATE interview_sessions SET messages=?, turns=?, status=?, score=?, summary=?, updated_at=?, finished_at=? WHERE id=?`)
     .run(JSON.stringify(messages), turns, status, finalScore, summary || null, now, isLast ? now : null, sessionId)
 
   return {
@@ -257,8 +266,8 @@ export async function answerInterview(userId: string, body: { sessionId?: string
   }
 }
 
-export function getInterview(id: string, userId: string) {
-  const s = sqlite.prepare('SELECT * FROM interview_sessions WHERE id=?').get(id) as any
+export async function getInterview(id: string, userId: string) {
+  const s = await sqlite.prepare('SELECT * FROM interview_sessions WHERE id=?').get(id) as any
   if (!s || s.user_id !== userId) return null
   return {
     id: s.id, track: s.track, level: s.level, goal: s.goal, status: s.status,
@@ -267,7 +276,7 @@ export function getInterview(id: string, userId: string) {
   }
 }
 
-export function listInterviews(userId: string) {
-  const rows = sqlite.prepare('SELECT id,track,level,status,turns,score,created_at FROM interview_sessions WHERE user_id=? ORDER BY created_at DESC LIMIT 20').all(userId)
+export async function listInterviews(userId: string) {
+  const rows = await sqlite.prepare('SELECT id,track,level,status,turns,score,created_at FROM interview_sessions WHERE user_id=? ORDER BY created_at DESC LIMIT 20').all(userId)
   return rows.map((r: any) => ({ id: r.id, track: r.track, level: r.level, status: r.status, turns: r.turns, score: r.score, createdAt: r.created_at }))
 }

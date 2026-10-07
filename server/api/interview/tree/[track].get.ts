@@ -6,18 +6,18 @@
 //
 // 计数键说明：同一技能名会被多个赛道复用（路线图 types.ts 的 COMMON），
 // 因此技能点计数必须用「赛道id|技能名」联合键，否则复用技能的题数会被错误合并。
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const track = getRouterParam(event, 'track')
   const nameMap: any = { frontend: '前端开发', backend: '后端开发', devops: '运维 / DevOps', ai: 'AI 工程' }
   if (!nameMap[track as string]) return json(event, 404, { error: '题库不存在' })
 
-  const subRows = sqlite.prepare(
+  const subRows = await sqlite.prepare(
     `SELECT subtrack, count(*) c FROM interview_questions
      WHERE track=? AND subtrack IS NOT NULL AND subtrack<>''
      GROUP BY subtrack`
   ).all(track) as any[]
 
-  const skillRows = sqlite.prepare(
+  const skillRows = await sqlite.prepare(
     `SELECT subtrack, skill, count(*) c FROM interview_questions
      WHERE track=? AND skill IS NOT NULL AND skill<>''
      GROUP BY subtrack, skill`

@@ -1,4 +1,4 @@
-# MentorLoop 部署镜像（决策 #4：单实例 Node server + 持久卷）
+# MentorLoop 部署镜像（M1 双驱动：云端注入 MYSQL_HOST 走 mysql2 连接池；本地挂载 data/ 走 SQLite）
 # 构建阶段
 FROM node:22-slim AS build
 WORKDIR /app
@@ -15,8 +15,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -r
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/package*.json ./
+# 容器内运维/smoke 脚本（部署后在 WebShell 执行 node scripts/cloud-smoke.mjs 验证 mysql2→云 MySQL 全链路）
+COPY --from=build /app/scripts/cloud-smoke.mjs ./scripts/cloud-smoke.mjs
 ENV NODE_ENV=production
+# 云托管规范：监听 0.0.0.0，端口由平台注入 PORT（Nitro node-server 默认 3000）
+ENV HOST=0.0.0.0
 EXPOSE 3000
-# 数据卷挂载点：data/（SQLite）与 .env 由宿主机/secret 提供，容器自身无状态
-VOLUME ["/app/data"]
+# SQLite 数据目录（仅本地/自托管形态挂载宿主机目录；云端走 Serverless MySQL，无持久盘依赖）
 CMD ["node", ".output/server/index.mjs"]

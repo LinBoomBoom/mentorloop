@@ -15,8 +15,8 @@ function isNextDay(prev: string, cur: string): boolean {
 
 // 连续天数：从今天起往前数连续打卡天数（今天未打卡则从昨天起算）；
 // 同时返回历史最长连续。dates 为 checkins.check_date 集合。
-export function computeStreak(userId: string): { current: number; longest: number } {
-  const rows = sqlite.prepare('SELECT check_date FROM checkins WHERE user_id=? ORDER BY check_date DESC').all(userId) as any[]
+export async function computeStreak(userId: string): { current: number; longest: number } {
+  const rows = await sqlite.prepare('SELECT check_date FROM checkins WHERE user_id=? ORDER BY check_date DESC').all(userId) as any[]
   const set = new Set(rows.map((r: any) => r.check_date))
   let current = 0
   const d = new Date()

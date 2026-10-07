@@ -20,8 +20,8 @@ export class NoRecordsError extends Error {
 
 // 章节标题 → 真实课程链接。AI 只能从真实章节名里挑，这里把标题还原成可点击的深链，
 // 让学习路径不再是「一段纯文本」，而是能直接跳进对应课程的入口。
-function chapterIndex(track: string) {
-  const rows = sqlite.prepare(
+async function chapterIndex(track: string) {
+  const rows = await sqlite.prepare(
     `SELECT DISTINCT c.id AS id, c.title AS title, c.module_id AS moduleId
      FROM sections s JOIN chapters c ON c.id = s.chapter_id
      WHERE c.module_id = ?`
@@ -33,8 +33,8 @@ function chapterIndex(track: string) {
 
 // 章节关键词索引：把每章下所有小节标题+正文拼成一个 blob，用于「弱标签→真实章节」匹配。
 // 比仅靠章节标题更准（弱标签如「React」常出现在小节正文而非章名）。
-function chapterKeywordIndex(track: string) {
-  const rows = sqlite.prepare(
+async function chapterKeywordIndex(track: string) {
+  const rows = await sqlite.prepare(
     `SELECT c.id AS id, c.title AS title, c.module_id AS moduleId,
             GROUP_CONCAT(s.title || ' ' || IFNULL(s.content, ''), ' ') AS blob
      FROM sections s JOIN chapters c ON c.id = s.chapter_id
@@ -45,8 +45,8 @@ function chapterKeywordIndex(track: string) {
 }
 
 // 给里程碑里的 chapters 补上 { title, moduleId, chapterId }，匹配不到的降级为纯标签
-function decorate(plan: any, track: string) {
-  const { byTitle } = chapterIndex(track)
+async function decorate(plan: any, track: string) {
+  const { byTitle } = await chapterIndex(track)
   const milestones = (plan?.milestones || []).map((m: any) => ({
     ...m,
     chapterLinks: (m.chapters || []).map((title: string) => {
@@ -62,7 +62,7 @@ function decorate(plan: any, track: string) {
 // 聚合用户最近交卷的薄弱点；opts.track 显式指定方向时按该方向组织内容
 export async function getOrCreateStudyPlan(userId: string, opts: { force?: boolean; track?: string } = {}) {
   const force = !!opts.force
-  const recs = sqlite.prepare(
+  const recs = await sqlite.prepare(
     `SELECT track, weak_points FROM exam_records WHERE user_id=? ORDER BY created_at DESC LIMIT 20`
   ).all(userId) as any[]
   if (!recs.length) throw new NoRecordsError()
@@ -89,10 +89,11 @@ export async function getOrCreateStudyPlan(userId: string, opts: { force?: boole
   const mk = `${userId}:${track}`
   if (!force) {
     const mc = memCache.get(mk)
-    if (mc && (Date.now() - mc.at) < MEM_TTL_MS) return mc.data
+    // 命中进程内缓存同样属于「缓存命中」，统一标 cached:true（否则二次请求返回 cached:false，前端无法区分）
+    if (mc && (Date.now() - mc.at) < MEM_TTL_MS) return { ...mc.data, cached: true }
   }
 
-  const cached = sqlite.prepare(
+  const cached = await sqlite.prepare(
     'SELECT * FROM study_plans WHERE user_id=? AND track=? ORDER BY created_at DESC LIMIT 1'
   ).get(userId, track) as any
 
@@ -101,7 +102,7 @@ export async function getOrCreateStudyPlan(userId: string, opts: { force?: boole
     result = {
       track,
       weakPoints: safeParse(cached.weak_points, []),
-      plan: decorate(safeParse(cached.plan, { summary: '', milestones: [] }), track),
+      plan: await decorate(safeParse(cached.plan, { summary: '', milestones: [] }), track),
       cached: true,
       inferred,
       generatedAt: cached.created_at
@@ -110,16 +111,17 @@ export async function getOrCreateStudyPlan(userId: string, opts: { force?: boole
     // 有 LLM key → 走大模型富化路径；无 key → 走免 LLM 确定性生成（同样基于真实薄弱点与章节），
     // 二者均产出同构的 { summary, milestones }，保证未接 LLM 前 T5 也能用，不抛 503。
     const generated = llmEnabled()
-      ? await generatePlan(track, weakPoints, chapterIndex(track).rows.map((r: any) => r.title))
-      : generatePlanLocal(track, weakPoints, chapterKeywordIndex(track))
+      // 括号不可省：chapterIndex 返回 Promise，必须先 await 再取 .rows（否则 undefined.map）
+      ? await generatePlan(track, weakPoints, (await chapterIndex(track)).rows.map((r: any) => r.title))
+      : generatePlanLocal(track, weakPoints, await chapterKeywordIndex(track))
 
     const now = Date.now()
     // 只清理该方向的旧计划，其它方向的缓存保留（切换方向时才不会每次都重新烧 token）
-    sqlite.prepare('DELETE FROM study_plans WHERE user_id=? AND track=?').run(userId, track)
-    sqlite.prepare('INSERT INTO study_plans (id,user_id,track,weak_points,plan,created_at) VALUES (?,?,?,?,?,?)')
+    await sqlite.prepare('DELETE FROM study_plans WHERE user_id=? AND track=?').run(userId, track)
+    await sqlite.prepare('INSERT INTO study_plans (id,user_id,track,weak_points,plan,created_at) VALUES (?,?,?,?,?,?)')
       .run(uid('sp_'), userId, track, JSON.stringify(weakPoints), JSON.stringify(generated), now)
 
-    result = { track, weakPoints, plan: decorate(generated, track), cached: false, inferred, generatedAt: now }
+    result = { track, weakPoints, plan: await decorate(generated, track), cached: false, inferred, generatedAt: now }
   }
 
   // 写入进程内缓存，命中后同会话内重复切换零延迟
@@ -129,10 +131,10 @@ export async function getOrCreateStudyPlan(userId: string, opts: { force?: boole
 
 // 首次生成某方向后，后台（fire-and-forget）把其余方向也一并生成并落库缓存，
 // 这样用户切换其余 tab 时数据库已命中 7 天缓存，无需再等大模型，首切即快。
-export function prewarmTracks(userId: string, excludeTrack: string) {
+export async function prewarmTracks(userId: string, excludeTrack: string) {
   for (const t of VALID_TRACKS) {
     if (t === excludeTrack) continue
-    getOrCreateStudyPlan(userId, { track: t }).catch(() => {})
+    await getOrCreateStudyPlan(userId, { track: t }).catch(() => {})
   }
 }
 

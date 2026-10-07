@@ -45,6 +45,9 @@ data/*.db-wal
 data/*.bak*
 *.bak*
 
+# 内容包分片（scripts/content-export.mjs 派生产物，可重新导出；云端导入走 COS/云存储）
+data/content-pack*/
+
 # Electron 构建产物（安装包 / 解包目录）
 release/
 dist_electron/

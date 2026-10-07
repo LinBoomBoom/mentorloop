@@ -1,7 +1,7 @@
 // 面试题库方向概览（公开）——供 /interview 枢纽页展示各方向题量
 // GET /api/interview/overview
-export default defineEventHandler((event) => {
-  const rows = sqlite.prepare(
+export default defineEventHandler(async (event) => {
+  const rows = await sqlite.prepare(
     'SELECT track, type, count(*) c FROM interview_questions GROUP BY track, type'
   ).all() as any[]
   const tracks: Record<string, { hot: number; special: number }> = {}

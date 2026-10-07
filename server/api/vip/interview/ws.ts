@@ -41,8 +41,8 @@ function safeB64(s: any): Buffer {
 }
 
 export default defineWebSocketHandler({
-  open(peer) {
-    const user = getUser(peerEvent(peer))
+  async open(peer) {
+    const user = await getUser(peerEvent(peer))
     if (!user) {
       sendJson(peer, { type: 'error', message: '未登录' })
       peer.close(4001, 'unauthorized')

@@ -2,7 +2,7 @@
 // GET /api/search?q=关键词
 // 返回 { q, total, sections[], chapters[], questions[], exams[] }
 // 标题/名称命中优先于内容命中；每类限量以避免超长响应。
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const q = (getQuery(event).q || '').toString().trim()
   if (!q) return json(event, 200, { q: '', total: 0, sections: [], chapters: [], questions: [], exams: [] })
 
@@ -18,7 +18,7 @@ export default defineEventHandler((event) => {
   const E = String.raw` ESCAPE '\'`
 
   // 小节：标题或内容命中（内容命中取章节路径）
-  const secRows = sqlite.prepare(`
+  const secRows = await sqlite.prepare(`
     SELECT s.id, s.chapter_id, s.title, s.content, c.module_id, c.title AS chapter_title
     FROM sections s JOIN chapters c ON c.id = s.chapter_id
     WHERE s.title LIKE ?${E} OR s.content LIKE ?${E}
@@ -27,7 +27,7 @@ export default defineEventHandler((event) => {
   `).all(like, like, like, LIMIT) as any[]
 
   // 章节：标题命中（避免与小节结果大量重复时仍保留独立入口）
-  const chRows = sqlite.prepare(`
+  const chRows = await sqlite.prepare(`
     SELECT c.id, c.module_id, c.title
     FROM chapters c
     WHERE c.title LIKE ?${E}
@@ -35,7 +35,7 @@ export default defineEventHandler((event) => {
   `).all(like, LIMIT) as any[]
 
   // 面试题：题干或关键词命中
-  const qRows = sqlite.prepare(`
+  const qRows = await sqlite.prepare(`
     SELECT id, track, type, q
     FROM interview_questions
     WHERE q LIKE ?${E} OR keywords LIKE ?${E}
@@ -44,7 +44,7 @@ export default defineEventHandler((event) => {
   `).all(like, like, like, LIMIT) as any[]
 
   // 考卷：名称命中
-  const exRows = sqlite.prepare(`
+  const exRows = await sqlite.prepare(`
     SELECT id, name, track, level
     FROM exam_sets
     WHERE name LIKE ?${E} OR track LIKE ?${E}

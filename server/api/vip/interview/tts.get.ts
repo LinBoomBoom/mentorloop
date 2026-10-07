@@ -1,7 +1,7 @@
 // 语音面试：文本 → 音频（默认本地 Piper 离线神经网络；TTS_PROVIDER=edge/mock 可切换）
 // 登录门禁；TTS 不可用时返回 503，前端据此降级为纯文字展示。
 export default defineEventHandler(async (event) => {
-  const user = getUser(event)
+  const user = await getUser(event)
   if (!user) return json(event, 401, { error: '未登录' })
   const rl = rateLimit('vip-tts', user.id, 30, 60_000)
   if (!rl.ok) return json(event, 429, { error: `语音合成请求过于频繁，请 ${rl.retryAfter} 秒后重试` })

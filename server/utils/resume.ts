@@ -29,7 +29,7 @@ export async function diagnoseResume(userId: string, resumeRaw: string) {
 
   // 基于脱敏文本计算哈希：仅敏感信息不同的两份简历可命中同一缓存，省额度也更隐私。
   const hash = crypto.createHash('sha256').update(safeText).digest('hex')
-  const cached = sqlite.prepare('SELECT * FROM resume_diags WHERE content_hash=? ORDER BY created_at DESC LIMIT 1').get(hash) as any
+  const cached = await sqlite.prepare('SELECT * FROM resume_diags WHERE content_hash=? ORDER BY created_at DESC LIMIT 1').get(hash) as any
   if (cached && (Date.now() - cached.created_at) < DIAG_TTL_MS) {
     const parsed = safeParse(cached.result, emptyResult())
     return { ...parsed, cached: true, redacted: (parsed.redacted as RedactReport) || emptyRedact() }
@@ -51,7 +51,7 @@ export async function diagnoseResume(userId: string, resumeRaw: string) {
   const result = normalize(parsed)
   const out = { ...result, redacted: redacted.report }
 
-  sqlite.prepare('INSERT INTO resume_diags (id,user_id,content_hash,content,result,created_at) VALUES (?,?,?,?,?,?)')
+  await sqlite.prepare('INSERT INTO resume_diags (id,user_id,content_hash,content,result,created_at) VALUES (?,?,?,?,?,?)')
     .run(uid('rd_'), userId, hash, safeText.slice(0, 20000), JSON.stringify(out), Date.now())
 
   return { ...out, cached: false }
