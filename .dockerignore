@@ -4,9 +4,13 @@ node_modules
 .env
 .env.*
 .workbuddy
-# 本地数据卷（SQLite/媒体/Piper 模型/备份/日志）不进镜像：
-# Dockerfile 已声明 VOLUME ["/app/data"]，运行时由宿主机持久卷挂载。
-data/
+# data/ 目录只放行种子内容（云端首查询前自举依赖 data/seed-content.json）；
+# SQLite 库/备份/媒体/Piper 模型等大文件仍排除（*.db/*.bak 等模式兜底）。
+data/backups/
+data/media/
+data/piper/
+data/content-pack-m1/
+data/.bak/
 *.vrm
 *.db
 *.db-shm

@@ -17,6 +17,8 @@ COPY --from=build /app/.output ./.output
 COPY --from=build /app/package*.json ./
 # 容器内运维/smoke 脚本（部署后在 WebShell 执行 node scripts/cloud-smoke.mjs 验证 mysql2→云 MySQL 全链路）
 COPY --from=build /app/scripts/cloud-smoke.mjs ./scripts/cloud-smoke.mjs
+# 种子内容（46MB）：云端首查询前自举用（seedIfEmpty 仅补空表，INSERT OR IGNORE 与已导入内容按 id 对齐）
+COPY --from=build /app/data/seed-content.json ./data/seed-content.json
 ENV NODE_ENV=production
 # 云托管规范：监听 0.0.0.0，端口由平台注入 PORT（Nitro node-server 默认 3000）
 ENV HOST=0.0.0.0

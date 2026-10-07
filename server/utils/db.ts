@@ -1349,7 +1349,8 @@ function createDb() {
       try { await cleanupExpired() } catch (e: any) { logWarn('cleanup.expired_failed', { error: e?.message }) }
     }, CLEANUP_INTERVAL_MS)
   }
-  seedIfEmpty(db)
+  // 种子自举：空库补内容（幂等）；随后按固定顺序回填/刷新（seed→backfill→refresh 顺序不可变）
+  seedIfEmptySync(db)
   // Phase 0: 学→练闭环 — 回填子主题级 subtrack_detail（幂等, 覆盖现有库 + 全新种子库）
   backfillQuestionSubtrackDetail(db)
   // Phase R: 覆盖安装后内容自动对齐最新安装包（种子版本比对 + 内容表 upsert）
@@ -1357,21 +1358,10 @@ function createDb() {
   return db
 }
 
-function seedIfEmpty(db: any) {
-  const c = (db.prepare('SELECT COUNT(*) AS c FROM modules').get() as any).c
-  if (c > 0) return
-  const file = SEED_PATH
-  if (!fs.existsSync(file)) return
-  const content = JSON.parse(fs.readFileSync(file, 'utf-8'))
-  const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
-  const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
-  const insSec = db.prepare(
-    'INSERT OR IGNORE INTO sections (id,chapter_id,title,objective,content,position,source_url,source_type,license,rewrite_level,status,reviewed_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
-  )
-
-  // 根据章节标题/ID 推断技术方向，用于模块页方向筛选与首页方向标签
-  function assignChapterSubtrack(moduleId: string, chapterId: string, title: string): string | null {
-    const t = (title || '').toLowerCase()
+// 根据章节标题/ID 推断技术方向，用于模块页方向筛选与首页方向标签
+// （模块级：本地同步 / 云端异步两种种子变体共用，改动时两个变体都要同步）
+function assignChapterSubtrack(moduleId: string, chapterId: string, title: string): string | null {
+  const t = (title || '').toLowerCase()
     if (moduleId === 'frontend') {
       if (chapterId.startsWith('hm-')) return 'harmony'
       if (chapterId.startsWith('nat-')) return 'native'
@@ -1470,8 +1460,110 @@ function seedIfEmpty(db: any) {
       if (t.includes('部署') || t.includes('成本') || t.includes('推理')) return 'deploy'
       return 'prompt'
     }
-    return null
+  return null
+}
+
+// 云端种子自举：在 mysql2 门面上执行（经 withBootstrap 包裹，prepare 返回语句对象、get/all/run 为 async）。
+// 逻辑与下方 seedIfEmptySync 保持一致（两处改动须同步）；触发时机=云端首个查询排队等待，见导出块注释。
+async function seedIfEmptyAsync(db: any) {
+  const c = (await db.prepare('SELECT COUNT(*) AS c FROM modules').get() as any).c
+  if (c > 0) return
+  const file = SEED_PATH
+  if (!fs.existsSync(file)) return
+  const content = JSON.parse(fs.readFileSync(file, 'utf-8'))
+  const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
+  const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
+  const insSec = db.prepare(
+    'INSERT OR IGNORE INTO sections (id,chapter_id,title,objective,content,position,source_url,source_type,license,rewrite_level,status,reviewed_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+  )
+  // 题型 / 权重 / 难度必须在插入时写死，原因见下方 insQ.run 处注释
+  const insQ = db.prepare(
+    'INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,weight,difficulty,tech,subtrack,skill,source,source_type,license,rewrite_level,status,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+  )
+  const insSet = db.prepare('INSERT OR IGNORE INTO exam_sets (id,name,track,level,duration,vip_only) VALUES (?,?,?,?,?,?)')
+  const insC = db.prepare('INSERT OR IGNORE INTO exam_choices (id,set_id,tag,q,options,answer,explain,multi) VALUES (?,?,?,?,?,?,?,?)')
+  const insW = db.prepare('INSERT OR IGNORE INTO exam_written (id,set_id,q,points,reference) VALUES (?,?,?,?,?)')
+  const txBody = async () => {
+    for (const [mi, m] of content.modules.entries()) {
+      await insMod.run(m.id, m.name, m.icon, m.color, m.desc, mi)
+      for (const [ci, ch] of m.chapters.entries()) {
+        await insCh.run(ch.id, m.id, ch.title, ch.goal, ci, ch.subtrack || assignChapterSubtrack(m.id, ch.id, ch.title))
+        for (const [si, s] of ch.sections.entries()) {
+          await insSec.run(
+            s.id, ch.id, s.title, s.objective ?? s.direction ?? null, s.content, si,
+            s.source_url ?? null, s.source_type ?? null, s.license ?? null,
+            s.rewrite_level ?? 'paraphrased', s.status ?? 'published',
+            s.reviewed_at ?? null, s.version ?? 1
+          )
+        }
+      }
+    }
+    // ① 题型按所属数组判定，不再用 id[1]==='s' 推导。
+    //    旧写法只对 fq/fs 这类两字母前缀成立，iq-m5-*、xq-* 等新前缀会被一律判成 hot（实测误判 128 道 special）。
+    // ② 权重/难度在此显式写入：迁移 v6 的回填跑在 runMigrations 阶段，早于 seedIfEmpty，
+    //    空表上执行等于没跑；列上的 DEFAULT 3 / 'easy' 会让 special 题永远拿不到 weight=5 / difficulty='hard'，
+    //    前端「较难」标签因此从不出现。种子若自带 difficulty 则以种子为准。
+    for (const [track, bank] of Object.entries(content.interview) as any[]) {
+      const rows = [
+        ...(bank.hot || []).map((q: any) => [q, 'hot'] as const),
+        ...(bank.special || []).map((q: any) => [q, 'special'] as const)
+      ]
+      for (const [q, type] of rows) {
+        const kw = JSON.stringify(q.keywords || [])
+        const difficulty = q.difficulty || (type === 'special' ? 'hard' : 'easy')
+        const weight = typeof q.weight === 'number' ? q.weight : (type === 'special' ? 5 : 3)
+        // 过闸：种子自带的 tech 若为历史标签（如「模型基础/训练」）会被收敛为规范名；
+        // 缺失时才用关键词分类，其结果同样必须过闸。
+        await insQ.run(
+          q.id, track, type, q.q, q.a, kw, weight, difficulty,
+          canonicalizeTech(track, q.tech || classifyTech(track, q.q, kw)),
+          q.subtrack || null, q.skill || null,
+          q.source || null, q.source_type ?? null, q.license ?? null,
+          q.rewrite_level ?? 'paraphrased', q.status ?? 'published', q.version ?? 1
+        )
+      }
+    }
+    for (const set of content.examSets as any[]) {
+      await insSet.run(set.id, set.name, set.track, set.level, set.duration, set.vipOnly ? 1 : 0)
+      // 种子里只有部分试卷配了问答题（57 套中 19 套），缺 written 是合法的；
+      // 旧写法直接 set.written.forEach 会让全新空库初始化抛 TypeError，导致首次启动即失败。
+      for (const c of set.choices) await insC.run(c.id, set.id, c.tag, c.q, JSON.stringify(c.options), JSON.stringify(c.answer), c.explain, c.multi ? 1 : 0)
+      for (const w of (set.written || [])) await insW.run(w.id, set.id, w.q, JSON.stringify(w.points), w.reference)
+    }
   }
+  // 原生 better-sqlite3 的 transaction() 拒绝 async fn，故原生句柄走手工 BEGIN/COMMIT；
+  // 门面句柄（本地 createLocalSqlite / 云端 mysql2）的 transaction 均为手工包装，支持 async。
+  if (typeof (db as any).driver === 'string') await db.transaction(txBody)()
+  else {
+    db.exec('BEGIN')
+    try { await txBody(); db.exec('COMMIT') } catch (e) { try { db.exec('ROLLBACK') } catch { /* 忽略 */ } throw e }
+  }
+  // #152 新库回填：seed 未写入 tech，按关键词补充分类（幂等：仅处理 tech 为空的行）
+  const updTech = db.prepare('UPDATE interview_questions SET tech=? WHERE id=?')
+  const qrows = await db.prepare('SELECT id,track,q,keywords FROM interview_questions WHERE tech IS NULL').all() as any[]
+  const qtxBody = async () => {
+    for (const r of qrows) await updTech.run(canonicalizeTech(r.track, classifyTech(r.track, r.q, r.keywords)), r.id)
+  }
+  if (typeof (db as any).driver === 'string') await db.transaction(qtxBody)()
+  else {
+    db.exec('BEGIN')
+    try { await qtxBody(); db.exec('COMMIT') } catch (e) { try { db.exec('ROLLBACK') } catch { /* 忽略 */ } throw e }
+  }
+}
+
+// 本地种子自举：原生 better-sqlite3 句柄上同步执行（历史 createDb 内联语义 verbatim，仅
+// assignChapterSubtrack 提升为上方模块级共享——与 seedIfEmptyAsync 逻辑保持一致，两处改动须同步）。
+function seedIfEmptySync(db: any) {
+  const c = (db.prepare('SELECT COUNT(*) AS c FROM modules').get() as any).c
+  if (c > 0) return
+  const file = SEED_PATH
+  if (!fs.existsSync(file)) return
+  const content = JSON.parse(fs.readFileSync(file, 'utf-8'))
+  const insMod = db.prepare('INSERT OR IGNORE INTO modules (id,name,icon,color,desc,position) VALUES (?,?,?,?,?,?)')
+  const insCh = db.prepare('INSERT OR IGNORE INTO chapters (id,module_id,title,goal,position,subtrack) VALUES (?,?,?,?,?,?)')
+  const insSec = db.prepare(
+    'INSERT OR IGNORE INTO sections (id,chapter_id,title,objective,content,position,source_url,source_type,license,rewrite_level,status,reviewed_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+  )
   // 题型 / 权重 / 难度必须在插入时写死，原因见下方 insQ.run 处注释
   const insQ = db.prepare(
     'INSERT OR IGNORE INTO interview_questions (id,track,type,q,a,keywords,weight,difficulty,tech,subtrack,skill,source,source_type,license,rewrite_level,status,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
@@ -1539,9 +1631,43 @@ function seedIfEmpty(db: any) {
 
 // M1 双驱动：云端（注入 MYSQL_HOST）走 mysql2 连接池门面；本地/桌面端维持 better-sqlite3，
 // 调用侧统一 `await sqlite.prepare(...).get/all/run(...)`（本地对同步结果 await 为 no-op，行为零变化）。
-// 云端完全跳过 createDb（迁移/seed/数据目录均为本地 SQLite 专属），表结构由云托管基线库提供。
-// 注意：此处不能有顶层 await（nitro esbuild 目标 es2019），createDb 为同步打开（见其注释）
-export const sqlite: SqliteHandle = g.__dmDb ?? (g.__dmDb = isCloudDb ? createCloudSqlite() : createLocalSqlite(createDb()))
+// 首查询前自举（withBootstrap）：云端补空表种子（modules/sections 等未导入表自动补齐，INSERT OR IGNORE
+// 与已导入内容按 id 对齐）；本地保持 seed→backfill→refresh 原顺序。种子数据源 data/seed-content.json。
+// 迁移仍只在本地 createDb 同步执行（云端表结构由云托管基线库提供；迁移含 PRAGMA 方言，不跨库）。
+// 注意：此处不能有顶层 await（nitro esbuild 目标 es2019），createDb 为同步打开（见其注释），
+// 自举改为「首个查询排队等待」模式：ensure 失败时置空允许下次请求重试。
+function withBootstrap(h: SqliteHandle, boot: (h: SqliteHandle) => Promise<void>): SqliteHandle {
+  let p: Promise<void> | null = null
+  const ensure = () => {
+    if (!p) {
+      p = boot(h).catch((e: any) => {
+        p = null
+        logWarn('db.bootstrap_failed', { error: e?.message })
+        throw e
+      })
+    }
+    return p
+  }
+  return {
+    driver: h.driver,
+    pool: h.pool,
+    prepare: (sql: string) => {
+      const s = h.prepare(sql)
+      return {
+        get: async (...a: any[]) => { await ensure(); return s.get(...a) },
+        all: async (...a: any[]) => { await ensure(); return s.all(...a) },
+        run: async (...a: any[]) => { await ensure(); return s.run(...a) }
+      }
+    },
+    transaction: (fn: any) => async (...args: any[]) => { await ensure(); return h.transaction(fn)(...args) }
+  }
+}
+
+export const sqlite: SqliteHandle = g.__dmDb ?? (g.__dmDb = isCloudDb
+  // 云端：首个查询排队等待种子自举（seedIfEmptyAsync 补空表）；ensure 失败置空允许下次请求重试
+  ? withBootstrap(createCloudSqlite(), async (h) => { await seedIfEmptyAsync(h) })
+  // 本地/桌面端：createDb 内同步完成 seed→backfill→refresh（与历史语义一致），门面仅做 prepare 适配
+  : createLocalSqlite(createDb()))
 
 // 云端过期数据清理定时器（本地路径的定时器挂在 createDb 内，云端走这里；构建阶段不起定时器）
 if (isCloudDb && !process.env.MENTORLOOP_BUILD_PHASE) {

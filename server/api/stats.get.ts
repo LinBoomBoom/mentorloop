@@ -156,7 +156,11 @@ export default defineEventHandler(async (event) => {
   let advice: string
   let actionTo = '/learn'
   let actionText = '去学习中心'
-  if (!scores.length) {
+  if (!strong || !weak) {
+    // 空模块（如内容未就绪）：不让雷达解读抛错，给出引导文案优雅降级
+    advice = '欢迎来到 MentorLoop！先到学习中心任选一个感兴趣的方向，完成第一小节，雷达与进度会随学习实时点亮。'
+    actionTo = '/learn'; actionText = '去学习中心'
+  } else if (!scores.length) {
     advice = `你在「${strong.axis}」上投入最多，但还没有任何答卷记录 —— 学得再多也需要实战校验。建议先做一套${strong.axis}方向的模拟卷，把学习完成度换成真实分数。`
     actionTo = '/exam'; actionText = '去做第一套答卷'
   } else if (rhythm < 40) {
