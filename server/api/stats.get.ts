@@ -12,8 +12,6 @@ function ymd(d: Date) {
 }
 
 export default defineEventHandler(async (event) => {
-  // 【临时诊断】云托管 stats 500 的堆栈被 h3 生产态吞掉，这里捕一层把真实错误带回响应体，定位后立即移除
-  try {
   const user = await getUser(event)
   if (!user) {
     // 未登录：返回空结构，供公开首页优雅渲染（不报错）
@@ -27,7 +25,9 @@ export default defineEventHandler(async (event) => {
     })
   }
   const prog: any = {}
-  (await sqlite.prepare('SELECT module_id,chapter_id,section_id,done_at FROM progress WHERE user_id=?').all(user.id))
+  // ASI 陷阱：上一行以 {} 结尾且本行以 ( 开头，JS 不会插分号 → {} 被当函数调用（{} is not a function）。
+  // 打包产物同样保留该结构，云端登录态 stats 500 的真凶；本地 vitest 未覆盖登录态分支故从未暴露。
+  ;(await sqlite.prepare('SELECT module_id,chapter_id,section_id,done_at FROM progress WHERE user_id=?').all(user.id))
     .forEach((r: any) => { prog[`${r.module_id}/${r.chapter_id}/${r.section_id}`] = r.done_at })
 
   // 内存分组：按模块统计已完成小节数（避免逐模块查 done）
@@ -87,7 +87,8 @@ export default defineEventHandler(async (event) => {
     days[key] = (days[key] || 0) + 1
   })
   // 合并每日打卡：打卡日期同样点亮热力图、计入连续活跃
-  (await sqlite.prepare('SELECT check_date FROM checkins WHERE user_id=?').all(user.id)).forEach((r: any) => {
+  // （同理 ASI：前一句 }) 结尾，本行 ( 开头会被续接为 undefined(...) 调用，必须前缀分号）
+  ;(await sqlite.prepare('SELECT check_date FROM checkins WHERE user_id=?').all(user.id)).forEach((r: any) => {
     days[r.check_date] = (days[r.check_date] || 0) + 1
   })
 
@@ -219,8 +220,4 @@ export default defineEventHandler(async (event) => {
     streak: { current: streak, longest, totalDays, active30 },
     radar, radarInsight, resume, exams
   })
-  } catch (e: any) {
-    console.error('[stats] 聚合失败:', e)
-    return json(event, 500, { error: 'stats_failed', message: String(e?.message || e), stack: String(e?.stack || '').split('\n').slice(0, 4) })
-  }
 })
