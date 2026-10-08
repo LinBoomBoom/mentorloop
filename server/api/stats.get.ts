@@ -12,6 +12,8 @@ function ymd(d: Date) {
 }
 
 export default defineEventHandler(async (event) => {
+  // 【临时诊断】云托管 stats 500 的堆栈被 h3 生产态吞掉，这里捕一层把真实错误带回响应体，定位后立即移除
+  try {
   const user = await getUser(event)
   if (!user) {
     // 未登录：返回空结构，供公开首页优雅渲染（不报错）
@@ -217,4 +219,8 @@ export default defineEventHandler(async (event) => {
     streak: { current: streak, longest, totalDays, active30 },
     radar, radarInsight, resume, exams
   })
+  } catch (e: any) {
+    console.error('[stats] 聚合失败:', e)
+    return json(event, 500, { error: 'stats_failed', message: String(e?.message || e), stack: String(e?.stack || '').split('\n').slice(0, 4) })
+  }
 })
