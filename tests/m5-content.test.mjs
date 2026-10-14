@@ -1,14 +1,11 @@
-import { describe, it, expect, beforeAll } from 'vitest'
-import os from 'os'
-import fs from 'fs'
-import path from 'path'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
-const tmp = path.join(os.tmpdir(), `m5test-${process.pid}-${Date.now()}.db`)
 let sqlite, expandContent, cleanupOrphans
 
 beforeAll(async () => {
-  if (fs.existsSync(tmp)) fs.rmSync(tmp)
-  process.env.DB_PATH = tmp
+  // 本文件断言真实种子题量（265 道种子 + 新增 35），故仍用正式种子；临时库放仓库内，收尾删除。
+  useTmpDb('m5')
   const dbMod = await import('../server/utils/db')
   sqlite = dbMod.sqlite
   const lib = await import('../scripts/m5-expand-lib.mjs')
@@ -71,3 +68,5 @@ describe('M5 内容扩建', () => {
     expect((await sqlite.prepare('SELECT COUNT(*) n FROM exam_choices').get()).n).toBe(beforeChoices)
   })
 })
+
+afterAll(() => cleanupTmp({ sqlite }))

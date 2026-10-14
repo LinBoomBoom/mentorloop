@@ -1,15 +1,15 @@
 // 审计修复回归测试：覆盖 XSS 转义 / 客户端 IP 信任代理 / 验证码随机性 / alipay 回调验签 / LLM 超时
-import { describe, it, expect, beforeAll } from 'vitest'
-import os from 'node:os'
-import path from 'node:path'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import crypto from 'node:crypto'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
-const tmpDb = path.join(os.tmpdir(), `mentorloop-audit-${Date.now()}.db`)
 let privateKeyPem = ''
 let security, dbutil, markdown, payment, llm, alipayProvider
 
 beforeAll(async () => {
-  process.env.DB_PATH = tmpDb
+  // 本文件只验证安全 / 支付 / LLM 行为，不依赖真实课程内容：用最小种子 + 项目内临时库
+  useMinSeed()
+  useTmpDb('audit')
   process.env.PAY_PROVIDER = 'alipay'
   process.env.DEEPSEEK_API_KEY = 'test-key'
   const kp = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })
@@ -24,6 +24,8 @@ beforeAll(async () => {
   llm = await import('../server/utils/llm.ts')
   alipayProvider = payment.getProvider()
 })
+
+afterAll(async () => { await cleanupTmp({ sqlite: dbutil?.sqlite }) })
 
 function buildSignedForm(params) {
   const entries = Object.entries(params).filter(([, v]) => v !== '')

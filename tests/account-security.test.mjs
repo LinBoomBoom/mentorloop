@@ -1,10 +1,17 @@
 import { describe, it, expect, afterAll } from 'vitest'
-import { sqlite, uid } from '../server/utils/db'
-import { updateUser } from '../server/utils/admin'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
+
+// 独立临时库：此前直接打开仓库 data/devmentor.db，与其它测试文件并发时互相锁库。
+useMinSeed()
+useTmpDb('account-security')
+
+const { sqlite, uid } = await import('../server/utils/db')
+const { updateUser } = await import('../server/utils/admin')
 
 afterAll(async () => {
   await sqlite.prepare("DELETE FROM users WHERE id LIKE 'u_sec_%'").run()
   await sqlite.prepare("DELETE FROM sessions WHERE user_id LIKE 'u_sec_%'").run()
+  await cleanupTmp({ sqlite })
 })
 
 async function makeUser() {

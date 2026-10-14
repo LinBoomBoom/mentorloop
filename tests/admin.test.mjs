@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { mkdtempSync, rmSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
-const dir = mkdtempSync(join(tmpdir(), 'ml-admin-'))
-process.env.DB_PATH = join(dir, 'test.db')
+// 本文件只验证后台 CRUD / 看板语义，不依赖真实课程内容：用最小种子 + 项目内临时库，
+// 避免把 43MB 正式种子灌进临时库（Windows 上会落到 C 盘，且句柄占用导致目录删不掉）。
+useMinSeed()
+useTmpDb('admin')
 
 const { adminDispatch } = await import('../server/utils/adminDispatch')
 const { sqlite } = await import('../server/utils/db')
@@ -23,7 +23,7 @@ beforeAll(async () => {
   await sqlite.prepare("INSERT OR IGNORE INTO users (id,username,password,role,created_at) VALUES ('admin_test','boss','x','admin',?)").run(Date.now())
 })
 
-afterAll(() => { try { rmSync(dir, { recursive: true, force: true }) } catch {} })
+afterAll(() => cleanupTmp({ sqlite }))
 
 describe('G6 看板 & 兜底', () => {
   it('dashboard 返回核心指标', async () => {

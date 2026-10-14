@@ -1,9 +1,16 @@
 import { describe, it, expect, afterAll } from 'vitest'
-import { sqlite, newToken, getUser, cleanupExpired } from '../server/utils/db'
-import {
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
+
+// 独立临时库：此前直接打开仓库 data/devmentor.db，与其它测试文件并发时互相锁库（database is locked）。
+// 本文件只涉及 users/sessions/login_attempts，不依赖真实课程内容，故用最小种子。
+useMinSeed()
+useTmpDb('security')
+
+const { sqlite, newToken, getUser, cleanupExpired } = await import('../server/utils/db')
+const {
   rateLimit, recordLoginFailure, getLoginLock, resetLoginFailure,
   assertInput, InputError, likeEscape, likeWrap, setAuthCookie, clearAuthCookie, AUTH_COOKIE
-} from '../server/utils/security'
+} = await import('../server/utils/security')
 
 const testIds = []
 afterAll(async () => {
@@ -11,6 +18,7 @@ afterAll(async () => {
     await sqlite.prepare('DELETE FROM users WHERE id=?').run(id)
     await sqlite.prepare("DELETE FROM login_attempts WHERE key LIKE ?").run('%' + id + '%')
   }
+  await cleanupTmp({ sqlite })
 })
 async function makeUser() {
   const id = 'u_sec_' + Math.random().toString(36).slice(2, 8)

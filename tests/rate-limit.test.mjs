@@ -1,5 +1,16 @@
-import { describe, it, expect } from 'vitest'
-import { rateLimit } from '../server/utils/security'
+import { describe, it, expect, afterAll } from 'vitest'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
+
+// rateLimit 本身是内存滑动窗口，但 security.ts 会经 db.ts 打开数据库（此前落到仓库 data/devmentor.db）。
+// 给一个独立临时库，避免测试写入开发者真实库，也避免多文件并发锁库。
+useMinSeed()
+useTmpDb('rate-limit')
+
+const { rateLimit } = await import('../server/utils/security')
+// 仅为收尾关闭句柄（Windows 下不关句柄会删不掉临时目录）
+const { sqlite } = await import('../server/utils/db')
+
+afterAll(() => cleanupTmp({ sqlite }))
 
 // A5 / P1#5 接口限流：基于内存滑动窗口，纯函数验证（端点已在各 handler 内调用 rateLimit）。
 describe('A5/P1#5 接口限流 rateLimit', () => {

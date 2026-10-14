@@ -110,6 +110,8 @@ export interface SqliteHandle {
   prepare: (sql: string) => StatementFacade
   transaction: (fn: (...args: any[]) => any) => (...args: any[]) => Promise<any>
   pool?: unknown
+  // 关闭底层连接。测试清理用：Windows 上句柄未释放会锁住库文件，导致临时目录删不掉（EBUSY/EPERM）。
+  close?: () => void | Promise<void>
 }
 
 /* ---------------- 云端：mysql2 连接池门面 ---------------- */
@@ -151,6 +153,7 @@ export function createCloudSqlite(): SqliteHandle {
     driver: 'mysql',
     pool,
     prepare: stmt,
+    close: async () => { await pool.end() },
     transaction: (fn) => async (...args) => {
       if (als.getStore()) return fn(...args) // 嵌套调用：复用当前事务（不另起 BEGIN）
       const conn: any = await pool.getConnection()
@@ -179,6 +182,7 @@ export function createLocalSqlite(raw: Database.Database): SqliteHandle {
   return {
     driver: 'sqlite',
     prepare: ((sql: string) => raw.prepare(sql)) as unknown as SqliteHandle['prepare'],
+    close: () => { raw.close() },
     transaction: (fn) => async (...args) => {
       if (txDepth > 0) return fn(...args) // 嵌套：SQLite 单连接共用外层事务
       await raw.exec('BEGIN')

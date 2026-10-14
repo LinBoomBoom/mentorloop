@@ -1,13 +1,15 @@
-import { describe, it, expect } from 'vitest'
-import os from 'node:os'
-import path from 'node:path'
+import { describe, it, expect, afterAll } from 'vitest'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
-// B5/B6：sitemap URL 构建——批量查询（无 N+1）+ 缓存返回合法 XML
-const tmp = path.join(os.tmpdir(), 'ml-sm-' + Date.now() + '.db')
-process.env.DB_PATH = tmp
+// B5/B6：sitemap URL 构建——批量查询（无 N+1）+ 缓存返回合法 XML。
+// 本文件自建 m1/c1/s1 数据，不依赖真实课程内容，用最小种子避免临时库膨胀。
+useMinSeed()
+useTmpDb('sm')
 
 const { sqlite } = await import('../server/utils/db')
 const { buildSitemapUrls, getSitemapXml } = await import('../server/utils/sitemap')
+
+afterAll(() => cleanupTmp({ sqlite }))
 
 describe('B5/B6 sitemap 构建与缓存', () => {
   it('构建包含基础路由与层级内容 URL（批量查询，无逐节 N+1）', async () => {

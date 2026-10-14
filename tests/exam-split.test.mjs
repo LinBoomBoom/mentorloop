@@ -1,15 +1,14 @@
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
-import os from 'node:os'
-import path from 'node:path'
-import fs from 'node:fs'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
-// B7：exam_records 拆表——独立临时库验证子表创建/读取/回填/级联删除
-const tmp = path.join(os.tmpdir(), 'ml-split-' + Date.now() + '.db')
-process.env.DB_PATH = tmp
+// B7：exam_records 拆表——独立临时库验证子表创建/读取/回填/级联删除。
+// 本文件不依赖真实课程内容，用最小种子避免临时库膨胀。
+useMinSeed()
+useTmpDb('split')
 
 const { sqlite, loadExamReviews, backfillExamReviews, uid } = await import('../server/utils/db')
 
-afterAll(() => { try { fs.unlinkSync(tmp) } catch {} })
+afterAll(() => cleanupTmp({ sqlite }))
 
 // exam_records 带 user_id→users 外键（B2），测试中先插入父用户
 beforeAll(async () => {

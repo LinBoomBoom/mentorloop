@@ -1,11 +1,10 @@
 import { describe, it, expect, afterAll } from 'vitest'
-import os from 'node:os'
-import path from 'node:path'
-import fs from 'node:fs'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
-// B2：外键作用域化——独立临时库验证 FK 子句已落到逻辑父子表，且 ON DELETE CASCADE 生效
-const tmp = path.join(os.tmpdir(), 'ml-fk-' + Date.now() + '.db')
-process.env.DB_PATH = tmp
+// B2：外键作用域化——独立临时库验证 FK 子句已落到逻辑父子表，且 ON DELETE CASCADE 生效。
+// 用最小种子（1 模块 / 1 章节 / 2 小节）即可覆盖下方聚合断言，避免临时库膨胀到 110MB。
+useMinSeed()
+useTmpDb('fk')
 
 const { sqlite } = await import('../server/utils/db')
 
@@ -13,7 +12,7 @@ const fkList = async (t) => await sqlite.prepare(`PRAGMA foreign_key_list(${t})`
 const hasFk = async (t, parent, onDelete = 'CASCADE') =>
   (await fkList(t)).some((f) => f.table === parent && (onDelete === null || f.on_delete === onDelete))
 
-afterAll(() => { try { fs.unlinkSync(tmp) } catch {} })
+afterAll(() => cleanupTmp({ sqlite }))
 
 describe('B2 外键作用域化', () => {
   it('foreign_keys pragma 已开启', async () => {

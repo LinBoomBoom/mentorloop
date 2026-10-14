@@ -7,6 +7,8 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 30000,
     pool: 'forks',
+    // 每轮测试前后清理遗留临时库（项目内 .test-tmp + 历史遗留的系统 tmp），避免反复堆积
+    globalSetup: ['tests/global-setup.mjs'],
     // 测试用临时副本放系统 tmp，避免污染仓库
     tmpDir: '../node_modules/.vitest-tmp',
   },

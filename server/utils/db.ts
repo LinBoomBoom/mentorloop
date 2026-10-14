@@ -1659,7 +1659,8 @@ function withBootstrap(h: SqliteHandle, boot: (h: SqliteHandle) => Promise<void>
         run: async (...a: any[]) => { await ensure(); return s.run(...a) }
       }
     },
-    transaction: (fn: any) => async (...args: any[]) => { await ensure(); return h.transaction(fn)(...args) }
+    transaction: (fn: any) => async (...args: any[]) => { await ensure(); return h.transaction(fn)(...args) },
+    close: () => h.close?.()
   }
 }
 

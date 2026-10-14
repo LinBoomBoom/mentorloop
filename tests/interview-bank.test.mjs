@@ -6,10 +6,10 @@
 //      空表上执行等于没跑，导致新库全部 weight=3 / difficulty 缺失，UI「较难」标签从不出现。
 //   ③ 生成脚本曾用「启动时读一次最大编号 + 内存自增」分配 id，多进程/中断重启会读到相同基数，
 //      同一 id 在 DB 与种子里指向不同题目（实测 1406 处错位）。现改为由小节 id 派生的确定性 id。
-import { describe, it, expect, beforeAll } from 'vitest'
-import os from 'os'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import fs from 'fs'
 import path from 'path'
+import { useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
 const root = path.resolve(__dirname, '..')
 const seed = JSON.parse(fs.readFileSync(path.join(root, 'data', 'seed-content.json'), 'utf-8'))
@@ -54,11 +54,12 @@ describe('面试题库 · 种子完整性', () => {
 describe('面试题库 · 新库 seed 落库正确性', () => {
   let sqlite
   beforeAll(async () => {
-    const tmp = path.join(os.tmpdir(), `ivbank-${process.pid}-${Date.now()}.db`)
-    if (fs.existsSync(tmp)) fs.rmSync(tmp)
-    process.env.DB_PATH = tmp
+    // 本文件断言真实种子的题量与分类，故仍用正式种子；但临时库放仓库内，收尾关闭句柄后删除。
+    useTmpDb('ivbank')
     sqlite = (await import('../server/utils/db')).sqlite
   })
+
+  afterAll(() => cleanupTmp({ sqlite }))
 
   it('题型按所属数组落库，不受 id 前缀影响（回归①）', async () => {
     const expectHot = seedRows.filter((r) => r.type === 'hot').length

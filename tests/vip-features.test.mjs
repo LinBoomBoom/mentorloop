@@ -1,11 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { sqlite, effectiveVip, uid } from '../server/utils/db'
-import { startInterview, answerInterview, listInterviews, getInterview, parseJsonBlock, INTERVIEW_MAX_TURNS } from '../server/utils/interview'
-import { getOrCreateStudyPlan, NoRecordsError } from '../server/utils/studyplan'
-import { PLANS, getPlan } from '../server/utils/plans'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
 // 让 llmEnabled() 通过，并用桩 fetch 模拟 Deepseek 返回
 process.env.DEEPSEEK_API_KEY = 'test-key'
+
+// 独立临时库：此前直接打开仓库 data/devmentor.db，与其它测试文件并发时互相锁库。
+// 本文件只用 users/interview_sessions/study_plans/exam_records；面试题抽不到时按设计降级为 stub 题。
+useMinSeed()
+useTmpDb('vip-features')
+
+const { sqlite, effectiveVip, uid } = await import('../server/utils/db')
+const { startInterview, answerInterview, listInterviews, getInterview, parseJsonBlock, INTERVIEW_MAX_TURNS } = await import('../server/utils/interview')
+const { getOrCreateStudyPlan, NoRecordsError } = await import('../server/utils/studyplan')
+const { PLANS, getPlan } = await import('../server/utils/plans')
 
 let evalCount = 0
 globalThis.fetch = async (_url, opts) => {
@@ -53,6 +60,7 @@ afterAll(async () => {
     await sqlite.prepare('DELETE FROM exam_records WHERE user_id=?').run(id)
     await sqlite.prepare('DELETE FROM users WHERE id=?').run(id)
   }
+  await cleanupTmp({ sqlite })
 })
 
 describe('effectiveVip 门禁逻辑', () => {

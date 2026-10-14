@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import os from 'node:os'
-import path from 'node:path'
+import { describe, it, expect, afterAll } from 'vitest'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
 // 必须在 import server 模块之前设置，否则 db.ts 会用默认 data/devmentor.db 打开连接
-process.env.DB_PATH = path.join(os.tmpdir(), `ml-mastery-test-${Date.now()}.db`)
+// 本文件只验证掌握度/错题本持久化，不依赖真实课程内容，用最小种子避免临时库膨胀。
+useMinSeed()
+useTmpDb('mastery')
 process.env.NODE_ENV = 'test'
 
 const {
@@ -149,3 +150,5 @@ describe('错题本分页 listWrongItemsPaginated（临时库）', async () => {
     expect(due.items.every(x => x.due)).toBe(true)
   })
 })
+
+afterAll(() => cleanupTmp({ sqlite }))

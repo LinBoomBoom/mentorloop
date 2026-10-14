@@ -1,12 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import os from 'node:os'
-import path from 'node:path'
+import { describe, it, expect, afterAll } from 'vitest'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
-// B8：版本化迁移——使用独立临时库验证 schema 完整、迁移记录写入、列补齐、机制幂等
-const tmp = path.join(os.tmpdir(), 'ml-mig-' + Date.now() + '.db')
-process.env.DB_PATH = tmp
+// B8：版本化迁移——使用独立临时库验证 schema 完整、迁移记录写入、列补齐、机制幂等。
+// 本文件不依赖真实课程内容，用最小种子避免临时库膨胀。
+useMinSeed()
+useTmpDb('mig')
 
 const { sqlite } = await import('../server/utils/db')
+
+afterAll(() => cleanupTmp({ sqlite }))
 
 const cols = async (t) => (await sqlite.prepare(`PRAGMA table_info(${t})`).all()).map((c) => c.name)
 

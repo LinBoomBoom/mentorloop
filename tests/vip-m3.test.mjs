@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import os from 'node:os'
-import fs from 'node:fs'
-import path from 'node:path'
-
-const tmp = path.join(os.tmpdir(), 'ml_m3_' + Date.now() + '.db')
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 
 const FAKE_DIAG = {
   score: 82,
@@ -25,7 +21,9 @@ let sqlite, diagnoseResume, listReferrals, applyReferral, listMyApplications
 let ResumeTooShortError, LlmUnavailableError, AlreadyAppliedError, ReferralNotFoundError
 
 beforeAll(async () => {
-  process.env.DB_PATH = tmp
+  // 本文件只验证简历诊断 / 内推资源库，不依赖真实课程内容：用最小种子 + 项目内临时库
+  useMinSeed()
+  useTmpDb('m3')
   process.env.DEEPSEEK_API_KEY = 'test-key'
   installLlmStub()
   const db = await import('../server/utils/db')
@@ -47,9 +45,7 @@ beforeAll(async () => {
   }
 })
 
-afterAll(() => {
-  for (const f of [tmp, tmp + '-wal', tmp + '-shm']) { try { fs.unlinkSync(f) } catch {} }
-})
+afterAll(() => cleanupTmp({ sqlite }))
 
 describe('M3 迁移与表', () => {
   it('version:5 已执行，referrals 写入 10 条种子', async () => {

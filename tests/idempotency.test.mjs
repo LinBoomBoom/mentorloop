@@ -1,9 +1,9 @@
 import { test, expect } from 'vitest'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { makeTmpDir } from './helpers/tmp-env.mjs'
 
 const root = path.resolve(__dirname, '..')
 const seedSrc = path.join(root, 'data', 'seed-content.json')
@@ -12,7 +12,8 @@ function hash(p) {
   return crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')
 }
 function copySeed() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-seed-'))
+  // 临时副本放仓库内 node_modules/.test-tmp（此前落在系统 tmp，Windows 上即 C 盘，反复堆积）
+  const dir = makeTmpDir('ml-seed-')
   const dst = path.join(dir, 'seed-content.json')
   fs.copyFileSync(seedSrc, dst)
   return dst

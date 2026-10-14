@@ -1,13 +1,21 @@
 import { describe, it, expect, afterAll } from 'vitest'
-import { sqlite, uid, fulfillOrder, getActiveSubscription, effectiveVip } from '../server/utils/db'
-import { PLANS, getPlan, VIP_ENABLED } from '../server/utils/plans'
-import { getProvider, USING_REAL_PAY } from '../server/utils/payment'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
+
+// 独立临时库：此前直接打开仓库 data/devmentor.db，与其它测试文件并发时互相锁库。
+// 本文件只涉及 users/orders/subscriptions，不依赖真实课程内容。
+useMinSeed()
+useTmpDb('vip-payment')
+
+const { sqlite, uid, fulfillOrder, getActiveSubscription, effectiveVip } = await import('../server/utils/db')
+const { PLANS, getPlan, VIP_ENABLED } = await import('../server/utils/plans')
+const { getProvider, USING_REAL_PAY } = await import('../server/utils/payment')
 
 const testIds = []
 afterAll(async () => {
   for (const id of testIds) await sqlite.prepare('DELETE FROM orders WHERE id=?').run(id)
   await sqlite.prepare("DELETE FROM subscriptions WHERE user_id LIKE 'u_test_%'").run()
   await sqlite.prepare("DELETE FROM users WHERE id LIKE 'u_test_%'").run()
+  await cleanupTmp({ sqlite })
 })
 
 async function makeUser() {

@@ -1,7 +1,14 @@
 import { describe, it, expect, afterAll } from 'vitest'
-import { sqlite, deleteAccount, logAudit, uid } from '../server/utils/db'
-import { assertPassword, InputError } from '../server/utils/security'
-import { adminDispatch } from '../server/utils/adminDispatch'
+import { useMinSeed, useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
+
+// 独立临时库：此前直接打开仓库 data/devmentor.db，与其它测试文件并发时互相锁库。
+// 本文件只涉及 users/modules/exam_sets/audit_logs，不依赖真实课程内容。
+useMinSeed()
+useTmpDb('compliance')
+
+const { sqlite, deleteAccount, logAudit, uid } = await import('../server/utils/db')
+const { assertPassword, InputError } = await import('../server/utils/security')
+const { adminDispatch } = await import('../server/utils/adminDispatch')
 
 const ids = []
 const cleanup = async () => {
@@ -17,7 +24,7 @@ const cleanup = async () => {
   await sqlite.prepare("DELETE FROM exam_sets WHERE id LIKE 'tex_%'").run()
   await sqlite.prepare("DELETE FROM audit_logs WHERE admin_id=?").run('a_test')
 }
-afterAll(cleanup)
+afterAll(async () => { await cleanup(); await cleanupTmp({ sqlite }) })
 
 async function makeUser(prefix = 'u_c_') {
   const id = prefix + Math.random().toString(36).slice(2, 8)

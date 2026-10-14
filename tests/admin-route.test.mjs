@@ -1,12 +1,10 @@
 import { describe, it, expect, afterAll } from 'vitest'
-import { mkdtempSync, rmSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
+import { useTmpDb, cleanupTmp } from './helpers/tmp-env.mjs'
 import Database from 'better-sqlite3'
 
-// 自建独立临时库，避免与同 worker 内其他测试文件共享 sqlite 单例导致数据串扰。
-const dir = mkdtempSync(join(tmpdir(), 'ml-admin-route-'))
-process.env.DB_PATH = join(dir, 'test.db')
+// 自建独立临时库（仓库内），避免与同 worker 内其他测试文件共享 sqlite 单例导致数据串扰。
+// 注意：本文件断言真实种子基线（模块 ≥4 / 试卷 ≥19），故仍用正式种子，不切最小种子。
+useTmpDb('admin-route')
 
 const { sqlite, newToken, requireAdmin } = await import('../server/utils/db')
 const { adminDispatch } = await import('../server/utils/adminDispatch')
@@ -29,9 +27,8 @@ async function statusOf(fn) {
 }
 
 afterAll(async () => {
-  // 清理本测试产生的会话行，并删除临时库目录
-  try { await sqlite.prepare("DELETE FROM sessions WHERE token IN (?, ?)").run(adminToken, normalToken || '') } catch {}
-  try { rmSync(dir, { recursive: true, force: true }) } catch {}
+  // 先关闭 SQLite 连接释放句柄，再删临时目录（Windows 下句柄未关会导致删除失败而残留）
+  await cleanupTmp({ sqlite })
 })
 
 describe('管理后台鉴权闸口', () => {

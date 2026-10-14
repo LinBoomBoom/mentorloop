@@ -1,0 +1,50 @@
+{
+  "modules": [
+    {
+      "id": "fixture",
+      "name": "测试模块",
+      "icon": "code",
+      "color": "#3b82f6",
+      "desc": "测试用最小模块",
+      "position": 0,
+      "chapters": [
+        {
+          "id": "fx-c1",
+          "title": "测试章节",
+          "goal": "验证最小种子可用",
+          "subtrack": "fixture",
+          "sections": [
+            { "id": "fx-c1-s1", "title": "测试小节一", "objective": "能跑通", "content": "最小内容一" },
+            { "id": "fx-c1-s2", "title": "测试小节二", "objective": "能跑通", "content": "最小内容二" }
+          ]
+        }
+      ]
+    }
+  ],
+  "interview": {
+    "frontend": {
+      "hot": [
+        { "id": "fx-q1", "q": "测试题一？", "a": "答案一", "keywords": ["测试"] }
+      ],
+      "special": [
+        { "id": "fx-q2", "q": "测试题二？", "a": "答案二", "keywords": ["测试"] }
+      ]
+    }
+  },
+  "examSets": [
+    {
+      "id": "fx-set1",
+      "name": "测试卷",
+      "track": "frontend",
+      "level": "初级",
+      "duration": 30,
+      "vipOnly": false,
+      "choices": [
+        { "id": "fx-choice1", "tag": "基础", "q": "1+1=?", "options": ["1", "2"], "answer": ["B"], "explain": "略", "multi": false }
+      ],
+      "written": [
+        { "id": "fx-written1", "q": "简述测试流程", "points": ["要点一"], "reference": "参考答案" }
+      ]
+    }
+  ]
+}

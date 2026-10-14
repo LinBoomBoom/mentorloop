@@ -24,7 +24,11 @@ export const DATA_DIR = _dataDir
 export const DB_PATH = _hasDataDir
   ? path.join(_dataDir, 'data', 'devmentor.db')
   : (process.env.DB_PATH || path.join(_dataDir, 'data', 'devmentor.db'))
-export const SEED_PATH = path.join(_dataDir, 'data', 'seed-content.json')
+// 与 DB_PATH 同理：显式设置 DATA_DIR（桌面端）时一律从 DATA_DIR 派生，避免 .env 残留值把内容源指偏；
+// 未设置时允许 SEED_PATH 覆盖——测试用最小种子，避免把 43MB 的正式种子灌进临时库。
+export const SEED_PATH = _hasDataDir
+  ? path.join(_dataDir, 'data', 'seed-content.json')
+  : (process.env.SEED_PATH || path.join(_dataDir, 'data', 'seed-content.json'))
 export const LOG_DIR = process.env.LOG_DIR || path.join(_dataDir, 'data', 'logs')
 export const TTS_CACHE_DIR = path.join(_dataDir, 'data', 'media', 'tts')
 export const PIPER_BIN =
